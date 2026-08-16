@@ -46,7 +46,7 @@ const legend = document.createElement('div');
 legend.className = 'legend';
 legend.innerHTML = `
   <b>M0: autonomous front</b><br>
-  thin strokes = resource flow<br>
+  moving dashed routes = resource flow<br>
   pale dashed line = pre-war border<br>
   F3 = instability overlay · Space = pause
 `;
