@@ -36,6 +36,8 @@ export class Simulation {
   readonly terrainDefense: Float32Array;
   readonly terrainMobility: Float32Array;
   readonly terrainCapacity: Float32Array;
+  readonly riverCrossingX: Float32Array;
+  readonly riverCrossingY: Float32Array;
 
   readonly flowBlueX: Float32Array;
   readonly flowBlueY: Float32Array;
@@ -79,6 +81,8 @@ export class Simulation {
     this.terrainDefense = new Float32Array(this.size);
     this.terrainMobility = new Float32Array(this.size);
     this.terrainCapacity = new Float32Array(this.size);
+    this.riverCrossingX = new Float32Array(this.size);
+    this.riverCrossingY = new Float32Array(this.size);
 
     this.flowBlueX = new Float32Array(this.size);
     this.flowBlueY = new Float32Array(this.size);
@@ -224,6 +228,8 @@ export class Simulation {
     this.terrainDefense.fill(1);
     this.terrainMobility.fill(1);
     this.terrainCapacity.fill(1);
+    this.riverCrossingX.fill(1);
+    this.riverCrossingY.fill(1);
 
     for (let y = 0; y < this.height; y++) {
       const riverX = this.map.riverX(y);
@@ -248,6 +254,18 @@ export class Simulation {
             this.terrainCapacity[i] *= 1 - 0.58 * strength;
           }
         }
+
+        if (x + 1 < this.width) {
+          const crossesRiver = x < riverX && x + 1 >= riverX;
+          if (crossesRiver) this.riverCrossingX[i] = 0.26;
+        }
+        if (y + 1 < this.height) {
+          const nextRiverX = this.map.riverX(y + 1);
+          const midRiverX = (riverX + nextRiverX) * 0.5;
+          const drift = Math.abs(nextRiverX - riverX);
+          const parallelNearBank = Math.abs(x - midRiverX) < 0.65 + drift * 0.25;
+          if (parallelNearBank) this.riverCrossingY[i] = 0.82;
+        }
       }
     }
   }
@@ -267,6 +285,15 @@ export class Simulation {
 
   private isFront(i: number): boolean {
     return Math.abs(this.control[i]) <= CFG.frontBand;
+  }
+
+  private edgeFactor(x: number, y: number, dx: number, dy: number): number {
+    const i = this.index(x, y);
+    if (dx === 1) return this.riverCrossingX[i];
+    if (dx === -1) return this.riverCrossingX[i - 1];
+    if (dy === 1) return this.riverCrossingY[i];
+    if (dy === -1) return this.riverCrossingY[i - this.width];
+    return 1;
   }
 
   private updateCities(): void {
@@ -360,10 +387,18 @@ export class Simulation {
           }
 
           let best = current[i];
-          if (x > 0) best = Math.max(best, current[i - 1] * CFG.potentialDecay);
-          if (x + 1 < this.width) best = Math.max(best, current[i + 1] * CFG.potentialDecay);
-          if (y > 0) best = Math.max(best, current[i - this.width] * CFG.potentialDecay);
-          if (y + 1 < this.height) best = Math.max(best, current[i + this.width] * CFG.potentialDecay);
+          if (x > 0) {
+            best = Math.max(best, current[i - 1] * CFG.potentialDecay * this.edgeFactor(x, y, -1, 0));
+          }
+          if (x + 1 < this.width) {
+            best = Math.max(best, current[i + 1] * CFG.potentialDecay * this.edgeFactor(x, y, 1, 0));
+          }
+          if (y > 0) {
+            best = Math.max(best, current[i - this.width] * CFG.potentialDecay * this.edgeFactor(x, y, 0, -1));
+          }
+          if (y + 1 < this.height) {
+            best = Math.max(best, current[i + this.width] * CFG.potentialDecay * this.edgeFactor(x, y, 0, 1));
+          }
 
           const terrainTransmission = 0.72 + 0.28 * this.terrainMobility[i];
           next[i] = Math.max(current[i], best * access * terrainTransmission);
@@ -420,7 +455,8 @@ export class Simulation {
 
           const conductivity = Math.min(access, neighborAccess);
           const terrainCap = Math.min(this.terrainCapacity[i], this.terrainCapacity[j]);
-          const capacity = CFG.baseEdgeCapacityPerSecond * terrainCap * conductivity * CFG.dt;
+          const crossing = this.edgeFactor(x, y, dx, dy);
+          const capacity = CFG.baseEdgeCapacityPerSecond * terrainCap * crossing * conductivity * CFG.dt;
           if (capacity <= 0) continue;
 
           gradientSum += gradient;
@@ -542,11 +578,16 @@ export class Simulation {
         const i = this.index(x, y);
         const c = this.control[i];
 
+        const wl = x > 0 ? this.edgeFactor(x, y, -1, 0) : 0;
+        const wr = x + 1 < this.width ? this.edgeFactor(x, y, 1, 0) : 0;
+        const wu = y > 0 ? this.edgeFactor(x, y, 0, -1) : 0;
+        const wd = y + 1 < this.height ? this.edgeFactor(x, y, 0, 1) : 0;
         const left = x > 0 ? this.control[i - 1] : c;
         const right = x + 1 < this.width ? this.control[i + 1] : c;
         const up = y > 0 ? this.control[i - this.width] : c;
         const down = y + 1 < this.height ? this.control[i + this.width] : c;
-        const lap = left + right + up + down - 4 * c;
+        const weightSum = wl + wr + wu + wd + EPS;
+        const lap = (wl * left + wr * right + wu * up + wd * down) - weightSum * c;
 
         const interfaceWeight = Math.max(0, 1 - c * c);
         const mobility = this.terrainMobility[i];
