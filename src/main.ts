@@ -46,10 +46,19 @@ document.body.appendChild(hud);
 const legend = document.createElement('div');
 legend.className = 'legend';
 legend.innerHTML = `
-  <b>M0: autonomous front</b><br>
-  dashed arrows = physical War Resource flow<br>
-  pale dashed line = pre-war border<br>
-  Debug shows instability · Space = pause
+  <b>УСЛОВНЫЕ ОБОЗНАЧЕНИЯ</b>
+  <div class="legend-grid">
+    <span class="legend-mark front-line"></span><span>линия фронта</span>
+    <span class="legend-mark old-border"></span><span>довоенная граница</span>
+    <span class="legend-mark blue-flow"></span><span>ресурс синих</span>
+    <span class="legend-mark red-flow"></span><span>ресурс красных</span>
+    <span class="legend-mark blue-city"></span><span>город синих</span>
+    <span class="legend-mark red-city"></span><span>город красных</span>
+    <span class="legend-mark river-mark"></span><span>река</span>
+    <span class="legend-mark mountain-mark"></span><span>трудная местность</span>
+    <span class="legend-mark stress-mark"></span><span>нестабильность</span>
+  </div>
+  <div class="legend-note">Debug: overlay · Space: pause</div>
 `;
 document.body.appendChild(legend);
 

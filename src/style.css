@@ -65,4 +65,126 @@ canvas { display: block; }
   font-size: 11px;
   line-height: 1.45;
   pointer-events: none;
+  min-width: 198px;
+}
+
+.legend b {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11px;
+  letter-spacing: .03em;
+}
+
+.legend-grid {
+  display: grid;
+  grid-template-columns: 34px auto;
+  gap: 4px 8px;
+  align-items: center;
+}
+
+.legend-mark {
+  position: relative;
+  display: inline-block;
+  width: 30px;
+  height: 12px;
+}
+
+.front-line::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  top: 5px;
+  border-top: 4px solid #164f91;
+  box-shadow: 0 2px 0 #b12620, 0 3px 0 #2f2b24;
+}
+
+.old-border::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  top: 6px;
+  border-top: 1px dashed rgba(47, 43, 36, .55);
+}
+
+.blue-flow::before,
+.red-flow::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  right: 7px;
+  top: 6px;
+  border-top: 2px dashed currentColor;
+}
+
+.blue-flow::after,
+.red-flow::after {
+  content: "";
+  position: absolute;
+  right: 1px;
+  top: 2px;
+  border-left: 8px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+}
+
+.blue-flow { color: #164f91; }
+.red-flow { color: #b12620; }
+
+.blue-city::before,
+.red-city::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #f6efd7;
+}
+
+.blue-city::before { background: #164f91; }
+.red-city::before { background: #b12620; }
+
+.river-mark::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  top: 6px;
+  height: 2px;
+  background: #4fa6bd;
+  box-shadow: 0 -2px 0 rgba(246, 239, 215, .9);
+  transform: skewX(-18deg);
+}
+
+.mountain-mark::before {
+  content: "^^^";
+  position: absolute;
+  left: 2px;
+  top: -2px;
+  color: rgba(78, 72, 60, .74);
+  font: 700 13px/1 Georgia, "Times New Roman", serif;
+  letter-spacing: 2px;
+}
+
+.stress-mark::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(177, 38, 32, .38);
+  box-shadow: 0 0 0 4px rgba(177, 38, 32, .16);
+}
+
+.legend-note {
+  margin-top: 7px;
+  padding-top: 5px;
+  border-top: 1px solid rgba(64, 52, 32, .20);
+  font-size: 10px;
+  opacity: .72;
 }
