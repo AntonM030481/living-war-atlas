@@ -824,6 +824,8 @@ Left / Right arrows — rewind / advance saved history by one 5-second checkpoin
 Up / Down arrows — change speed
 ```
 
+Resource density rendering must show both the raw cell field and visible city stockpile clouds. A city with large local War Resource and zero flow should still produce an obvious colored cloud on the map.
+
 The `Diag` panel is intentionally off by default because it adds per-city local checks every rendered snapshot. When enabled, it is built in `src/main.ts` from the latest `SimulationSnapshot` and shows:
 
 - city production;

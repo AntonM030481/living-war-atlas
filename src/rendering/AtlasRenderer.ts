@@ -330,6 +330,7 @@ export class AtlasRenderer {
     g.clear();
     this.drawResourceHeightmap(g, snapshot, 'blue');
     this.drawResourceHeightmap(g, snapshot, 'red');
+    this.drawCityResourceClouds(g, snapshot);
   }
 
   private drawResourceHeightmap(g: Graphics, snapshot: SimulationSnapshot, side: 'blue' | 'red'): void {
@@ -349,6 +350,23 @@ export class AtlasRenderer {
           alpha: 0.035 + strength * 0.32,
         });
       }
+    }
+  }
+
+  private drawCityResourceClouds(g: Graphics, snapshot: SimulationSnapshot): void {
+    for (const city of snapshot.cities) {
+      const blue = city.owner === 'blue';
+      const war = blue ? snapshot.warBlue : snapshot.warRed;
+      const color = blue ? BLUE_DARK : RED_DARK;
+      const localWar = this.localSum(snapshot, war, city.x, city.y, 5);
+      if (localWar < 6) continue;
+
+      const strength = Math.min(1, Math.log1p(localWar) / Math.log1p(900));
+      const radius = 1.5 + strength * 6.5;
+      const alpha = 0.08 + strength * 0.22;
+
+      g.circle(city.x, city.y, radius * 1.45).fill({ color, alpha: alpha * 0.18 });
+      g.circle(city.x, city.y, radius).fill({ color, alpha });
     }
   }
 
