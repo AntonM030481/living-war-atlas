@@ -51,14 +51,14 @@ for (const city of testMap.cities) {
   const label = document.createElement('div');
   label.className = `city-power-label ${city.owner}`;
   label.textContent = `${city.baseProduction}`;
-  label.title = `${city.name}: ${city.baseProduction} production points`;
+  label.title = `${city.name}: ${city.baseProduction} production points. Left click: production on/off. Right click: switch side.`;
   document.body.appendChild(label);
   cityPowerLabels.set(city.id, label);
 
   const nameLabel = document.createElement('div');
   nameLabel.className = `city-name-label ${city.owner}`;
   nameLabel.textContent = city.name;
-  nameLabel.title = `${city.name}: ${city.baseProduction} production points`;
+  nameLabel.title = `${city.name}: ${city.baseProduction} production points. Left click: production on/off. Right click: switch side.`;
   document.body.appendChild(nameLabel);
   cityNameLabels.set(city.id, nameLabel);
 }
@@ -104,15 +104,15 @@ legend.innerHTML = `
   <div class="legend-grid">
     <span class="legend-mark front-line"></span><span>front line</span>
     <span class="legend-mark old-border"></span><span>prewar border</span>
-    <span class="legend-mark blue-flow"></span><span>Blue resource flow</span>
-    <span class="legend-mark red-flow"></span><span>Red resource flow</span>
+    <span class="legend-mark blue-flow"></span><span>Blue flow arrows (Diag)</span>
+    <span class="legend-mark red-flow"></span><span>Red flow arrows (Diag)</span>
     <span class="legend-mark blue-city"></span><span>Blue city</span>
     <span class="legend-mark red-city"></span><span>Red city</span>
     <span class="legend-mark river-mark"></span><span>river</span>
     <span class="legend-mark forest-mark"></span><span>forest</span>
     <span class="legend-mark stress-mark"></span><span>front instability</span>
   </div>
-  <div class="legend-note">City click: production on/off<br>Base overlay: resource + stress<br>Diag / F3: city checks<br>Space: pause · ←/→: rewind · ↑/↓: speed</div>
+  <div class="legend-note">City left click: production on/off<br>City right click: switch side<br>Base overlay: resource + stress<br>Diag / F3: flow arrows + city checks<br>Space: pause · ←/→: rewind · ↑/↓: speed</div>
 `;
 sidePanel.appendChild(legend);
 
@@ -142,9 +142,13 @@ const historyForwardButton = hud.querySelector<HTMLButtonElement>('#history-forw
 const probeContent = probePanel.querySelector<HTMLDivElement>('#probe-content')!;
 const diagnosticsContent = diagnosticsPanel.querySelector<HTMLDivElement>('#diagnostics-content')!;
 renderer.setDebug(true);
+renderer.setShowFlows(false);
 let latestSnapshot: SimulationSnapshot | null = null;
 let selectedProbe: FrontDebugInfo | null = null;
 let latestHistory: HistoryInfo | null = null;
+let suppressNextPrimaryClickUntil = 0;
+let lastCityFlipAt = 0;
+let lastCityFlipId: string | null = null;
 
 new ResizeObserver(resizeMapStage).observe(mapStage);
 resizeMapStage();
@@ -183,9 +187,10 @@ function setDiagnostics(next: boolean): void {
   diagnosticsPanel.hidden = !diagnosticsEnabled;
   debugButton.textContent = diagnosticsEnabled ? 'Diag on' : 'Diag';
   debugButton.title = diagnosticsEnabled
-    ? 'Hide city resource diagnostics'
-    : 'Show city resource diagnostics';
+    ? 'Hide flow arrows and city resource diagnostics'
+    : 'Show flow arrows and city resource diagnostics';
   debugButton.classList.toggle('active', diagnosticsEnabled);
+  renderer.setShowFlows(diagnosticsEnabled);
   renderDiagnostics(diagnosticsEnabled ? latestSnapshot : null);
 }
 
@@ -266,14 +271,14 @@ function updateCityPowerLabels(snapshot: SimulationSnapshot): void {
     label.hidden = contested;
     nameLabel.hidden = contested;
     label.textContent = `${city.baseProduction}`;
-    label.title = `${city.name}: ${city.baseProduction} production points`;
+    label.title = `${city.name}: ${city.baseProduction} production points. Left click: production on/off. Right click: switch side.`;
     label.className =
       `city-power-label ${city.owner} power-${city.baseProduction}${city.enabled === false ? ' disabled' : ''}`;
     label.style.left = `${point.x}px`;
     label.style.top = `${point.y}px`;
 
     nameLabel.textContent = city.name;
-    nameLabel.title = `${city.name}: ${city.baseProduction} production points`;
+    nameLabel.title = `${city.name}: ${city.baseProduction} production points. Left click: production on/off. Right click: switch side.`;
     nameLabel.className = `city-name-label ${city.owner}${city.enabled === false ? ' disabled' : ''}`;
     nameLabel.style.left = `${point.x}px`;
     nameLabel.style.top = `${point.y + 22}px`;
@@ -409,12 +414,17 @@ historyForwardButton.addEventListener('click', () => stepHistory(1));
 hud.querySelector<HTMLButtonElement>('#reset')!.addEventListener('click', () => {
   setPaused(true);
   const confirmed = window.confirm('Start a new game? This clears the current rewind history.');
-  if (!confirmed) return;
-  currentSeed = (currentSeed + 104729) >>> 0;
-  status.textContent = `seed ${currentSeed} · starting…`;
-  send({ type: 'reset', seed: currentSeed });
+  if (confirmed) {
+    currentSeed = (currentSeed + 104729) >>> 0;
+    status.textContent = `seed ${currentSeed} · starting…`;
+    send({ type: 'reset', seed: currentSeed });
+  }
+  setPaused(false);
 });
 app.canvas.addEventListener('click', (event) => {
+  if (Date.now() < suppressNextPrimaryClickUntil) return;
+  if (event.ctrlKey) return;
+  if (event.button !== 0) return;
   const cityId = renderer.cityIdAtClientPoint(event.clientX, event.clientY);
   if (cityId) {
     send({ type: 'toggleCity', cityId });
@@ -424,6 +434,25 @@ app.canvas.addEventListener('click', (event) => {
   selectedProbe = renderer.inspectFrontAtClientPoint(latestSnapshot, event.clientX, event.clientY);
   renderProbe(selectedProbe);
 });
+
+function handleSecondaryCityClick(event: MouseEvent | PointerEvent, force = false): void {
+  const secondary = force || event.button === 2 || (event.button === 0 && event.ctrlKey);
+  if (!secondary) return;
+  const cityId = renderer.cityIdAtClientPoint(event.clientX, event.clientY);
+  if (!cityId) return;
+  event.preventDefault();
+  event.stopPropagation();
+  suppressNextPrimaryClickUntil = Date.now() + 500;
+  if (lastCityFlipId === cityId && Date.now() - lastCityFlipAt < 250) return;
+  lastCityFlipId = cityId;
+  lastCityFlipAt = Date.now();
+  send({ type: 'flipCityOwner', cityId });
+}
+
+window.addEventListener('pointerdown', (event) => handleSecondaryCityClick(event), true);
+window.addEventListener('mousedown', (event) => handleSecondaryCityClick(event), true);
+window.addEventListener('auxclick', (event) => handleSecondaryCityClick(event), true);
+window.addEventListener('contextmenu', (event) => handleSecondaryCityClick(event, true), true);
 
 window.addEventListener('keydown', (event) => {
   const nextSpeed = Number(event.key);

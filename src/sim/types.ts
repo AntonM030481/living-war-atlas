@@ -106,6 +106,7 @@ export type WorkerInMessage =
   | { type: 'speed'; speed: Speed }
   | { type: 'reset'; seed: number }
   | { type: 'toggleCity'; cityId: string }
+  | { type: 'flipCityOwner'; cityId: string }
   | { type: 'pause'; paused: boolean }
   | { type: 'historyStep'; delta: -1 | 1 };
 

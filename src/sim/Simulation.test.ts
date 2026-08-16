@@ -20,6 +20,28 @@ function frontPosition1D(sim: Simulation, width: number): number {
   return sim.control[0] < 0 ? 0 : width - 1;
 }
 
+function localFlow(snapshot: ReturnType<Simulation['snapshot']>, cityId: string): number {
+  const city = snapshot.cities.find((candidate) => candidate.id === cityId);
+  if (!city) throw new Error(`Missing city ${cityId}`);
+  const flowX = city.owner === 'blue' ? snapshot.flowBlueX : snapshot.flowRedX;
+  const flowY = city.owner === 'blue' ? snapshot.flowBlueY : snapshot.flowRedY;
+  let total = 0;
+  const radius = 5;
+  for (let dy = -radius; dy <= radius; dy++) {
+    const y = city.y + dy;
+    if (y < 0 || y >= snapshot.height) continue;
+    for (let dx = -radius; dx <= radius; dx++) {
+      const x = city.x + dx;
+      if (x < 0 || x >= snapshot.width) continue;
+      const d = Math.hypot(dx, dy);
+      if (d > radius) continue;
+      const index = y * snapshot.width + x;
+      total += Math.hypot(flowX[index], flowY[index]) * (1 - d / radius);
+    }
+  }
+  return total;
+}
+
 describe('Simulation', () => {
   it('keeps authored cities outside forest terrain', () => {
     for (const city of testMap.cities) {
@@ -83,6 +105,21 @@ describe('Simulation', () => {
     const afterToggle = sim.snapshot();
     expect(afterToggle.stats.controlledCityPointsBlue).toBe(20);
     expect(afterToggle.stats.activeCityPointsBlue).toBe(14);
+  });
+
+  it('flips city owner without changing production enabled state', () => {
+    const sim = new Simulation(testMap, 1);
+    sim.toggleCityEnabled('b1');
+    const city = sim.cities.find((candidate) => candidate.id === 'b1');
+    if (!city) throw new Error('Missing b1');
+    expect(city.owner).toBe('blue');
+    expect(city.enabled).toBe(false);
+
+    sim.flipCityOwner('b1');
+
+    expect(city.owner).toBe('red');
+    expect(city.integration).toBe(0);
+    expect(city.enabled).toBe(false);
   });
 
   it('keeps control bounded', () => {
@@ -279,8 +316,8 @@ describe('Simulation', () => {
   });
 
   it('lets distant rear resource sources participate in frontline supply', () => {
-    const width = 220;
-    const frontX = 110;
+    const width = 360;
+    const frontX = 250;
     const map = {
       width,
       height: 1,
@@ -318,6 +355,35 @@ describe('Simulation', () => {
 
     expect(sim.flowBlueX[5]).toBeGreaterThan(0);
     expect(sim.flowRedX[width - 6]).toBeLessThan(0);
+  });
+
+  it('keeps distant authored-map cities connected to resource flow', () => {
+    const sim = new Simulation(testMap, 20260816);
+    sim.warBlue.fill(0);
+    sim.warRed.fill(0);
+    sim.committedBlue.fill(0);
+    sim.committedRed.fill(0);
+
+    for (const cityId of ['b1', 'b2', 'b3']) {
+      const city = sim.cities.find((candidate) => candidate.id === cityId);
+      if (!city) throw new Error(`Missing city ${cityId}`);
+      sim.warBlue[city.y * sim.width + city.x] = 100;
+    }
+
+    const internals = sim as unknown as {
+      computeFrontMassAndNeed(): void;
+      rebuildPotential(side: 'blue' | 'red'): void;
+      transportResource(side: 'blue' | 'red'): void;
+      potentialBlue: Float32Array;
+    };
+    internals.computeFrontMassAndNeed();
+    internals.rebuildPotential('blue');
+    internals.transportResource('blue');
+
+    const snapshot = sim.snapshot();
+    expect(localFlow(snapshot, 'b1')).toBeGreaterThan(0.05);
+    expect(localFlow(snapshot, 'b2')).toBeGreaterThan(0.05);
+    expect(localFlow(snapshot, 'b3')).toBeGreaterThan(0.05);
   });
 
   it('combat attrition consumes committed mass but leaves reserve unchanged', () => {

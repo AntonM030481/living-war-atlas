@@ -295,6 +295,8 @@ Prefer a simpler field-based transport model.
 
 Build / relax a potential field from areas of front demand back through controlled territory.
 
+Potential propagation must reach every connected controlled region with nonzero access. Do not cap propagation by a small fixed iteration count: distant rear cities still need a gradient toward the front.
+
 Potential should decay with:
 
 - distance;
@@ -746,7 +748,7 @@ Current implementation entrypoints:
 
 - `src/main.ts` owns the browser UI / DOM overlay: HUD, legend, front probe panel, city point badges, city production markers, city name labels, and the optional city diagnostics panel.
 - `src/style.css` owns the styling for that DOM overlay, including `.city-power-label`, `.city-name-label`, `.city-points-badge`, `.legend`, `.probe-panel`, and `.diagnostics-panel`.
-- `src/rendering/AtlasRenderer.ts` owns the PixiJS canvas map: terrain, grid, prewar border, territory tint, resource density, resource-flow arrows, front contour, instability marks, and front probe marker.
+- `src/rendering/AtlasRenderer.ts` owns the PixiJS canvas map: terrain, grid, prewar border, territory tint, resource density, diagnostic resource-flow arrows, front contour, instability marks, and front probe marker.
 - `src/map/testMap.ts` owns authored map data: dimensions, cities, forests, initial front, and river curve.
 - `src/sim/Simulation.ts` and `src/sim/types.ts` own simulation state and snapshot fields. Rendering and DOM overlays should only consume snapshots, not mutate simulation state.
 
@@ -778,6 +780,8 @@ Front thickness may reflect derived local mass, but avoid white halos or grid-li
 
 Visualize resource transport as coherent directional flows from cities toward front sectors in `AtlasRenderer.drawFlows()`.
 
+In the current prototype, flow arrows are a diagnostic layer shown only while `Diag` is enabled. The normal map view should rely on resource density / overload glow rather than the dashed flow arrows.
+
 Avoid random short dashes scattered uniformly over territory.
 
 Flow should make it possible to understand:
@@ -807,6 +811,8 @@ Current DOM overlay responsibilities:
 
 City click detection remains in `AtlasRenderer.cityIdAtClientPoint()` so the DOM labels can keep `pointer-events: none`.
 
+City interactions: left click toggles production on/off; right click switches owner side and resets integration, while preserving the production enabled/disabled state.
+
 City labels are hidden when the city cell is not firmly controlled by its owner. The front is the primary map object, so a contested city marker must not sit visibly on top of the front contour.
 
 ---
@@ -818,13 +824,15 @@ Current debug / diagnostic behavior:
 ```text
 Resource density + instability/stress overlay — always visible in the current prototype
 Front probe — click the front line
-Diag button / F3 — optional city diagnostics panel
+Diag button / F3 — optional flow arrows and city diagnostics panel
 SPACE — pause / resume
 Left / Right arrows — rewind / advance saved history by one 5-second checkpoint
 Up / Down arrows — change speed
 ```
 
-Resource density rendering must show both the raw cell field and visible city stockpile clouds. A city with large local War Resource and zero flow should still produce an obvious colored cloud on the map.
+Resource density rendering must show the raw cell field, overload glow, and visible city stockpile clouds. The base density layer may clamp for readability; values above that clamp should create a separate glow so the player can see that local War Resource is still increasing beyond the saturated color. A city with large local War Resource and zero flow should still produce an obvious colored cloud on the map.
+
+Instability marker color means the side whose local front is failing. `instabilityBlue` is drawn blue, `instabilityRed` is drawn red. It does not mean the attacking side.
 
 The `Diag` panel is intentionally off by default because it adds per-city local checks every rendered snapshot. When enabled, it is built in `src/main.ts` from the latest `SimulationSnapshot` and shows:
 

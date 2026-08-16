@@ -11,6 +11,7 @@ const PAPER_LIGHT = 0xf6efd7;
 const INK = 0x2f2b24;
 const RIVER = 0x4fa6bd;
 const GRID = 0x8b7a59;
+const RESOURCE_CLAMP = 18;
 
 interface Point { x: number; y: number }
 interface FrontSample extends Point {
@@ -75,6 +76,7 @@ export class AtlasRenderer {
   private readonly instability = new Graphics();
   private readonly probe = new Graphics();
   private debug = false;
+  private showFlows = false;
   private selectedFrontIndex: number | null = null;
 
   constructor(
@@ -104,6 +106,12 @@ export class AtlasRenderer {
     this.debug = value;
     this.instability.visible = value;
     this.resourceDensity.visible = value;
+  }
+
+  setShowFlows(value: boolean): void {
+    this.showFlows = value;
+    this.flows.visible = value;
+    if (!value) this.flows.clear();
   }
 
   toggleDebug(): boolean {
@@ -226,7 +234,8 @@ export class AtlasRenderer {
     this.drawTerritory(snapshot);
     if (this.debug) this.drawResourceDensity(snapshot);
     else this.resourceDensity.clear();
-    this.drawFlows(snapshot);
+    if (this.showFlows) this.drawFlows(snapshot);
+    else this.flows.clear();
     this.drawFront(snapshot);
     if (this.debug) this.drawInstability(snapshot);
     this.drawProbe(snapshot);
@@ -330,6 +339,8 @@ export class AtlasRenderer {
     g.clear();
     this.drawResourceHeightmap(g, snapshot, 'blue');
     this.drawResourceHeightmap(g, snapshot, 'red');
+    this.drawResourceOverloadGlow(g, snapshot, 'blue');
+    this.drawResourceOverloadGlow(g, snapshot, 'red');
     this.drawCityResourceClouds(g, snapshot);
   }
 
@@ -344,10 +355,30 @@ export class AtlasRenderer {
         if (control < -0.12) continue;
         const v = war[i];
         if (v < 0.08) continue;
-        const strength = Math.max(0, Math.min(1, Math.pow(v / 3.2, 0.58)));
+        const strength = Math.max(0, Math.min(1, Math.pow(v / RESOURCE_CLAMP, 0.70)));
         g.rect(x, y, 1, 1).fill({
           color,
-          alpha: 0.035 + strength * 0.32,
+          alpha: 0.035 + strength * 0.31,
+        });
+      }
+    }
+  }
+
+  private drawResourceOverloadGlow(g: Graphics, snapshot: SimulationSnapshot, side: 'blue' | 'red'): void {
+    const color = side === 'blue' ? BLUE_DARK : RED_DARK;
+    const war = side === 'blue' ? snapshot.warBlue : snapshot.warRed;
+
+    for (let y = 0; y < snapshot.height; y += 2) {
+      for (let x = 0; x < snapshot.width; x += 2) {
+        const i = y * snapshot.width + x;
+        const control = side === 'blue' ? snapshot.control[i] : -snapshot.control[i];
+        if (control < -0.12) continue;
+        const overload = war[i] - RESOURCE_CLAMP;
+        if (overload <= 0) continue;
+        const strength = Math.min(1, Math.log1p(overload) / Math.log1p(160));
+        g.circle(x + 0.5, y + 0.5, 1.8 + strength * 3.4).fill({
+          color,
+          alpha: 0.035 + strength * 0.17,
         });
       }
     }
@@ -363,9 +394,9 @@ export class AtlasRenderer {
 
       const strength = Math.min(1, Math.log1p(localWar) / Math.log1p(900));
       const radius = 1.5 + strength * 6.5;
-      const alpha = 0.08 + strength * 0.22;
+      const alpha = 0.11 + strength * 0.27;
 
-      g.circle(city.x, city.y, radius * 1.45).fill({ color, alpha: alpha * 0.18 });
+      g.circle(city.x, city.y, radius * 1.45).fill({ color, alpha: alpha * 0.22 });
       g.circle(city.x, city.y, radius).fill({ color, alpha });
     }
   }
@@ -710,12 +741,16 @@ export class AtlasRenderer {
         if (Math.abs(snapshot.control[i]) > 0.24) continue;
         const b = snapshot.instabilityBlue[i];
         const r = snapshot.instabilityRed[i];
-      const v = Math.max(b, r);
-      if (v < 0.08) continue;
-      g.circle(x, y, 0.35 + Math.min(1, v) * 0.9).fill({
-        color: b > r ? RED_DARK : BLUE_DARK,
-        alpha: Math.min(0.50, 0.08 + v * 0.28),
-      });
+        const v = Math.max(b, r);
+        if (v < 0.08) continue;
+        const color = b > r ? BLUE_DARK : RED_DARK;
+        const strength = Math.min(1, v);
+        const size = 0.42 + strength * 0.92;
+        const alpha = Math.min(0.62, 0.16 + v * 0.32);
+        const width = 0.13 + strength * 0.13;
+        g.moveTo(x - size, y - size).lineTo(x + size, y + size);
+        g.moveTo(x - size, y + size).lineTo(x + size, y - size);
+        g.stroke({ color, width, alpha });
       }
     }
   }

@@ -5,7 +5,6 @@ export const CFG = {
   dt: 0.1,
   snapshotEverySteps: 2,
   potentialEverySteps: 10,
-  potentialIterations: 128,
   potentialDecay: 0.988,
   resourceMoveFraction: 0.58,
   baseEdgeCapacityPerSecond: 7.0,

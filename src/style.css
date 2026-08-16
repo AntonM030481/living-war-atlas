@@ -504,13 +504,21 @@ canvas { display: block; }
 .stress-mark::before {
   content: "";
   position: absolute;
-  left: 10px;
-  top: 2px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: rgba(177, 38, 32, .38);
-  box-shadow: 0 0 0 4px rgba(177, 38, 32, .16);
+  left: 8px;
+  top: 6px;
+  width: 14px;
+  border-top: 2px solid rgba(177, 38, 32, .62);
+  transform: rotate(45deg);
+}
+
+.stress-mark::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 6px;
+  width: 14px;
+  border-top: 2px solid rgba(177, 38, 32, .62);
+  transform: rotate(-45deg);
 }
 
 .legend-note {

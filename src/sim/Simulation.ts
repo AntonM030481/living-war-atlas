@@ -73,8 +73,6 @@ export class Simulation {
   private readonly tmpControl: Float32Array;
   private readonly collapseBlue: Uint8Array;
   private readonly collapseRed: Uint8Array;
-  private readonly tmpPotentialA: Float32Array;
-  private readonly tmpPotentialB: Float32Array;
 
   private stepCount = 0;
   private time = 0;
@@ -133,8 +131,6 @@ export class Simulation {
     this.tmpControl = new Float32Array(this.size);
     this.collapseBlue = new Uint8Array(this.size);
     this.collapseRed = new Uint8Array(this.size);
-    this.tmpPotentialA = new Float32Array(this.size);
-    this.tmpPotentialB = new Float32Array(this.size);
 
     this.initializeTerrain();
     this.initializeControl();
@@ -153,6 +149,13 @@ export class Simulation {
     const city = this.cities.find((candidate) => candidate.id === cityId);
     if (!city) return;
     city.enabled = !(city.enabled ?? true);
+  }
+
+  flipCityOwner(cityId: string): void {
+    const city = this.cities.find((candidate) => candidate.id === cityId);
+    if (!city) return;
+    city.owner = city.owner === 'blue' ? 'red' : 'blue';
+    city.integration = 0;
   }
 
   runWarmup(seconds = CFG.warmupSeconds): void {
@@ -288,8 +291,6 @@ export class Simulation {
     this.rawForcingDebug.fill(0);
     this.pressureDebug.fill(0);
     this.tmpControl.fill(0);
-    this.tmpPotentialA.fill(0);
-    this.tmpPotentialB.fill(0);
   }
 
   private computeStats(): SimulationStats {
@@ -659,51 +660,89 @@ export class Simulation {
   private rebuildPotential(side: Side): void {
     const need = side === 'blue' ? this.needBlue : this.needRed;
     const destination = side === 'blue' ? this.potentialBlue : this.potentialRed;
-    let current = this.tmpPotentialA;
-    let next = this.tmpPotentialB;
-    current.fill(0);
+    destination.fill(0);
+    const heapIndex: number[] = [];
+    const heapValue: number[] = [];
+
+    const push = (index: number, value: number): void => {
+      let node = heapIndex.length;
+      heapIndex.push(index);
+      heapValue.push(value);
+      while (node > 0) {
+        const parent = (node - 1) >> 1;
+        if (heapValue[parent] >= value) break;
+        heapIndex[node] = heapIndex[parent];
+        heapValue[node] = heapValue[parent];
+        node = parent;
+      }
+      heapIndex[node] = index;
+      heapValue[node] = value;
+    };
+
+    const pop = (): { index: number; value: number } | null => {
+      if (heapIndex.length === 0) return null;
+      const index = heapIndex[0];
+      const value = heapValue[0];
+      const lastIndex = heapIndex.pop()!;
+      const lastValue = heapValue.pop()!;
+      if (heapIndex.length > 0) {
+        let node = 0;
+        while (true) {
+          const left = node * 2 + 1;
+          const right = left + 1;
+          if (left >= heapIndex.length) break;
+          const child = right < heapIndex.length && heapValue[right] > heapValue[left] ? right : left;
+          if (heapValue[child] <= lastValue) break;
+          heapIndex[node] = heapIndex[child];
+          heapValue[node] = heapValue[child];
+          node = child;
+        }
+        heapIndex[node] = lastIndex;
+        heapValue[node] = lastValue;
+      }
+      return { index, value };
+    };
 
     for (let i = 0; i < this.size; i++) {
       if (this.isFront(i) && this.sideAccess(side, i) > 0.05) {
-        current[i] = 1 + need[i];
+        const value = 1 + need[i];
+        destination[i] = value;
+        push(i, value);
       }
     }
 
-    for (let iter = 0; iter < CFG.potentialIterations; iter++) {
-      next.set(current);
-      for (let y = 0; y < this.height; y++) {
-        for (let x = 0; x < this.width; x++) {
-          const i = this.index(x, y);
-          const access = this.sideAccess(side, i);
-          if (access <= 0.01) {
-            next[i] = 0;
-            continue;
-          }
+    const dirs = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as const;
 
-          let best = current[i];
-          if (x > 0) {
-            best = Math.max(best, current[i - 1] * CFG.potentialDecay * this.edgeFactor(x, y, -1, 0));
-          }
-          if (x + 1 < this.width) {
-            best = Math.max(best, current[i + 1] * CFG.potentialDecay * this.edgeFactor(x, y, 1, 0));
-          }
-          if (y > 0) {
-            best = Math.max(best, current[i - this.width] * CFG.potentialDecay * this.edgeFactor(x, y, 0, -1));
-          }
-          if (y + 1 < this.height) {
-            best = Math.max(best, current[i + this.width] * CFG.potentialDecay * this.edgeFactor(x, y, 0, 1));
-          }
+    while (true) {
+      const entry = pop();
+      if (!entry) break;
+      if (entry.value < destination[entry.index] - 1e-7) continue;
+      const x = entry.index % this.width;
+      const y = Math.floor(entry.index / this.width);
 
-          const terrainTransmission = 0.72 + 0.28 * this.terrainMobility[i];
-          next[i] = Math.max(current[i], best * access * terrainTransmission);
-        }
+      for (const [dx, dy] of dirs) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || nx >= this.width || ny < 0 || ny >= this.height) continue;
+        const j = this.index(nx, ny);
+        const access = this.sideAccess(side, j);
+        if (access <= 0.01) continue;
+        const terrainTransmission = 0.72 + 0.28 * this.terrainMobility[j];
+        const nextValue = entry.value *
+          CFG.potentialDecay *
+          this.edgeFactor(x, y, dx, dy) *
+          access *
+          terrainTransmission;
+        if (nextValue <= destination[j] + 1e-7) continue;
+        destination[j] = nextValue;
+        push(j, nextValue);
       }
-      const tmp = current;
-      current = next;
-      next = tmp;
     }
-
-    destination.set(current);
   }
 
   private transportResource(side: Side): void {

@@ -213,6 +213,11 @@ self.onmessage = (event: MessageEvent<WorkerInMessage>) => {
       saveHistoryCheckpoint(true);
       postSnapshot();
       break;
+    case 'flipCityOwner':
+      sim?.flipCityOwner(message.cityId);
+      saveHistoryCheckpoint(true);
+      postSnapshot();
+      break;
     case 'pause':
       paused = message.paused;
       break;
