@@ -11,7 +11,7 @@ First runnable prototype of the **living military atlas** concept.
 - one War Resource;
 - physical resource transport through controlled territory;
 - finite route capacity / bottlenecks;
-- rivers and mountains affecting mobility, defence and throughput;
+- rivers and forests affecting mobility, defence and throughput;
 - front mass emerging from accumulated War Resource;
 - battle commitment: mass needed to hold an active fight cannot freely drain back into the rear; only local excess remains mobile, while collapse releases commitment;
 - defensive advantage, instability and local collapse;

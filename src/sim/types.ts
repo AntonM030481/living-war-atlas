@@ -16,7 +16,7 @@ export interface MapDefinition {
   height: number;
   initialFrontX: (y: number) => number;
   cities: City[];
-  mountains: Array<{ x: number; y: number; r: number }>;
+  forests: Array<{ x: number; y: number; r: number }>;
   riverX: (y: number) => number;
 }
 
@@ -55,6 +55,25 @@ export interface SimulationSnapshot {
   cities: City[];
 }
 
+export interface SimulationState {
+  width: number;
+  height: number;
+  step: number;
+  gameTime: number;
+  control: Float32Array;
+  warBlue: Float32Array;
+  warRed: Float32Array;
+  committedBlue: Float32Array;
+  committedRed: Float32Array;
+  instabilityBlue: Float32Array;
+  instabilityRed: Float32Array;
+  potentialBlue: Float32Array;
+  potentialRed: Float32Array;
+  collapseBlue: Uint8Array;
+  collapseRed: Uint8Array;
+  cities: City[];
+}
+
 export interface SimulationStats {
   frontCells: number;
   maxInstabilityBlue: number;
@@ -67,6 +86,19 @@ export interface SimulationStats {
   activeFlowRed: number;
   blueCities: number;
   redCities: number;
+  activeCityPointsBlue: number;
+  activeCityPointsRed: number;
+  controlledCityPointsBlue: number;
+  controlledCityPointsRed: number;
+}
+
+export interface HistoryInfo {
+  currentIndex: number;
+  length: number;
+  intervalSeconds: number;
+  canRewind: boolean;
+  canForward: boolean;
+  currentTime: number;
 }
 
 export type WorkerInMessage =
@@ -74,9 +106,10 @@ export type WorkerInMessage =
   | { type: 'speed'; speed: Speed }
   | { type: 'reset'; seed: number }
   | { type: 'toggleCity'; cityId: string }
-  | { type: 'pause'; paused: boolean };
+  | { type: 'pause'; paused: boolean }
+  | { type: 'historyStep'; delta: -1 | 1 };
 
 export type WorkerOutMessage =
   | { type: 'ready'; seed: number }
-  | { type: 'snapshot'; snapshot: SimulationSnapshot }
+  | { type: 'snapshot'; snapshot: SimulationSnapshot; history: HistoryInfo }
   | { type: 'stats'; fps: number };

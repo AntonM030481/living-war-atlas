@@ -5,8 +5,8 @@ export const CFG = {
   dt: 0.1,
   snapshotEverySteps: 2,
   potentialEverySteps: 10,
-  potentialIterations: 96,
-  potentialDecay: 0.965,
+  potentialIterations: 128,
+  potentialDecay: 0.988,
   resourceMoveFraction: 0.58,
   baseEdgeCapacityPerSecond: 7.0,
   frontCommitmentSafety: 1.60,
@@ -19,6 +19,7 @@ export const CFG = {
   commitmentReleasePerSecond: 0.22,
   collapseReleaseMultiplier: 3.0,
   frontBand: 0.34,
+  frontBoundaryPadding: 2,
   massRadius: 4,
   defenceAdvantage: 1.36,
   baseProbe: 0.76,
@@ -45,7 +46,7 @@ export const CFG = {
   warmupSeconds: 75,
 } as const;
 
-export const SPEEDS = [1, 2, 4] as const;
+export const SPEEDS = [1, 2, 4, 8, 16] as const;
 
 export type Side = 'blue' | 'red';
 export type Speed = typeof SPEEDS[number];

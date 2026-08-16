@@ -49,7 +49,7 @@ MVP terrain:
 
 - plains;
 - rivers;
-- mountains / difficult terrain.
+- forests / difficult terrain.
 
 Terrain should primarily affect movement / transport geometrically, with smaller direct defensive modifiers.
 
@@ -240,7 +240,7 @@ Stabilization should emerge from:
 - improved supply;
 - incoming mass;
 - rivers;
-- mountains;
+- forests;
 - reduced enemy pressure.
 
 ---
@@ -429,10 +429,10 @@ Player-facing speeds:
 - `1×`
 - `2×`
 - `4×`
+- `8×`
+- `16×`
 
-A debug pause is allowed.
-
-While paused for debugging, gameplay orders should not be issued.
+Pause is available as a normal runtime control.
 
 Target war duration on `1×`: roughly **15–25 minutes**, with ~20 minutes as the initial target.
 
@@ -472,7 +472,7 @@ Show:
 
 - cities;
 - rivers;
-- mountains;
+- forests;
 - thin pre-war borders;
 - a strong dynamic front line;
 - strategic arrows;

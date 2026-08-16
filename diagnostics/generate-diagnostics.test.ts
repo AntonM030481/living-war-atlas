@@ -3,7 +3,8 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Simulation } from '../src/sim/Simulation';
-import type { MapDefinition } from '../src/sim/types';
+import { testMap } from '../src/map/testMap';
+import type { City, MapDefinition, SimulationSnapshot } from '../src/sim/types';
 
 interface CommitmentSample {
   phase: string;
@@ -38,6 +39,23 @@ interface TippingSample {
   owner: string;
 }
 
+interface CityFlowSample {
+  t: number;
+  city: string;
+  owner: string;
+  baseProduction: number;
+  activeProduction: number;
+  control: number;
+  ownWarCell: number;
+  ownWarLocal: number;
+  sourceFlow: number;
+  localFlow: number;
+  tracePoints: number;
+  traceAverageMagnitude: number;
+  traceMaxMagnitude: number;
+  renderStrength: number;
+}
+
 interface Series {
   label: string;
   color: string;
@@ -52,7 +70,7 @@ function oneDimensionalMap(width = 80): MapDefinition {
     height: 1,
     initialFrontX: () => 40.4,
     riverX: () => 1000,
-    mountains: [],
+    forests: [],
     cities: [
       { id: 'b', name: 'Blue', x: 8, y: 0, baseProduction: 4, owner: 'blue', integration: 1 },
       { id: 'r', name: 'Red', x: 71, y: 0, baseProduction: 4, owner: 'red', integration: 1 },
@@ -107,6 +125,130 @@ function total(field: Float32Array): number {
   return sum;
 }
 
+function localWeightedSum(snapshot: SimulationSnapshot, field: Float32Array, cx: number, cy: number, radius = 5): number {
+  let sum = 0;
+  for (let dy = -radius; dy <= radius; dy++) {
+    const y = cy + dy;
+    if (y < 0 || y >= snapshot.height) continue;
+    for (let dx = -radius; dx <= radius; dx++) {
+      const x = cx + dx;
+      if (x < 0 || x >= snapshot.width) continue;
+      const d = Math.hypot(dx, dy);
+      if (d > radius) continue;
+      const weight = 1 - d / (radius + 1);
+      sum += field[y * snapshot.width + x] * weight;
+    }
+  }
+  return sum;
+}
+
+function localVectorMagnitudeSum(snapshot: SimulationSnapshot, flowX: Float32Array, flowY: Float32Array, cx: number, cy: number, radius = 5): number {
+  let sum = 0;
+  for (let dy = -radius; dy <= radius; dy++) {
+    const y = cy + dy;
+    if (y < 0 || y >= snapshot.height) continue;
+    for (let dx = -radius; dx <= radius; dx++) {
+      const x = cx + dx;
+      if (x < 0 || x >= snapshot.width) continue;
+      const d = Math.hypot(dx, dy);
+      if (d > radius) continue;
+      const weight = 1 - d / (radius + 1);
+      const i = y * snapshot.width + x;
+      sum += Math.hypot(flowX[i], flowY[i]) * weight;
+    }
+  }
+  return sum;
+}
+
+function sampleVector(snapshot: SimulationSnapshot, flowX: Float32Array, flowY: Float32Array, x: number, y: number): { x: number; y: number } {
+  const ix = Math.max(0, Math.min(snapshot.width - 1, Math.round(x)));
+  const iy = Math.max(0, Math.min(snapshot.height - 1, Math.round(y)));
+  const i = iy * snapshot.width + ix;
+  return { x: flowX[i], y: flowY[i] };
+}
+
+function traceCityFlow(snapshot: SimulationSnapshot, city: City): { points: number; averageMagnitude: number; maxMagnitude: number } {
+  const blue = city.owner === 'blue';
+  const flowX = blue ? snapshot.flowBlueX : snapshot.flowRedX;
+  const flowY = blue ? snapshot.flowBlueY : snapshot.flowRedY;
+  let x = city.x;
+  let y = city.y;
+  let points = 1;
+  let stale = 0;
+  let magnitudeSum = 0;
+  let magnitudeSamples = 0;
+  let maxMagnitude = 0;
+
+  for (let step = 0; step < 150; step++) {
+    const v = sampleVector(snapshot, flowX, flowY, x, y);
+    const mag = Math.hypot(v.x, v.y);
+    if (mag < 0.018) {
+      stale += 1;
+      if (stale > 5) break;
+      const sign = city.owner === 'blue' ? 1 : -1;
+      x += sign * 0.42;
+    } else {
+      stale = 0;
+      magnitudeSum += mag;
+      magnitudeSamples += 1;
+      maxMagnitude = Math.max(maxMagnitude, mag);
+      const stepSize = 0.55;
+      x += (v.x / mag) * stepSize;
+      y += (v.y / mag) * stepSize;
+    }
+
+    if (x < 0 || x >= snapshot.width || y < 0 || y >= snapshot.height) break;
+    points += 1;
+    const i = Math.round(y) * snapshot.width + Math.round(x);
+    if (i >= 0 && i < snapshot.control.length && Math.abs(snapshot.control[i]) < 0.22) break;
+  }
+
+  return {
+    points,
+    averageMagnitude: magnitudeSamples > 0 ? magnitudeSum / magnitudeSamples : 0,
+    maxMagnitude,
+  };
+}
+
+function cityFlowDiagnostics(totalSeconds = 120): CityFlowSample[] {
+  const sim = new Simulation(testMap, 20260816);
+  const rows: CityFlowSample[] = [];
+  const sampleEverySteps = Math.round(5 / 0.1);
+
+  for (let step = 0; step <= Math.round(totalSeconds / 0.1); step++) {
+    sim.tick();
+    if (step % sampleEverySteps !== 0) continue;
+
+    const snapshot = sim.snapshot();
+    for (const city of snapshot.cities) {
+      const blue = city.owner === 'blue';
+      const war = blue ? snapshot.warBlue : snapshot.warRed;
+      const flowX = blue ? snapshot.flowBlueX : snapshot.flowRedX;
+      const flowY = blue ? snapshot.flowBlueY : snapshot.flowRedY;
+      const i = city.y * snapshot.width + city.x;
+      const trace = traceCityFlow(snapshot, city);
+      rows.push({
+        t: Number(snapshot.gameTime.toFixed(1)),
+        city: city.name,
+        owner: city.owner,
+        baseProduction: city.baseProduction,
+        activeProduction: city.enabled === false ? 0 : city.baseProduction * city.integration,
+        control: Number(snapshot.control[i].toFixed(4)),
+        ownWarCell: Number(war[i].toFixed(4)),
+        ownWarLocal: Number(localWeightedSum(snapshot, war, city.x, city.y).toFixed(4)),
+        sourceFlow: Number(Math.hypot(flowX[i], flowY[i]).toFixed(4)),
+        localFlow: Number(localVectorMagnitudeSum(snapshot, flowX, flowY, city.x, city.y).toFixed(4)),
+        tracePoints: trace.points,
+        traceAverageMagnitude: Number(trace.averageMagnitude.toFixed(4)),
+        traceMaxMagnitude: Number(trace.maxMagnitude.toFixed(4)),
+        renderStrength: Number(Math.min(1, Math.sqrt(trace.averageMagnitude / 4.5)).toFixed(4)),
+      });
+    }
+  }
+
+  return rows;
+}
+
 function snapshotRecoverySample(sim: Simulation, t: number, fixedFrontX: number): RecoverySample {
   const frontX = frontPosition1D(sim, sim.width);
   const blueCenter = Math.max(0, Math.floor(frontX) - 1);
@@ -146,7 +288,7 @@ function commitmentTransition(): CommitmentSample[] {
     height: 1,
     initialFrontX: () => 4,
     riverX: () => 100,
-    mountains: [],
+    forests: [],
     cities: [],
   };
   const sim = new Simulation(map, 1);
@@ -235,10 +377,12 @@ function runSummary(): Array<Record<string, string | number>> {
   const recoverySuccess = recoveryScenario(60);
   const recoveryFailed = recoveryScenario(150);
   const tipping = tippingScenario();
+  const cityFlow = cityFlowDiagnostics();
   const successFinal = recoverySuccess[recoverySuccess.length - 1];
   const successPostRestore = recoverySuccess.filter((row) => row.t >= 90);
   const successMaxBlueMass = Math.max(...successPostRestore.map((row) => row.blueCommitted + row.blueReserve));
   const failedFinal = recoveryFailed[recoveryFailed.length - 1];
+  const finalCityFlow = cityFlow.filter((row) => row.t === Math.max(...cityFlow.map((sample) => sample.t)));
   return [
     { check: 'commitment samples', value: commitment.length, pass: commitment.length > 0 ? 1 : 0 },
     { check: 'recovery success samples', value: recoverySuccess.length, pass: recoverySuccess.length > 0 ? 1 : 0 },
@@ -247,6 +391,9 @@ function runSummary(): Array<Record<string, string | number>> {
     { check: 'failed recovery loses blue city', value: failedFinal.blueCityOwner, pass: failedFinal.blueCityOwner === 'red' ? 1 : 0 },
     { check: 'tipping samples', value: tipping.length, pass: tipping.length > 0 ? 1 : 0 },
     { check: 'max tipping loss', value: Math.max(...tipping.map((row) => row.loss)), pass: Math.max(...tipping.map((row) => row.loss)) > 8 ? 1 : 0 },
+    { check: 'city flow samples', value: cityFlow.length, pass: cityFlow.length > 0 ? 1 : 0 },
+    { check: 'all active cities retain visible local resource', value: Math.min(...finalCityFlow.map((row) => row.ownWarLocal)), pass: Math.min(...finalCityFlow.map((row) => row.ownWarLocal)) > 1 ? 1 : 0 },
+    { check: 'all active cities have outgoing local flow', value: Math.min(...finalCityFlow.map((row) => row.localFlow)), pass: Math.min(...finalCityFlow.map((row) => row.localFlow)) > 0.1 ? 1 : 0 },
   ];
 }
 
@@ -307,6 +454,7 @@ describe.runIf(process.env.DIAGNOSTICS === '1')('committed/reserve diagnostics',
     const recoverySuccess = recoveryScenario(60);
     const recoveryFailed = recoveryScenario(150);
     const tipping = tippingScenario();
+    const cityFlow = cityFlowDiagnostics();
     const summary = runSummary();
 
     const engage = commitment.filter((row) => row.phase === 'engage');
@@ -316,6 +464,7 @@ describe.runIf(process.env.DIAGNOSTICS === '1')('committed/reserve diagnostics',
     writeText('recovery-success.csv', csv(recoverySuccess));
     writeText('recovery-failed.csv', csv(recoveryFailed));
     writeText('tipping.csv', csv(tipping));
+    writeText('city-flow.csv', csv(cityFlow));
     writeText('tests.csv', csv(summary));
     writeText('engagement-transition.svg', plotSvg(
       'Engagement transition',

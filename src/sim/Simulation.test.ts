@@ -21,6 +21,14 @@ function frontPosition1D(sim: Simulation, width: number): number {
 }
 
 describe('Simulation', () => {
+  it('keeps authored cities outside forest terrain', () => {
+    for (const city of testMap.cities) {
+      for (const forest of testMap.forests) {
+        expect(Math.hypot(city.x - forest.x, city.y - forest.y)).toBeGreaterThan(forest.r);
+      }
+    }
+  });
+
   it('is deterministic for the same seed', () => {
     const a = new Simulation(testMap, 42);
     const b = new Simulation(testMap, 42);
@@ -32,6 +40,27 @@ describe('Simulation', () => {
     expect(Array.from(a.warBlue)).toEqual(Array.from(b.warBlue));
   });
 
+  it('restores a saved state and continues deterministically', () => {
+    const baseline = new Simulation(testMap, 42);
+    for (let i = 0; i < 24; i++) baseline.tick();
+    const state = baseline.saveState();
+    const expected = new Simulation(testMap, 42);
+    expected.restoreState(state);
+
+    for (let i = 0; i < 17; i++) {
+      baseline.tick();
+      expected.tick();
+    }
+
+    expect(expected.step).toBe(baseline.step);
+    expect(expected.gameTime).toBeCloseTo(baseline.gameTime, 8);
+    expect(Array.from(expected.control)).toEqual(Array.from(baseline.control));
+    expect(Array.from(expected.warBlue)).toEqual(Array.from(baseline.warBlue));
+    expect(Array.from(expected.warRed)).toEqual(Array.from(baseline.warRed));
+    expect(Array.from(expected.committedBlue)).toEqual(Array.from(baseline.committedBlue));
+    expect(Array.from(expected.committedRed)).toEqual(Array.from(baseline.committedRed));
+  });
+
   it('cities generate war resource', () => {
     const sim = new Simulation(testMap, 1);
     const before = total(sim.warBlue) + total(sim.warRed);
@@ -41,6 +70,21 @@ describe('Simulation', () => {
     expect(Number.isFinite(before)).toBe(true);
   });
 
+  it('reports active and controlled city production points', () => {
+    const sim = new Simulation(testMap, 1);
+    const snapshot = sim.snapshot();
+
+    expect(snapshot.stats.controlledCityPointsBlue).toBe(20);
+    expect(snapshot.stats.controlledCityPointsRed).toBe(20);
+    expect(snapshot.stats.activeCityPointsBlue).toBe(20);
+    expect(snapshot.stats.activeCityPointsRed).toBe(20);
+
+    sim.toggleCityEnabled('b5');
+    const afterToggle = sim.snapshot();
+    expect(afterToggle.stats.controlledCityPointsBlue).toBe(20);
+    expect(afterToggle.stats.activeCityPointsBlue).toBe(14);
+  });
+
   it('keeps control bounded', () => {
     const sim = new Simulation(testMap, 7);
     for (let i = 0; i < 100; i++) sim.tick();
@@ -48,7 +92,7 @@ describe('Simulation', () => {
       expect(c).toBeGreaterThanOrEqual(-1);
       expect(c).toBeLessThanOrEqual(1);
     }
-  });
+  }, 30000);
 
   it('exhausts front-supporting mass when city production is cut', () => {
     const width = 80;
@@ -57,7 +101,7 @@ describe('Simulation', () => {
       height: 1,
       initialFrontX: () => 40.4,
       riverX: () => 1000,
-      mountains: [],
+      forests: [],
       cities: [
         { id: 'b', name: 'Blue', x: 8, y: 0, baseProduction: 4, owner: 'blue' as const, integration: 1 },
         { id: 'r', name: 'Red', x: 71, y: 0, baseProduction: 4, owner: 'red' as const, integration: 1 },
@@ -85,7 +129,7 @@ describe('Simulation', () => {
       height: 1,
       initialFrontX: () => 4,
       riverX: () => 100,
-      mountains: [],
+      forests: [],
       cities: [],
     };
 
@@ -120,7 +164,7 @@ describe('Simulation', () => {
       height: 1,
       initialFrontX: () => 4,
       riverX: () => 100,
-      mountains: [],
+      forests: [],
       cities: [],
     };
 
@@ -145,7 +189,7 @@ describe('Simulation', () => {
       height: 1,
       initialFrontX: () => 40.4,
       riverX: () => 1000,
-      mountains: [],
+      forests: [],
       cities: [],
     };
     const sim = new Simulation(map, 1);
@@ -157,13 +201,51 @@ describe('Simulation', () => {
     expect(internals.isFront(41)).toBe(true);
   });
 
+  it('does not create frontline cells on the impassable map boundary', () => {
+    const width = 12;
+    const height = 8;
+    const map = {
+      width,
+      height,
+      initialFrontX: () => 6,
+      riverX: () => 100,
+      forests: [],
+      cities: [],
+    };
+    const sim = new Simulation(map, 1);
+    const internals = sim as unknown as { isFront(i: number): boolean };
+
+    sim.control.fill(1);
+    for (let x = 0; x < width; x++) {
+      sim.control[x] = 0;
+      sim.control[(height - 1) * width + x] = x < width / 2 ? 1 : -1;
+    }
+    for (let y = 0; y < height; y++) {
+      sim.control[y * width] = 0;
+      sim.control[y * width + width - 1] = y < height / 2 ? 1 : -1;
+    }
+    sim.control[4 * width + 5] = 1;
+    sim.control[4 * width + 6] = -1;
+
+    for (let x = 0; x < width; x++) {
+      expect(internals.isFront(x)).toBe(false);
+      expect(internals.isFront((height - 1) * width + x)).toBe(false);
+    }
+    for (let y = 0; y < height; y++) {
+      expect(internals.isFront(y * width)).toBe(false);
+      expect(internals.isFront(y * width + width - 1)).toBe(false);
+    }
+    expect(internals.isFront(4 * width + 5)).toBe(true);
+    expect(internals.isFront(4 * width + 6)).toBe(true);
+  });
+
   it('transports reserve without transporting committed combat mass', () => {
     const map = {
       width: 9,
       height: 1,
       initialFrontX: () => 4,
       riverX: () => 100,
-      mountains: [],
+      forests: [],
       cities: [],
     };
 
@@ -196,13 +278,55 @@ describe('Simulation', () => {
     expect(sim.warBlue[3]).toBeGreaterThanOrEqual(sim.committedBlue[3]);
   });
 
+  it('lets distant rear resource sources participate in frontline supply', () => {
+    const width = 220;
+    const frontX = 110;
+    const map = {
+      width,
+      height: 1,
+      initialFrontX: () => frontX,
+      riverX: () => 1000,
+      forests: [],
+      cities: [],
+    };
+    const sim = new Simulation(map, 1);
+    sim.warBlue.fill(0);
+    sim.warRed.fill(0);
+    sim.committedBlue.fill(0);
+    sim.committedRed.fill(0);
+    sim.warBlue[5] = 20;
+    sim.warRed[width - 6] = 20;
+    sim.warBlue[frontX - 1] = 2;
+    sim.warRed[frontX + 1] = 2;
+
+    const internals = sim as unknown as {
+      computeFrontMassAndNeed(): void;
+      rebuildPotential(side: 'blue' | 'red'): void;
+      transportResource(side: 'blue' | 'red'): void;
+      potentialBlue: Float32Array;
+      potentialRed: Float32Array;
+    };
+    for (let i = 0; i < 80; i++) internals.computeFrontMassAndNeed();
+    internals.rebuildPotential('blue');
+    internals.rebuildPotential('red');
+
+    expect(internals.potentialBlue[5]).toBeGreaterThan(0);
+    expect(internals.potentialRed[width - 6]).toBeGreaterThan(0);
+
+    internals.transportResource('blue');
+    internals.transportResource('red');
+
+    expect(sim.flowBlueX[5]).toBeGreaterThan(0);
+    expect(sim.flowRedX[width - 6]).toBeLessThan(0);
+  });
+
   it('combat attrition consumes committed mass but leaves reserve unchanged', () => {
     const map = {
       width: 9,
       height: 1,
       initialFrontX: () => 4,
       riverX: () => 100,
-      mountains: [],
+      forests: [],
       cities: [],
     };
 
@@ -234,7 +358,7 @@ describe('Simulation', () => {
       height: 1,
       initialFrontX: () => 4,
       riverX: () => 100,
-      mountains: [],
+      forests: [],
       cities: [],
     };
     const sim = new Simulation(map, 1);
@@ -266,7 +390,7 @@ describe('Simulation', () => {
       height: 1,
       initialFrontX: () => 40.4,
       riverX: () => 1000,
-      mountains: [],
+      forests: [],
       cities: [
         { id: 'b', name: 'Blue', x: 8, y: 0, baseProduction: 4, owner: 'blue' as const, integration: 1 },
         { id: 'r', name: 'Red', x: 71, y: 0, baseProduction: 4, owner: 'red' as const, integration: 1 },

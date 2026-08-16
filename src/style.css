@@ -3,9 +3,10 @@
   color: #201e1a;
   background: #cfc49e;
   font-synthesis: none;
-  --side-panel-width: 240px;
+  --side-panel-width: 300px;
   --side-panel-gap: 10px;
-  --side-panel-right: 12px;
+  --app-padding: 12px;
+  --map-aspect: 1.6;
 }
 
 * { box-sizing: border-box; }
@@ -13,26 +14,163 @@ html, body, #app { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 body { background: #cfc49e; }
 canvas { display: block; }
 
-.hud {
+#app {
+  display: grid;
+  grid-template-columns:
+    minmax(0, min(calc((100vh - var(--app-padding) * 2) * var(--map-aspect)), calc(100vw - var(--side-panel-width) - var(--side-panel-gap) - var(--app-padding) * 2)))
+    minmax(260px, var(--side-panel-width));
+  gap: var(--side-panel-gap);
+  justify-content: start;
+  align-content: start;
+  padding: var(--app-padding);
+}
+
+.map-stage {
+  position: relative;
+  aspect-ratio: 256 / 160;
+  width: 100%;
+  max-height: calc(100vh - var(--app-padding) * 2);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.map-stage canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.city-points-badge {
   position: fixed;
-  right: var(--side-panel-right);
-  top: 12px;
+  z-index: 9;
+  padding: 4px 9px 5px;
+  border-radius: 4px;
+  background: rgba(246, 239, 215, .82);
+  box-shadow: 0 1px 5px rgba(60, 45, 20, .15);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+  text-shadow: 0 1px 0 rgba(255, 250, 229, .85);
+}
+
+.city-points-badge.blue {
+  border: 1px solid rgba(22, 79, 145, .55);
+  color: #164f91;
+}
+
+.city-points-badge.red {
+  border: 1px solid rgba(177, 38, 32, .55);
+  color: #b12620;
+}
+
+.city-power-label {
+  position: fixed;
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(246, 239, 215, .96);
+  box-shadow: 0 1px 5px rgba(60, 45, 20, .18);
+  font: 800 16px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  text-shadow: 0 1px 0 rgba(255, 250, 229, .92);
+}
+
+.city-power-label.blue {
+  border: 3px solid rgba(22, 79, 145, .84);
+  color: #164f91;
+}
+
+.city-power-label.red {
+  border: 3px solid rgba(177, 38, 32, .84);
+  color: #b12620;
+}
+
+.city-power-label.power-2 {
+  width: 27px;
+  height: 27px;
+  font-size: 15px;
+}
+
+.city-power-label.power-6 {
+  width: 34px;
+  height: 34px;
+  font-size: 17px;
+}
+
+.city-power-label.disabled {
+  opacity: .50;
+  text-decoration: line-through;
+  background: rgba(246, 239, 215, .72);
+}
+
+.city-name-label {
+  position: fixed;
+  z-index: 9;
+  max-width: 78px;
+  padding: 2px 5px 3px;
+  border-radius: 3px;
+  background: rgba(246, 239, 215, .80);
+  box-shadow: 0 1px 4px rgba(60, 45, 20, .12);
+  font: 700 12px/1.05 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+  text-shadow: 0 1px 0 rgba(255, 250, 229, .9);
+}
+
+.city-name-label.blue {
+  color: #164f91;
+}
+
+.city-name-label.red {
+  color: #b12620;
+}
+
+.city-name-label.disabled {
+  opacity: .50;
+  text-decoration: line-through;
+}
+
+.side-panel {
+  position: relative;
   z-index: 10;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: var(--side-panel-gap);
+  width: 100%;
+  min-width: 0;
+  max-height: calc(100vh - var(--app-padding) * 2);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.hud {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   align-items: stretch;
-  width: var(--side-panel-width);
-  padding: 7px 9px;
+  width: 100%;
+  padding: 8px 10px;
   border: 1px solid rgba(64, 52, 32, .42);
   border-radius: 2px;
   background: rgba(246, 239, 215, .94);
   box-shadow: 0 3px 10px rgba(60, 45, 20, .16);
+  pointer-events: auto;
   user-select: none;
 }
 
 .hud strong {
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: .02em;
   text-transform: uppercase;
 }
@@ -40,13 +178,28 @@ canvas { display: block; }
   font-size: 10px;
   opacity: .82;
 }
-#telemetry {
-  color: #7f231e;
+#status {
+  font-size: 22px;
+  font-weight: 700;
+  opacity: .96;
 }
-.hud-buttons {
+.speed-row,
+.transport-row,
+.action-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 5px;
+  gap: 6px;
+}
+
+.speed-row {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.transport-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) minmax(0, 1fr);
+}
+
+.action-row {
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
 }
 
 .hud button {
@@ -54,32 +207,32 @@ canvas { display: block; }
   background: #fff7dc;
   color: #2c2923;
   border-radius: 2px;
-  min-height: 25px;
-  padding: 3px 5px;
+  min-height: 31px;
+  min-width: 0;
+  padding: 4px 4px;
   cursor: pointer;
-  font: inherit;
+  font: 700 15px/1.1 Georgia, "Times New Roman", serif;
   width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
-.hud button#pause,
-.hud button#reset {
-  grid-column: span 2;
-}
 .hud button.active { background: #2f2b24; color: #fff7dc; }
 .hud button:hover { filter: brightness(.97); }
+.hud button:disabled {
+  cursor: default;
+  opacity: .45;
+}
 
 .legend {
-  position: fixed;
-  right: var(--side-panel-right);
-  top: 184px;
-  z-index: 10;
-  width: var(--side-panel-width);
+  width: 100%;
   padding: 7px 9px;
   border-radius: 2px;
   background: rgba(246, 239, 215, .90);
   border: 1px solid rgba(64, 52, 32, .32);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.45;
+  pointer-events: auto;
   user-select: none;
 }
 
@@ -87,30 +240,56 @@ canvas { display: block; }
   padding-bottom: 7px;
 }
 
-.probe-panel {
-  position: fixed;
-  right: var(--side-panel-right);
-  top: 224px;
-  z-index: 10;
-  width: var(--side-panel-width);
+.probe-panel,
+.diagnostics-panel {
+  width: 100%;
   padding: 8px 10px;
   border-radius: 2px;
   background: rgba(246, 239, 215, .93);
   border: 1px solid rgba(64, 52, 32, .32);
   font-size: 10px;
   line-height: 1.35;
-  max-height: calc(100vh - 236px);
+  min-height: 0;
+  pointer-events: auto;
   overflow: auto;
 }
 
-.probe-panel b {
+@media (max-width: 860px) {
+  #app {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .side-panel {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+    max-height: min(38vh, 300px);
+    overflow: auto;
+  }
+
+  .hud,
+  .legend,
+  .probe-panel,
+  .diagnostics-panel {
+    min-width: 0;
+  }
+}
+
+.diagnostics-panel {
+  max-height: min(330px, 42vh);
+}
+
+.probe-panel b,
+.diagnostics-panel b {
   display: block;
   margin-bottom: 6px;
   font-size: 11px;
   letter-spacing: .03em;
 }
 
-.probe-empty {
+.probe-empty,
+.diagnostics-empty {
   opacity: .62;
 }
 
@@ -156,15 +335,47 @@ canvas { display: block; }
   text-align: right;
 }
 
+.diagnostics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font: 9px/1.25 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.diagnostics-table th,
+.diagnostics-table td {
+  padding: 2px 3px;
+  border-top: 1px solid rgba(64, 52, 32, .12);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.diagnostics-table th:first-child {
+  max-width: 58px;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+}
+
+.diagnostics-table thead th {
+  color: rgba(47, 43, 36, .68);
+  font-weight: 700;
+}
+
+.diagnostics-table tbody th {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 10px;
+  color: #2f2b24;
+}
+
+.diagnostics-table tr.weak th,
+.diagnostics-table tr.weak td {
+  color: #b12620;
+  background: rgba(177, 38, 32, .08);
+}
+
 @media (max-height: 720px) {
   .legend {
-    top: 176px;
     font-size: 10px;
-  }
-
-  .probe-panel {
-    top: 216px;
-    max-height: calc(100vh - 226px);
   }
 }
 
@@ -279,14 +490,15 @@ canvas { display: block; }
   transform: skewX(-18deg);
 }
 
-.mountain-mark::before {
-  content: "^^^";
+.forest-mark::before {
+  content: "";
   position: absolute;
   left: 2px;
-  top: -2px;
-  color: rgba(78, 72, 60, .74);
-  font: 700 13px/1 Georgia, "Times New Roman", serif;
-  letter-spacing: 2px;
+  right: 2px;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 45% 55% 48% 52%;
+  background: rgba(87, 145, 69, .42);
 }
 
 .stress-mark::before {
@@ -305,6 +517,8 @@ canvas { display: block; }
   margin-top: 7px;
   padding-top: 5px;
   border-top: 1px solid rgba(64, 52, 32, .20);
-  font-size: 10px;
+  font-size: 11px;
+  line-height: 1.35;
   opacity: .72;
+  overflow-wrap: anywhere;
 }

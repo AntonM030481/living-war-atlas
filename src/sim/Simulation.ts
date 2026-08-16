@@ -1,5 +1,5 @@
 import { CFG, type Side } from './Config';
-import type { City, MapDefinition, SimulationSnapshot, SimulationStats } from './types';
+import type { City, MapDefinition, SimulationSnapshot, SimulationState, SimulationStats } from './types';
 
 const EPS = 1e-6;
 
@@ -217,6 +217,81 @@ export class Simulation {
     };
   }
 
+  saveState(): SimulationState {
+    return {
+      width: this.width,
+      height: this.height,
+      step: this.stepCount,
+      gameTime: this.time,
+      control: this.control.slice(),
+      warBlue: this.warBlue.slice(),
+      warRed: this.warRed.slice(),
+      committedBlue: this.committedBlue.slice(),
+      committedRed: this.committedRed.slice(),
+      instabilityBlue: this.instabilityBlue.slice(),
+      instabilityRed: this.instabilityRed.slice(),
+      potentialBlue: this.potentialBlue.slice(),
+      potentialRed: this.potentialRed.slice(),
+      collapseBlue: this.collapseBlue.slice(),
+      collapseRed: this.collapseRed.slice(),
+      cities: this.cities.map((c) => ({ ...c })),
+    };
+  }
+
+  restoreState(state: SimulationState): void {
+    if (state.width !== this.width || state.height !== this.height) {
+      throw new Error('Cannot restore simulation state with different map dimensions');
+    }
+
+    this.stepCount = state.step;
+    this.time = state.gameTime;
+    this.cities.splice(0, this.cities.length, ...state.cities.map((c) => ({ ...c })));
+    this.control.set(state.control);
+    this.warBlue.set(state.warBlue);
+    this.warRed.set(state.warRed);
+    this.committedBlue.set(state.committedBlue);
+    this.committedRed.set(state.committedRed);
+    this.instabilityBlue.set(state.instabilityBlue);
+    this.instabilityRed.set(state.instabilityRed);
+    this.potentialBlue.set(state.potentialBlue);
+    this.potentialRed.set(state.potentialRed);
+    this.collapseBlue.set(state.collapseBlue);
+    this.collapseRed.set(state.collapseRed);
+    this.clearDerivedFields();
+  }
+
+  private clearDerivedFields(): void {
+    this.flowBlueX.fill(0);
+    this.flowBlueY.fill(0);
+    this.flowRedX.fill(0);
+    this.flowRedY.fill(0);
+    this.needBlue.fill(0);
+    this.needRed.fill(0);
+    this.forcing.fill(0);
+    this.massBlue.fill(0);
+    this.massRed.fill(0);
+    this.commitmentTargetBlue.fill(0);
+    this.commitmentTargetRed.fill(0);
+    this.availableMassBlue.fill(0);
+    this.availableMassRed.fill(0);
+    this.incomingBlue.fill(0);
+    this.incomingRed.fill(0);
+    this.frontConsumption.fill(0);
+    this.deltaBlue.fill(0);
+    this.deltaRed.fill(0);
+    this.drainBlue.fill(0);
+    this.drainRed.fill(0);
+    this.advanceBlueDebug.fill(0);
+    this.advanceRedDebug.fill(0);
+    this.stressBlueDebug.fill(0);
+    this.stressRedDebug.fill(0);
+    this.rawForcingDebug.fill(0);
+    this.pressureDebug.fill(0);
+    this.tmpControl.fill(0);
+    this.tmpPotentialA.fill(0);
+    this.tmpPotentialB.fill(0);
+  }
+
   private computeStats(): SimulationStats {
     let frontCells = 0;
     let maxInstabilityBlue = 0;
@@ -242,9 +317,21 @@ export class Simulation {
 
     let blueCities = 0;
     let redCities = 0;
+    let activeCityPointsBlue = 0;
+    let activeCityPointsRed = 0;
+    let controlledCityPointsBlue = 0;
+    let controlledCityPointsRed = 0;
     for (const city of this.cities) {
-      if (city.owner === 'blue') blueCities += 1;
-      else redCities += 1;
+      const activePoints = city.enabled === false ? 0 : city.baseProduction * city.integration;
+      if (city.owner === 'blue') {
+        blueCities += 1;
+        controlledCityPointsBlue += city.baseProduction;
+        activeCityPointsBlue += activePoints;
+      } else {
+        redCities += 1;
+        controlledCityPointsRed += city.baseProduction;
+        activeCityPointsRed += activePoints;
+      }
     }
 
     return {
@@ -259,6 +346,10 @@ export class Simulation {
       activeFlowRed,
       blueCities,
       redCities,
+      activeCityPointsBlue,
+      activeCityPointsRed,
+      controlledCityPointsBlue,
+      controlledCityPointsRed,
     };
   }
 
@@ -295,12 +386,12 @@ export class Simulation {
           this.terrainCapacity[i] *= 1 - 0.40 * strength;
         }
 
-        for (const mountain of this.map.mountains) {
-          const dx = x - mountain.x;
-          const dy = y - mountain.y;
+        for (const forest of this.map.forests) {
+          const dx = x - forest.x;
+          const dy = y - forest.y;
           const d = Math.hypot(dx, dy);
-          if (d < mountain.r) {
-            const strength = 1 - d / mountain.r;
+          if (d < forest.r) {
+            const strength = 1 - d / forest.r;
             this.terrainDefense[i] *= 1 + 0.55 * strength;
             this.terrainMobility[i] *= 1 - 0.70 * strength;
             this.terrainCapacity[i] *= 1 - 0.58 * strength;
@@ -346,18 +437,26 @@ export class Simulation {
 
   private isFront(i: number): boolean {
     const c = this.control[i];
+    const x = i % this.width;
+    const y = Math.floor(i / this.width);
+    if (!this.isFrontEligible(x, y)) return false;
+
     if (Math.abs(c) <= CFG.frontBand) return true;
 
     // A contour usually runs between grid cells. Mark both cells touching a
     // sign-changing edge as frontline cells so transport/combat do not depend
     // on which side of the zero contour happens to contain the nearest cell.
-    const x = i % this.width;
-    const y = Math.floor(i / this.width);
     if (x > 0 && c * this.control[i - 1] <= 0) return true;
     if (x + 1 < this.width && c * this.control[i + 1] <= 0) return true;
     if (y > 0 && c * this.control[i - this.width] <= 0) return true;
     if (y + 1 < this.height && c * this.control[i + this.width] <= 0) return true;
     return false;
+  }
+
+  private isFrontEligible(x: number, y: number): boolean {
+    const px = this.width > CFG.frontBoundaryPadding * 2 + 1 ? CFG.frontBoundaryPadding : 0;
+    const py = this.height > CFG.frontBoundaryPadding * 2 + 1 ? CFG.frontBoundaryPadding : 0;
+    return x >= px && y >= py && x < this.width - px && y < this.height - py;
   }
 
   private edgeFactor(x: number, y: number, dx: number, dy: number): number {

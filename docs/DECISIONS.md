@@ -32,7 +32,7 @@ Reason: that would preserve a tactical AI layer whose locally suboptimal decisio
 Reason: simplest implementation for local continuous fields, connectivity, and encirclement while avoiding visible hex/grid gameplay.
 
 ### D006 — Terrain in MVP
-**Decision:** Include rivers and mountains in M0/MVP.
+**Decision:** Include rivers and forests in M0/MVP.
 
 Terrain should affect transport / movement geometrically, with smaller direct defence modifiers.
 
@@ -207,9 +207,9 @@ It should perturb near-critical systems, not dominate outcomes.
 Reason: continuous time makes autonomous local behavior feel natural and prevents turn-by-turn perfectionism.
 
 ### D036 — Speeds
-**Decision:** Player-facing speeds are `1× / 2× / 4×`.
+**Decision:** Player-facing speeds are `1× / 2× / 4× / 8× / 16×`.
 
-A debug pause exists, but gameplay commands are disabled while paused.
+Pause exists as a normal runtime control.
 
 ---
 

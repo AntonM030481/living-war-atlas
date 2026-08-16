@@ -742,17 +742,33 @@ Simulation Worker
 
 ## 32. Rendering
 
+Current implementation entrypoints:
+
+- `src/main.ts` owns the browser UI / DOM overlay: HUD, legend, front probe panel, city point badges, city production markers, city name labels, and the optional city diagnostics panel.
+- `src/style.css` owns the styling for that DOM overlay, including `.city-power-label`, `.city-name-label`, `.city-points-badge`, `.legend`, `.probe-panel`, and `.diagnostics-panel`.
+- `src/rendering/AtlasRenderer.ts` owns the PixiJS canvas map: terrain, grid, prewar border, territory tint, resource density, resource-flow arrows, front contour, instability marks, and front probe marker.
+- `src/map/testMap.ts` owns authored map data: dimensions, cities, forests, initial front, and river curve.
+- `src/sim/Simulation.ts` and `src/sim/types.ts` own simulation state and snapshot fields. Rendering and DOM overlays should only consume snapshots, not mutate simulation state.
+
+Do not duplicate the same visual object in both PixiJS and DOM. City markers are currently DOM-only: the visible city circle with production number and the city name label are created in `src/main.ts` and styled in `src/style.css`. PixiJS city rings / reserve circles should not be reintroduced unless the HTML city overlay is removed at the same time.
+
 ### Terrain
 
-Static map layer.
+Static map layer in `AtlasRenderer.drawTerrain()`.
+
+Terrain includes:
+
+- paper background and grid texture;
+- authored forests as simple green irregular patches;
+- authored river as a smooth blue line.
 
 ### Territory
 
-Subtle side tint.
+Subtle side tint in `AtlasRenderer.drawTerritory()`.
 
 ### Front
 
-Extract `control = 0` contour.
+Extract `control = 0` contour in `AtlasRenderer.drawFront()`.
 
 The front should look like a military-atlas line, not a raw numerical-field edge.
 
@@ -760,7 +776,7 @@ Front thickness may reflect derived local mass, but avoid white halos or grid-li
 
 ### Flows
 
-Visualize resource transport as coherent directional flows from cities toward front sectors.
+Visualize resource transport as coherent directional flows from cities toward front sectors in `AtlasRenderer.drawFlows()`.
 
 Avoid random short dashes scattered uniformly over territory.
 
@@ -775,26 +791,48 @@ Flow should make it possible to understand:
 
 Render broad military-atlas-style arrows.
 
+### DOM overlay
+
+DOM overlay elements are positioned from world coordinates through `AtlasRenderer.worldToScreen()` and `AtlasRenderer.mapScreenRect()`.
+
+Current DOM overlay responsibilities:
+
+- top corner city point totals: `.city-points-badge`;
+- city production circles: `.city-power-label`;
+- city names: `.city-name-label`;
+- HUD controls and speed / rewind buttons;
+- map legend;
+- front probe table;
+- optional city diagnostics table.
+
+City click detection remains in `AtlasRenderer.cityIdAtClientPoint()` so the DOM labels can keep `pointer-events: none`.
+
+City labels are hidden when the city cell is not firmly controlled by its owner. The front is the primary map object, so a contested city marker must not sit visibly on top of the front contour.
+
 ---
 
 ## 33. Debug views
 
-Suggested debug overlays:
+Current debug / diagnostic behavior:
 
 ```text
-1 — control
-2 — War Resource
-3 — instability
-4 — potential
-5 — flow vectors
-6 — capacity utilization
-7 — terrain mobility
-8 — operation influence
-F3 — combined debug overlay
-SPACE — debug pause
+Resource density + instability/stress overlay — always visible in the current prototype
+Front probe — click the front line
+Diag button / F3 — optional city diagnostics panel
+SPACE — pause / resume
+Left / Right arrows — rewind / advance saved history by one 5-second checkpoint
+Up / Down arrows — change speed
 ```
 
-While debug-paused, gameplay orders are disabled.
+The `Diag` panel is intentionally off by default because it adds per-city local checks every rendered snapshot. When enabled, it is built in `src/main.ts` from the latest `SimulationSnapshot` and shows:
+
+- city production;
+- own-side War Resource at the city cell;
+- local own-side War Resource around the city;
+- own-side flow magnitude at the city cell;
+- local own-side flow around the city.
+
+Use this panel when checking whether a distant city is actually participating in the resource system. It is a runtime diagnostic view, not an authoritative simulation input.
 
 ---
 
@@ -888,7 +926,7 @@ After the core behavior is credible, add:
 - polished flows;
 - polished front rendering;
 - military-atlas arrows;
-- `1× / 2× / 4×`.
+- `1× / 2× / 4× / 8× / 16×`.
 
 Only then evaluate whether the result is becoming a game rather than merely an attractive simulation.
 

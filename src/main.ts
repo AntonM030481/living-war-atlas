@@ -2,86 +2,157 @@ import './style.css';
 import { Application } from 'pixi.js';
 import { AtlasRenderer, type FrontDebugInfo } from './rendering/AtlasRenderer';
 import { testMap } from './map/testMap';
-import type { SimulationSnapshot, WorkerInMessage, WorkerOutMessage } from './sim/types';
+import type { HistoryInfo, SimulationSnapshot, WorkerInMessage, WorkerOutMessage } from './sim/types';
 import { SPEEDS, type Speed } from './sim/Config';
 
 const root = document.querySelector<HTMLDivElement>('#app');
 if (!root) throw new Error('Missing #app');
 
+const mapStage = document.createElement('div');
+mapStage.className = 'map-stage';
+root.appendChild(mapStage);
+
 const app = new Application();
 await app.init({
-  resizeTo: window,
+  resizeTo: mapStage,
   backgroundColor: 0xd9cfb4,
   antialias: true,
   preference: 'webgl',
   resolution: Math.min(window.devicePixelRatio, 2),
   autoDensity: true,
 });
-root.appendChild(app.canvas);
+mapStage.appendChild(app.canvas);
 
 const renderer = new AtlasRenderer(app, testMap);
 const worker = new Worker(new URL('./worker/simulation.worker.ts', import.meta.url), {
   type: 'module',
 });
 
+function resizeMapStage(): void {
+  const { width, height } = mapStage.getBoundingClientRect();
+  app.renderer.resize(Math.max(1, Math.round(width)), Math.max(1, Math.round(height)));
+  renderer.resize();
+  if (latestSnapshot) updateMapOverlays(latestSnapshot);
+}
+
+const bluePointsBadge = document.createElement('div');
+bluePointsBadge.className = 'city-points-badge blue';
+bluePointsBadge.textContent = 'Blue --/--';
+document.body.appendChild(bluePointsBadge);
+
+const redPointsBadge = document.createElement('div');
+redPointsBadge.className = 'city-points-badge red';
+redPointsBadge.textContent = 'Red --/--';
+document.body.appendChild(redPointsBadge);
+
+const cityPowerLabels = new Map<string, HTMLDivElement>();
+const cityNameLabels = new Map<string, HTMLDivElement>();
+for (const city of testMap.cities) {
+  const label = document.createElement('div');
+  label.className = `city-power-label ${city.owner}`;
+  label.textContent = `${city.baseProduction}`;
+  label.title = `${city.name}: ${city.baseProduction} production points`;
+  document.body.appendChild(label);
+  cityPowerLabels.set(city.id, label);
+
+  const nameLabel = document.createElement('div');
+  nameLabel.className = `city-name-label ${city.owner}`;
+  nameLabel.textContent = city.name;
+  nameLabel.title = `${city.name}: ${city.baseProduction} production points`;
+  document.body.appendChild(nameLabel);
+  cityNameLabels.set(city.id, nameLabel);
+}
+
 let currentSeed = 20260816;
-let speed: Speed = SPEEDS[0];
+let speed: Speed = 4;
 let paused = false;
-let debug = true;
+let diagnosticsEnabled = false;
 const speedButtons = SPEEDS.map((value) =>
-  `<button data-speed="${value}" class="${value === speed ? 'active' : ''}">${value}×</button>`,
+  `<button data-speed="${value}" class="${value === speed ? 'active' : ''}" title="Set simulation speed to ${value}×">${value}×</button>`,
 ).join('');
+
+const sidePanel = document.createElement('div');
+sidePanel.className = 'side-panel';
+root.appendChild(sidePanel);
 
 const hud = document.createElement('div');
 hud.className = 'hud';
 hud.innerHTML = `
-  <strong>Living War Atlas · M0</strong>
+  <strong>Living War Atlas</strong>
   <span id="status">warming up…</span>
-  <span id="telemetry">front -- · stress --</span>
-  <div class="hud-buttons">
+  <span id="history-status">history --/--</span>
+  <div class="speed-row">
     ${speedButtons}
-    <button id="pause">Pause</button>
-    <button id="debug" class="active">Debug</button>
-    <button id="reset">New seed</button>
+  </div>
+  <div class="transport-row">
+    <button id="history-back" disabled title="Back 5 seconds">-5s</button>
+    <button id="pause" title="Pause or resume simulation">Pause</button>
+    <button id="history-forward" disabled title="Forward 5 seconds">+5s</button>
+  </div>
+  <div class="action-row">
+    <button id="reset" title="Start a new game with a new seed">New game</button>
+    <button id="debug" title="Show city resource diagnostics">Diag</button>
   </div>
 `;
-document.body.appendChild(hud);
+sidePanel.appendChild(hud);
 
 const legend = document.createElement('details');
 legend.className = 'legend';
+legend.open = true;
 legend.innerHTML = `
-  <summary>УСЛОВНЫЕ ОБОЗНАЧЕНИЯ</summary>
+  <summary>MAP LEGEND</summary>
   <div class="legend-grid">
-    <span class="legend-mark front-line"></span><span>линия фронта</span>
-    <span class="legend-mark old-border"></span><span>довоенная граница</span>
-    <span class="legend-mark blue-flow"></span><span>ресурс синих</span>
-    <span class="legend-mark red-flow"></span><span>ресурс красных</span>
-    <span class="legend-mark blue-city"></span><span>город синих</span>
-    <span class="legend-mark red-city"></span><span>город красных</span>
-    <span class="legend-mark river-mark"></span><span>река</span>
-    <span class="legend-mark mountain-mark"></span><span>трудная местность</span>
-    <span class="legend-mark stress-mark"></span><span>нестабильность</span>
+    <span class="legend-mark front-line"></span><span>front line</span>
+    <span class="legend-mark old-border"></span><span>prewar border</span>
+    <span class="legend-mark blue-flow"></span><span>Blue resource flow</span>
+    <span class="legend-mark red-flow"></span><span>Red resource flow</span>
+    <span class="legend-mark blue-city"></span><span>Blue city</span>
+    <span class="legend-mark red-city"></span><span>Red city</span>
+    <span class="legend-mark river-mark"></span><span>river</span>
+    <span class="legend-mark forest-mark"></span><span>forest</span>
+    <span class="legend-mark stress-mark"></span><span>front instability</span>
   </div>
-  <div class="legend-note">Click city: resource on/off<br>Debug: resource density + stress<br>Space: pause</div>
+  <div class="legend-note">City click: production on/off<br>Base overlay: resource + stress<br>Diag / F3: city checks<br>Space: pause · ←/→: rewind · ↑/↓: speed</div>
 `;
-document.body.appendChild(legend);
+sidePanel.appendChild(legend);
 
 const probePanel = document.createElement('div');
 probePanel.className = 'probe-panel';
 probePanel.innerHTML = `
-  <b>ТОЧКА ФРОНТА</b>
-  <div id="probe-content" class="probe-empty">клик по линии фронта</div>
+  <b>FRONT PROBE</b>
+  <div id="probe-content" class="probe-empty">click the front line</div>
 `;
-document.body.appendChild(probePanel);
+sidePanel.appendChild(probePanel);
+
+const diagnosticsPanel = document.createElement('div');
+diagnosticsPanel.className = 'diagnostics-panel';
+diagnosticsPanel.hidden = true;
+diagnosticsPanel.innerHTML = `
+  <b>CITY DIAGNOSTICS</b>
+  <div id="diagnostics-content" class="diagnostics-empty">off</div>
+`;
+sidePanel.appendChild(diagnosticsPanel);
 
 const status = hud.querySelector<HTMLSpanElement>('#status')!;
-const telemetry = hud.querySelector<HTMLSpanElement>('#telemetry')!;
+const historyStatus = hud.querySelector<HTMLSpanElement>('#history-status')!;
 const pauseButton = hud.querySelector<HTMLButtonElement>('#pause')!;
 const debugButton = hud.querySelector<HTMLButtonElement>('#debug')!;
+const historyBackButton = hud.querySelector<HTMLButtonElement>('#history-back')!;
+const historyForwardButton = hud.querySelector<HTMLButtonElement>('#history-forward')!;
 const probeContent = probePanel.querySelector<HTMLDivElement>('#probe-content')!;
-renderer.setDebug(debug);
+const diagnosticsContent = diagnosticsPanel.querySelector<HTMLDivElement>('#diagnostics-content')!;
+renderer.setDebug(true);
 let latestSnapshot: SimulationSnapshot | null = null;
 let selectedProbe: FrontDebugInfo | null = null;
+let latestHistory: HistoryInfo | null = null;
+
+new ResizeObserver(resizeMapStage).observe(mapStage);
+resizeMapStage();
+
+window.addEventListener('resize', () => {
+  resizeMapStage();
+  if (latestSnapshot) updateMapOverlays(latestSnapshot);
+});
 
 function send(message: WorkerInMessage): void {
   worker.postMessage(message);
@@ -102,24 +173,118 @@ function setSpeed(next: Speed): void {
 function setPaused(next: boolean): void {
   paused = next;
   pauseButton.textContent = paused ? 'Resume' : 'Pause';
+  pauseButton.title = paused ? 'Resume simulation' : 'Pause simulation';
   pauseButton.classList.toggle('active', paused);
   send({ type: 'pause', paused });
 }
 
-function setDebug(next: boolean): void {
-  debug = next;
-  renderer.setDebug(debug);
-  debugButton.classList.toggle('active', debug);
+function setDiagnostics(next: boolean): void {
+  diagnosticsEnabled = next;
+  diagnosticsPanel.hidden = !diagnosticsEnabled;
+  debugButton.textContent = diagnosticsEnabled ? 'Diag on' : 'Diag';
+  debugButton.title = diagnosticsEnabled
+    ? 'Hide city resource diagnostics'
+    : 'Show city resource diagnostics';
+  debugButton.classList.toggle('active', diagnosticsEnabled);
+  renderDiagnostics(diagnosticsEnabled ? latestSnapshot : null);
+}
+
+function updateHistoryControls(history: HistoryInfo): void {
+  latestHistory = history;
+  historyBackButton.disabled = !history.canRewind;
+  historyForwardButton.disabled = !history.canForward;
+  historyStatus.textContent =
+    history.length > 0
+      ? `history ${history.currentIndex + 1}/${history.length}`
+      : 'history --/--';
+  historyBackButton.title =
+    history.length > 0
+      ? `Back ${history.intervalSeconds}s (${history.currentIndex + 1}/${history.length})`
+      : 'No saved states yet';
+  historyForwardButton.title =
+    history.length > 0
+      ? `Forward ${history.intervalSeconds}s (${history.currentIndex + 1}/${history.length})`
+      : 'No saved states yet';
+}
+
+function stepHistory(delta: -1 | 1): void {
+  if (latestHistory && ((delta < 0 && !latestHistory.canRewind) || (delta > 0 && !latestHistory.canForward))) {
+    return;
+  }
+  setPaused(true);
+  send({ type: 'historyStep', delta });
+}
+
+function stepSpeed(delta: -1 | 1): void {
+  const index = SPEEDS.indexOf(speed);
+  const nextIndex = Math.max(0, Math.min(SPEEDS.length - 1, index + delta));
+  setSpeed(SPEEDS[nextIndex]);
 }
 
 function fmt(value: number): string {
   return value.toFixed(Math.abs(value) >= 10 ? 1 : 3);
 }
 
+function fmtDiag(value: number): string {
+  return value.toFixed(Math.abs(value) >= 10 ? 1 : 2);
+}
+
+function formatPoints(value: number): string {
+  return Number.isInteger(value) ? `${value}` : value.toFixed(1);
+}
+
+function updateMapOverlays(snapshot: SimulationSnapshot): void {
+  updateCityPointBadges(snapshot);
+  updateCityPowerLabels(snapshot);
+  if (diagnosticsEnabled) renderDiagnostics(snapshot);
+}
+
+function updateCityPointBadges(snapshot: SimulationSnapshot): void {
+  const s = snapshot.stats;
+  const rect = renderer.mapScreenRect();
+  bluePointsBadge.textContent =
+    `Blue ${formatPoints(s.activeCityPointsBlue)}/${formatPoints(s.controlledCityPointsBlue)}`;
+  redPointsBadge.textContent =
+    `Red ${formatPoints(s.activeCityPointsRed)}/${formatPoints(s.controlledCityPointsRed)}`;
+  bluePointsBadge.style.left = `${rect.left + 10}px`;
+  bluePointsBadge.style.top = `${rect.top + 10}px`;
+  redPointsBadge.style.left = `${rect.left + rect.width - redPointsBadge.offsetWidth - 10}px`;
+  redPointsBadge.style.right = 'auto';
+  redPointsBadge.style.top = `${rect.top + 10}px`;
+}
+
+function updateCityPowerLabels(snapshot: SimulationSnapshot): void {
+  for (const city of snapshot.cities) {
+    const label = cityPowerLabels.get(city.id);
+    const nameLabel = cityNameLabels.get(city.id);
+    if (!label || !nameLabel) continue;
+    const point = renderer.worldToScreen({ x: city.x, y: city.y });
+    const control = snapshot.control[city.y * snapshot.width + city.x];
+    const ownerControl = city.owner === 'blue' ? control : -control;
+    const contested = ownerControl < 0.72;
+
+    label.hidden = contested;
+    nameLabel.hidden = contested;
+    label.textContent = `${city.baseProduction}`;
+    label.title = `${city.name}: ${city.baseProduction} production points`;
+    label.className =
+      `city-power-label ${city.owner} power-${city.baseProduction}${city.enabled === false ? ' disabled' : ''}`;
+    label.style.left = `${point.x}px`;
+    label.style.top = `${point.y}px`;
+
+    nameLabel.textContent = city.name;
+    nameLabel.title = `${city.name}: ${city.baseProduction} production points`;
+    nameLabel.className = `city-name-label ${city.owner}${city.enabled === false ? ' disabled' : ''}`;
+    nameLabel.style.left = `${point.x}px`;
+    nameLabel.style.top = `${point.y + 22}px`;
+  }
+}
+
+
 function renderProbe(info: FrontDebugInfo | null): void {
   if (!info) {
     probeContent.className = 'probe-empty';
-    probeContent.textContent = 'клик по линии фронта';
+    probeContent.textContent = 'click the front line';
     return;
   }
 
@@ -129,7 +294,7 @@ function renderProbe(info: FrontDebugInfo | null): void {
     <div class="probe-row"><span>radius</span><b>${info.radius}</b></div>
     <div class="probe-row"><span>avg control</span><b>${fmt(info.control)}</b></div>
     <div class="probe-split">
-      <b></b><b>синие</b><b>красные</b>
+      <b></b><b>Blue</b><b>Red</b>
       <span>avg war</span><code>${fmt(info.warBlue)}</code><code>${fmt(info.warRed)}</code>
       <span>avg mass</span><code>${fmt(info.frontMassBlue)}</code><code>${fmt(info.frontMassRed)}</code>
       <span>avg incoming</span><code>${fmt(info.incomingBlue)}</code><code>${fmt(info.incomingRed)}</code>
@@ -148,6 +313,89 @@ function renderProbe(info: FrontDebugInfo | null): void {
   `;
 }
 
+function localWeightedSum(snapshot: SimulationSnapshot, field: Float32Array, cx: number, cy: number, radius: number): number {
+  let sum = 0;
+  const minY = Math.max(0, Math.floor(cy - radius));
+  const maxY = Math.min(snapshot.height - 1, Math.ceil(cy + radius));
+  const minX = Math.max(0, Math.floor(cx - radius));
+  const maxX = Math.min(snapshot.width - 1, Math.ceil(cx + radius));
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      const dx = x - cx;
+      const dy = y - cy;
+      const d2 = dx * dx + dy * dy;
+      if (d2 > radius * radius) continue;
+      const weight = 1 - Math.sqrt(d2) / radius;
+      sum += field[y * snapshot.width + x] * weight;
+    }
+  }
+  return sum;
+}
+
+function localFlowSum(snapshot: SimulationSnapshot, flowX: Float32Array, flowY: Float32Array, cx: number, cy: number, radius: number): number {
+  let sum = 0;
+  const minY = Math.max(0, Math.floor(cy - radius));
+  const maxY = Math.min(snapshot.height - 1, Math.ceil(cy + radius));
+  const minX = Math.max(0, Math.floor(cx - radius));
+  const maxX = Math.min(snapshot.width - 1, Math.ceil(cx + radius));
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      const dx = x - cx;
+      const dy = y - cy;
+      const d2 = dx * dx + dy * dy;
+      if (d2 > radius * radius) continue;
+      const index = y * snapshot.width + x;
+      const weight = 1 - Math.sqrt(d2) / radius;
+      sum += Math.hypot(flowX[index], flowY[index]) * weight;
+    }
+  }
+  return sum;
+}
+
+function renderDiagnostics(snapshot: SimulationSnapshot | null): void {
+  if (!diagnosticsEnabled) {
+    diagnosticsContent.className = 'diagnostics-empty';
+    diagnosticsContent.textContent = 'off';
+    return;
+  }
+  if (!snapshot) {
+    diagnosticsContent.className = 'diagnostics-empty';
+    diagnosticsContent.textContent = 'waiting for snapshot';
+    return;
+  }
+
+  diagnosticsContent.className = '';
+  const rows = snapshot.cities.map((city) => {
+    const index = city.y * snapshot.width + city.x;
+    const war = city.owner === 'blue' ? snapshot.warBlue : snapshot.warRed;
+    const flowX = city.owner === 'blue' ? snapshot.flowBlueX : snapshot.flowRedX;
+    const flowY = city.owner === 'blue' ? snapshot.flowBlueY : snapshot.flowRedY;
+    const cityWar = war[index];
+    const localWar = localWeightedSum(snapshot, war, city.x, city.y, 5);
+    const cityFlow = Math.hypot(flowX[index], flowY[index]);
+    const localFlow = localFlowSum(snapshot, flowX, flowY, city.x, city.y, 5);
+    const production = city.enabled === false ? 0 : city.baseProduction * city.integration;
+    const weak = production > 0 && localWar < 0.5 && localFlow < 0.05;
+    return `
+      <tr class="${weak ? 'weak' : ''}">
+        <th>${city.name}</th>
+        <td>${fmtDiag(production)}</td>
+        <td>${fmtDiag(cityWar)} / ${fmtDiag(localWar)}</td>
+        <td>${fmtDiag(cityFlow)} / ${fmtDiag(localFlow)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  diagnosticsContent.innerHTML = `
+    <table class="diagnostics-table">
+      <thead>
+        <tr><th>city</th><th>prod</th><th>war cell/local</th><th>flow cell/local</th></tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
 hud.querySelectorAll<HTMLButtonElement>('[data-speed]').forEach((button) => {
   button.addEventListener('click', () => {
     const next = Number(button.dataset.speed);
@@ -155,10 +403,15 @@ hud.querySelectorAll<HTMLButtonElement>('[data-speed]').forEach((button) => {
   });
 });
 pauseButton.addEventListener('click', () => setPaused(!paused));
-debugButton.addEventListener('click', () => setDebug(!debug));
+debugButton.addEventListener('click', () => setDiagnostics(!diagnosticsEnabled));
+historyBackButton.addEventListener('click', () => stepHistory(-1));
+historyForwardButton.addEventListener('click', () => stepHistory(1));
 hud.querySelector<HTMLButtonElement>('#reset')!.addEventListener('click', () => {
+  setPaused(true);
+  const confirmed = window.confirm('Start a new game? This clears the current rewind history.');
+  if (!confirmed) return;
   currentSeed = (currentSeed + 104729) >>> 0;
-  status.textContent = `seed ${currentSeed} · warming up…`;
+  status.textContent = `seed ${currentSeed} · starting…`;
   send({ type: 'reset', seed: currentSeed });
 });
 app.canvas.addEventListener('click', (event) => {
@@ -181,33 +434,55 @@ window.addEventListener('keydown', (event) => {
   }
   if (event.key === 'F3') {
     event.preventDefault();
-    setDebug(!debug);
+    setDiagnostics(!diagnosticsEnabled);
+  }
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault();
+    stepHistory(-1);
+  }
+  if (event.key === 'ArrowRight') {
+    event.preventDefault();
+    stepHistory(1);
+  }
+  if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    stepSpeed(1);
+  }
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    stepSpeed(-1);
+  }
+  if (event.key === '[') {
+    event.preventDefault();
+    stepHistory(-1);
+  }
+  if (event.key === ']') {
+    event.preventDefault();
+    stepHistory(1);
   }
 });
 
 worker.onmessage = (event: MessageEvent<WorkerOutMessage>) => {
   const message = event.data;
   if (message.type === 'ready') {
+    currentSeed = message.seed;
     status.textContent = `seed ${message.seed} · ready`;
     return;
   }
   if (message.type === 'snapshot') {
     latestSnapshot = message.snapshot;
+    updateHistoryControls(message.history);
     renderer.render(message.snapshot);
+    updateMapOverlays(message.snapshot);
     if (selectedProbe) {
       selectedProbe = renderer.inspectFrontAtWorldPoint(message.snapshot, selectedProbe);
       renderProbe(selectedProbe);
     }
     const minutes = Math.floor(message.snapshot.gameTime / 60);
     const seconds = Math.floor(message.snapshot.gameTime % 60).toString().padStart(2, '0');
-    const stats = message.snapshot.stats;
-    const maxInstability = Math.max(stats.maxInstabilityBlue, stats.maxInstabilityRed);
-    const collapseCells = stats.collapseBlueCells + stats.collapseRedCells;
-    const totalWar = Math.round(stats.totalWarBlue + stats.totalWarRed);
-    const totalFlow = Math.round(stats.activeFlowBlue + stats.activeFlowRed);
-    status.textContent = `seed ${currentSeed} · ${minutes}:${seconds} · ${speed}×`;
-    telemetry.textContent = `front ${stats.frontCells} · stress ${maxInstability.toFixed(2)} · collapse ${collapseCells} · war ${totalWar} · flow ${totalFlow}`;
+    status.textContent = `${minutes}:${seconds}`;
   }
 };
 
 send({ type: 'start', seed: currentSeed });
+send({ type: 'speed', speed });

@@ -1,5 +1,6 @@
 import { Application, Container, Graphics } from 'pixi.js';
 import type { SimulationSnapshot, MapDefinition, City } from '../sim/types';
+import { CFG } from '../sim/Config';
 
 const BLUE = 0x4f769d;
 const BLUE_DARK = 0x164f91;
@@ -18,6 +19,10 @@ interface FrontSample extends Point {
   ny: number;
   blueWidth: number;
   redWidth: number;
+}
+interface FrontSegment {
+  a: FrontSample;
+  b: FrontSample;
 }
 interface FlowTrace {
   points: Point[];
@@ -68,7 +73,6 @@ export class AtlasRenderer {
   private readonly flows = new Graphics();
   private readonly front = new Graphics();
   private readonly instability = new Graphics();
-  private readonly cities = new Graphics();
   private readonly probe = new Graphics();
   private debug = false;
   private selectedFrontIndex: number | null = null;
@@ -86,7 +90,6 @@ export class AtlasRenderer {
       this.flows,
       this.front,
       this.instability,
-      this.cities,
       this.probe,
     );
     this.app.stage.addChild(this.world);
@@ -106,6 +109,28 @@ export class AtlasRenderer {
   toggleDebug(): boolean {
     this.setDebug(!this.debug);
     return this.debug;
+  }
+
+  mapScreenRect(): { left: number; top: number; width: number; height: number } {
+    const canvasRect = this.app.canvas.getBoundingClientRect();
+    return {
+      left: canvasRect.left + this.world.x,
+      top: canvasRect.top + this.world.y,
+      width: this.map.width * this.world.scale.x,
+      height: this.map.height * this.world.scale.y,
+    };
+  }
+
+  resize(): void {
+    this.fit();
+  }
+
+  worldToScreen(point: Point): Point {
+    const canvasRect = this.app.canvas.getBoundingClientRect();
+    return {
+      x: canvasRect.left + this.world.x + point.x * this.world.scale.x,
+      y: canvasRect.top + this.world.y + point.y * this.world.scale.y,
+    };
   }
 
   cityIdAtClientPoint(clientX: number, clientY: number): string | null {
@@ -203,15 +228,13 @@ export class AtlasRenderer {
     else this.resourceDensity.clear();
     this.drawFlows(snapshot);
     this.drawFront(snapshot);
-    this.drawCities(snapshot);
     if (this.debug) this.drawInstability(snapshot);
     this.drawProbe(snapshot);
   }
 
   private fit(): void {
-    const margin = 18;
-    const rightPanelWidth = 254;
-    const availableWidth = Math.max(240, this.app.screen.width - rightPanelWidth);
+    const margin = 0;
+    const availableWidth = Math.max(240, this.app.screen.width);
     const sx = (availableWidth - margin * 2) / this.map.width;
     const sy = (this.app.screen.height - margin * 2) / this.map.height;
     const scale = Math.max(0.1, Math.min(sx, sy));
@@ -236,23 +259,26 @@ export class AtlasRenderer {
     }
     g.stroke({ color: 0xb8a77d, width: 0.04, alpha: 0.06 });
 
-    for (const m of this.map.mountains) {
-      for (let row = -5; row <= 5; row++) {
-        const yy = m.y + row * (m.r / 6.2);
-        const inside = Math.max(0, 1 - (row / 5.8) ** 2);
-        const half = m.r * 0.72 * Math.sqrt(inside);
-        if (half < 0.5) continue;
-        const segments = Math.max(2, Math.round(half / 1.75));
-        for (let s = 0; s < segments; s++) {
-          const x = m.x - half + ((s + 0.5) / segments) * half * 2;
-          const size = 0.9 + 0.35 * Math.sin((s + row) * 1.7);
-          g.moveTo(x - size, yy + 0.8)
-            .lineTo(x, yy - 0.25)
-            .lineTo(x + size, yy + 0.8);
-        }
+    for (const forest of this.map.forests) {
+      const boundary: Point[] = [];
+      const points = 42;
+      for (let i = 0; i < points; i++) {
+        const a = (i / points) * Math.PI * 2;
+        const wobble =
+          1
+          + 0.13 * Math.sin(a * 3 + forest.x * 0.13)
+          + 0.08 * Math.sin(a * 5 - forest.y * 0.11)
+          + 0.05 * Math.sin(a * 9 + forest.x * 0.07);
+        boundary.push({
+          x: forest.x + Math.cos(a) * forest.r * wobble * 0.92,
+          y: forest.y + Math.sin(a) * forest.r * wobble * 0.78,
+        });
       }
+
+      g.moveTo(boundary[0].x, boundary[0].y);
+      for (let i = 1; i < boundary.length; i++) g.lineTo(boundary[i].x, boundary[i].y);
+      g.closePath().fill({ color: 0x83a96b, alpha: 0.30 });
     }
-    g.stroke({ color: 0x766e5f, width: 0.14, alpha: 0.58 });
 
     // River: pale outer stroke and a thinner core like an atlas symbol.
     for (let y = 0; y < this.map.height - 0.5; y += 0.5) {
@@ -270,8 +296,6 @@ export class AtlasRenderer {
   private drawGrid(): void {
     const g = this.grid;
     g.clear();
-    g.rect(0.6, 0.6, this.map.width - 1.2, this.map.height - 1.2);
-    g.stroke({ color: 0x4d6f43, width: 0.16, alpha: 0.55 });
 
     for (let x = 16; x < this.map.width; x += 16) {
       g.moveTo(x, 0.7).lineTo(x, this.map.height - 0.7);
@@ -329,62 +353,102 @@ export class AtlasRenderer {
   }
 
   private frontSamples(snapshot: SimulationSnapshot): FrontSample[] {
-    const rows: Array<{ x: number; y: number; sampleIndex: number } | null> = new Array(snapshot.height).fill(null);
-    const { width, height, control } = snapshot;
+    return this.frontSegments(snapshot).map((segment) => {
+      const x = (segment.a.x + segment.b.x) * 0.5;
+      const y = (segment.a.y + segment.b.y) * 0.5;
+      const sampleIndex = this.indexClamp(snapshot, x, y);
+      return {
+        x,
+        y,
+        sampleIndex,
+        nx: (segment.a.nx + segment.b.nx) * 0.5,
+        ny: (segment.a.ny + segment.b.ny) * 0.5,
+        blueWidth: this.frontSideWidth(snapshot.frontMassBlue[sampleIndex]),
+        redWidth: this.frontSideWidth(snapshot.frontMassRed[sampleIndex]),
+      };
+    });
+  }
 
-    for (let y = 0; y < height; y++) {
-      let bestX: number | null = null;
-      let bestD = Number.POSITIVE_INFINITY;
-      for (let x = 0; x < width - 1; x++) {
-        const a = control[y * width + x];
-        const b = control[y * width + x + 1];
-        if ((a >= 0) === (b >= 0)) continue;
-        const t = Math.abs(a) / (Math.abs(a) + Math.abs(b) + 1e-6);
-        const crossingX = x + t;
-        const d = Math.abs(crossingX - width / 2);
-        if (d < bestD) {
-          bestX = crossingX;
-          bestD = d;
+  private frontSegments(snapshot: SimulationSnapshot): FrontSegment[] {
+    const segments: FrontSegment[] = [];
+    const { width, height, control } = snapshot;
+    const px = width > CFG.frontBoundaryPadding * 2 + 1 ? CFG.frontBoundaryPadding : 0;
+    const py = height > CFG.frontBoundaryPadding * 2 + 1 ? CFG.frontBoundaryPadding : 0;
+
+    for (let y = py; y < height - 1 - py; y++) {
+      for (let x = px; x < width - 1 - px; x++) {
+        const tl = control[y * width + x];
+        const tr = control[y * width + x + 1];
+        const br = control[(y + 1) * width + x + 1];
+        const bl = control[(y + 1) * width + x];
+        const crossings: Point[] = [];
+
+        if (this.crossesZero(tl, tr)) crossings.push(this.edgeCrossing(x, y, x + 1, y, tl, tr));
+        if (this.crossesZero(tr, br)) crossings.push(this.edgeCrossing(x + 1, y, x + 1, y + 1, tr, br));
+        if (this.crossesZero(br, bl)) crossings.push(this.edgeCrossing(x + 1, y + 1, x, y + 1, br, bl));
+        if (this.crossesZero(bl, tl)) crossings.push(this.edgeCrossing(x, y + 1, x, y, bl, tl));
+
+        if (crossings.length === 2) {
+          segments.push(this.makeFrontSegment(snapshot, crossings[0], crossings[1]));
+        } else if (crossings.length === 4) {
+          segments.push(this.makeFrontSegment(snapshot, crossings[0], crossings[1]));
+          segments.push(this.makeFrontSegment(snapshot, crossings[2], crossings[3]));
         }
       }
-      if (bestX !== null) rows[y] = { x: bestX, y, sampleIndex: this.indexClamp(snapshot, bestX, y) };
     }
 
-    const smoothed = rows.map((row, y) => {
-      if (!row) return null;
-      let total = 0;
-      let count = 0;
-      for (let yy = y - 2; yy <= y + 2; yy++) {
-        const neighbor = rows[yy];
-        if (!neighbor) continue;
-        total += neighbor.x;
-        count += 1;
-      }
-      const x = count > 0 ? total / count : row.x;
-      return { x, y: row.y, sampleIndex: this.indexClamp(snapshot, x, row.y) };
-    });
+    return segments;
+  }
 
-    const samples: FrontSample[] = [];
-    for (let y = 0; y < smoothed.length; y++) {
-      const row = smoothed[y];
-      if (!row) continue;
-      const prev = smoothed[Math.max(0, y - 2)] ?? row;
-      const next = smoothed[Math.min(smoothed.length - 1, y + 2)] ?? row;
-      const tx = next.x - prev.x;
-      const ty = Math.max(0.001, next.y - prev.y);
-      const len = Math.hypot(tx, ty);
-      const nx = -ty / len;
-      const ny = tx / len;
-      samples.push({
-        ...row,
-        nx,
-        ny,
-        blueWidth: this.frontSideWidth(snapshot.frontMassBlue[row.sampleIndex]),
-        redWidth: this.frontSideWidth(snapshot.frontMassRed[row.sampleIndex]),
-      });
-    }
+  private crossesZero(a: number, b: number): boolean {
+    return (a < 0 && b >= 0) || (a >= 0 && b < 0);
+  }
 
-    return samples;
+  private edgeCrossing(x0: number, y0: number, x1: number, y1: number, a: number, b: number): Point {
+    const t = Math.abs(a) / (Math.abs(a) + Math.abs(b) + 1e-6);
+    return {
+      x: x0 + (x1 - x0) * t,
+      y: y0 + (y1 - y0) * t,
+    };
+  }
+
+  private makeFrontSegment(snapshot: SimulationSnapshot, a: Point, b: Point): FrontSegment {
+    return {
+      a: this.makeFrontSample(snapshot, a, b),
+      b: this.makeFrontSample(snapshot, b, a),
+    };
+  }
+
+  private makeFrontSample(snapshot: SimulationSnapshot, point: Point, fallback: Point): FrontSample {
+    const sampleIndex = this.indexClamp(snapshot, point.x, point.y);
+    const normal = this.controlNormal(snapshot, point, fallback);
+    return {
+      ...point,
+      sampleIndex,
+      nx: normal.x,
+      ny: normal.y,
+      blueWidth: this.frontSideWidth(snapshot.frontMassBlue[sampleIndex]),
+      redWidth: this.frontSideWidth(snapshot.frontMassRed[sampleIndex]),
+    };
+  }
+
+  private controlNormal(snapshot: SimulationSnapshot, point: Point, fallback: Point): Point {
+    const x = Math.max(0, Math.min(snapshot.width - 1, Math.round(point.x)));
+    const y = Math.max(0, Math.min(snapshot.height - 1, Math.round(point.y)));
+    const i = y * snapshot.width + x;
+    const left = x > 0 ? snapshot.control[i - 1] : snapshot.control[i];
+    const right = x + 1 < snapshot.width ? snapshot.control[i + 1] : snapshot.control[i];
+    const up = y > 0 ? snapshot.control[i - snapshot.width] : snapshot.control[i];
+    const down = y + 1 < snapshot.height ? snapshot.control[i + snapshot.width] : snapshot.control[i];
+    const gx = right - left;
+    const gy = down - up;
+    const gl = Math.hypot(gx, gy);
+    if (gl > 1e-5) return { x: gx / gl, y: gy / gl };
+
+    const tx = fallback.x - point.x;
+    const ty = fallback.y - point.y;
+    const tl = Math.hypot(tx, ty) || 1;
+    return { x: -ty / tl, y: tx / tl };
   }
 
   private indexClamp(snapshot: SimulationSnapshot, x: number, y: number): number {
@@ -401,14 +465,11 @@ export class AtlasRenderer {
   private drawFront(snapshot: SimulationSnapshot): void {
     const g = this.front;
     g.clear();
-    const samples = this.frontSamples(snapshot);
+    const segments = this.frontSegments(snapshot);
 
     const drawSide = (side: 'blue' | 'red', dark: number) => {
-      const sign = side === 'blue' ? 1 : -1;
-      for (let i = 1; i < samples.length; i++) {
-        const a = samples[i - 1];
-        const b = samples[i];
-        if (b.y - a.y > 1.5) continue;
+      const sign = side === 'blue' ? 1 : -1; // control gradient points toward Blue.
+      for (const { a, b } of segments) {
         const aw = side === 'blue' ? a.blueWidth : a.redWidth;
         const bw = side === 'blue' ? b.blueWidth : b.redWidth;
         const ax = a.x + a.nx * sign * (0.24 + aw * 0.28);
@@ -423,38 +484,11 @@ export class AtlasRenderer {
 
     drawSide('blue', BLUE_DARK);
     drawSide('red', RED_DARK);
-    this.drawIncomingMarkers(g, snapshot, samples);
 
-    for (let i = 1; i < samples.length; i++) {
-      const a = samples[i - 1];
-      const b = samples[i];
-      if (b.y - a.y > 1.5) continue;
+    for (const { a, b } of segments) {
       g.moveTo(a.x, a.y).lineTo(b.x, b.y);
-      g.stroke({ color: INK, width: 0.14, alpha: 1 });
+      g.stroke({ color: INK, width: 0.28, alpha: 1 });
     }
-  }
-
-  private drawIncomingMarkers(g: Graphics, snapshot: SimulationSnapshot, samples: FrontSample[]): void {
-    const drawSideMarkers = (side: 'blue' | 'red', color: number) => {
-      const sign = side === 'blue' ? 1 : -1;
-      const incoming = side === 'blue' ? snapshot.incomingBlue : snapshot.incomingRed;
-      for (let i = 1; i < samples.length; i += 4) {
-        const sample = samples[i];
-        const amount = incoming[sample.sampleIndex];
-        if (amount < 0.08) continue;
-        const strength = Math.max(0, Math.min(1, Math.sqrt(amount / 4.2)));
-        const width = side === 'blue' ? sample.blueWidth : sample.redWidth;
-        const baseX = sample.x + sample.nx * sign * (0.38 + width * 0.50);
-        const baseY = sample.y + sample.ny * sign * (0.38 + width * 0.50);
-        const tipX = baseX + sample.nx * sign * (0.62 + strength * 1.20);
-        const tipY = baseY + sample.ny * sign * (0.62 + strength * 1.20);
-        g.moveTo(baseX, baseY).lineTo(tipX, tipY);
-        g.stroke({ color, width: 0.14 + strength * 0.36, alpha: 1 });
-      }
-    };
-
-    drawSideMarkers('blue', BLUE_DARK);
-    drawSideMarkers('red', RED_DARK);
   }
 
   private sampleVector(
@@ -549,19 +583,70 @@ export class AtlasRenderer {
     }
   }
 
-  private drawArrowHead(g: Graphics, points: Point[], color: number): void {
+  private smoothFlowPath(points: Point[], iterations = 2): Point[] {
+    if (points.length < 3) return points;
+    let smoothed = points;
+
+    for (let iter = 0; iter < iterations; iter++) {
+      const next: Point[] = [smoothed[0]];
+      for (let i = 0; i < smoothed.length - 1; i++) {
+        const a = smoothed[i];
+        const b = smoothed[i + 1];
+        next.push({
+          x: a.x * 0.75 + b.x * 0.25,
+          y: a.y * 0.75 + b.y * 0.25,
+        });
+        next.push({
+          x: a.x * 0.25 + b.x * 0.75,
+          y: a.y * 0.25 + b.y * 0.75,
+        });
+      }
+      next.push(smoothed[smoothed.length - 1]);
+      smoothed = next;
+    }
+
+    return smoothed;
+  }
+
+  private trimPathStart(points: Point[], distance: number): Point[] {
+    if (points.length < 2 || distance <= 0) return points;
+
+    let remaining = distance;
+    for (let i = 1; i < points.length; i++) {
+      const a = points[i - 1];
+      const b = points[i];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const length = Math.hypot(dx, dy);
+      if (length <= 1e-6) continue;
+      if (remaining > length) {
+        remaining -= length;
+        continue;
+      }
+
+      const t = remaining / length;
+      return [
+        { x: a.x + dx * t, y: a.y + dy * t },
+        ...points.slice(i),
+      ];
+    }
+
+    return [];
+  }
+
+  private drawArrowHead(g: Graphics, points: Point[], color: number, strength: number): void {
     if (points.length < 2) return;
     const tip = points[points.length - 1];
     const prev = points[Math.max(0, points.length - 4)];
     const angle = Math.atan2(tip.y - prev.y, tip.x - prev.x);
-    const size = 1.15;
+    const size = 1.05 + strength * 0.75;
     const left = angle + Math.PI * 0.82;
     const right = angle - Math.PI * 0.82;
     g.moveTo(tip.x, tip.y)
       .lineTo(tip.x + Math.cos(left) * size, tip.y + Math.sin(left) * size)
       .lineTo(tip.x + Math.cos(right) * size, tip.y + Math.sin(right) * size)
       .lineTo(tip.x, tip.y)
-      .fill({ color, alpha: 0.42 });
+      .fill({ color, alpha: 0.38 + strength * 0.34 });
   }
 
   private drawFlows(snapshot: SimulationSnapshot): void {
@@ -575,29 +660,26 @@ export class AtlasRenderer {
       const flowX = blue ? snapshot.flowBlueX : snapshot.flowRedX;
       const flowY = blue ? snapshot.flowBlueY : snapshot.flowRedY;
       const color = blue ? BLUE_DARK : RED_DARK;
-      const offsets = city.baseProduction >= 4.5 ? [-0.7, 0, 0.7] : [-0.35, 0.35];
+      const trace = this.traceFlow(snapshot, city, flowX, flowY, 0);
+      const markerClearance = 1.75 + city.baseProduction * 0.18;
+      const path = this.smoothFlowPath(this.trimPathStart(trace.points, markerClearance));
+      if (path.length < 4) continue;
 
-      for (const offset of offsets) {
-        const trace = this.traceFlow(snapshot, city, flowX, flowY, offset);
-        const path = trace.points;
-        if (path.length < 4) continue;
+      const strength = Math.min(1, Math.sqrt(trace.averageMagnitude / 4.5));
+      const underlayWidth = 0.16 + strength * 0.44;
+      const routeWidth = 0.16 + strength * 0.62;
+      const routeAlpha = 0.22 + strength * 0.68;
+      const phaseSpeed = 0.35 + strength * 1.15;
 
-        const strength = Math.min(1, Math.sqrt(trace.averageMagnitude / 4.5));
-        const underlayWidth = 0.10 + strength * 0.20;
-        const routeWidth = 0.14 + strength * 0.34;
-        const routeAlpha = 0.22 + strength * 0.52;
-        const phaseSpeed = 0.35 + strength * 1.15;
+      // Quiet route underlay.
+      g.moveTo(path[0].x, path[0].y);
+      for (let i = 1; i < path.length; i++) g.lineTo(path[i].x, path[i].y);
+      g.stroke({ color, width: underlayWidth, alpha: 0.09 + strength * 0.18 });
 
-        // Quiet route underlay.
-        g.moveTo(path[0].x, path[0].y);
-        for (let i = 1; i < path.length; i++) g.lineTo(path[i].x, path[i].y);
-        g.stroke({ color, width: underlayWidth, alpha: 0.11 + strength * 0.14 });
-
-        // Moving dashes make direction visible without filling the whole map with vectors.
-        this.drawDashedPath(g, path, snapshot.gameTime * phaseSpeed + offset * 1.7);
-        g.stroke({ color, width: routeWidth, alpha: routeAlpha });
-        this.drawArrowHead(g, path, color);
-      }
+      // Moving dashes make direction visible without filling the whole map with vectors.
+      this.drawDashedPath(g, path, snapshot.gameTime * phaseSpeed);
+      g.stroke({ color, width: routeWidth, alpha: routeAlpha });
+      this.drawArrowHead(g, path, color, strength);
     }
   }
 
@@ -631,64 +713,6 @@ export class AtlasRenderer {
     g.moveTo(x - 2.1, y).lineTo(x + 2.1, y);
     g.moveTo(x, y - 2.1).lineTo(x, y + 2.1);
     g.stroke({ color: INK, width: 0.10, alpha: 0.88 });
-  }
-
-  private drawCities(snapshot: SimulationSnapshot): void {
-    const g = this.cities;
-    g.clear();
-    for (const city of snapshot.cities) {
-      const radius = 0.62 + city.baseProduction * 0.11;
-      const color = city.owner === 'blue' ? BLUE_DARK : RED_DARK;
-      const enabled = city.enabled !== false;
-      const reserve = this.cityLocalResource(snapshot, city);
-      const reserveStrength = Math.max(0, Math.min(1, Math.sqrt(reserve / 42)));
-      if (reserveStrength > 0.02) {
-        g.circle(city.x, city.y, radius + 0.72 + reserveStrength * 1.65).stroke({
-          color,
-          width: 0.16 + reserveStrength * 0.34,
-          alpha: enabled ? 0.82 : 0.42,
-        });
-      }
-      g.circle(city.x, city.y, radius + 0.28).fill({ color: PAPER_LIGHT, alpha: 0.96 });
-      if (enabled) {
-        g.circle(city.x, city.y, radius).fill({ color, alpha: 0.96 });
-      } else {
-        g.circle(city.x, city.y, radius).fill({ color: PAPER, alpha: 1 });
-        g.circle(city.x, city.y, Math.max(0.22, radius - 0.18)).stroke({
-          color,
-          width: 0.24,
-          alpha: 0.92,
-        });
-        g.moveTo(city.x - radius * 0.75, city.y + radius * 0.75)
-          .lineTo(city.x + radius * 0.75, city.y - radius * 0.75);
-        g.stroke({ color, width: 0.22, alpha: 0.92 });
-      }
-      if (city.integration < 0.999) {
-        const ring = Math.max(0.1, city.integration);
-        g.circle(city.x, city.y, radius * ring).fill({ color: PAPER_LIGHT, alpha: 0.36 });
-      }
-    }
-  }
-
-  private cityLocalResource(snapshot: SimulationSnapshot, city: City): number {
-    const war = city.owner === 'blue' ? snapshot.warBlue : snapshot.warRed;
-    let total = 0;
-    const radius = 5;
-
-    for (let dy = -radius; dy <= radius; dy++) {
-      const y = city.y + dy;
-      if (y < 0 || y >= snapshot.height) continue;
-      for (let dx = -radius; dx <= radius; dx++) {
-        const x = city.x + dx;
-        if (x < 0 || x >= snapshot.width) continue;
-        const d = Math.hypot(dx, dy);
-        if (d > radius) continue;
-        const i = y * snapshot.width + x;
-        total += war[i] * (1 - d / (radius + 1));
-      }
-    }
-
-    return total;
   }
 
   private localSum(snapshot: SimulationSnapshot, field: Float32Array, x: number, y: number, radius: number): number {
