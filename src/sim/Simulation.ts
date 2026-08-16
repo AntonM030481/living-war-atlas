@@ -31,6 +31,8 @@ export class Simulation {
   readonly control: Float32Array;
   readonly warBlue: Float32Array;
   readonly warRed: Float32Array;
+  readonly committedBlue: Float32Array;
+  readonly committedRed: Float32Array;
   readonly instabilityBlue: Float32Array;
   readonly instabilityRed: Float32Array;
   readonly terrainDefense: Float32Array;
@@ -51,8 +53,13 @@ export class Simulation {
   private readonly forcing: Float32Array;
   private readonly massBlue: Float32Array;
   private readonly massRed: Float32Array;
+  private readonly commitmentTargetBlue: Float32Array;
+  private readonly commitmentTargetRed: Float32Array;
+  private readonly availableMassBlue: Float32Array;
+  private readonly availableMassRed: Float32Array;
   private readonly incomingBlue: Float32Array;
   private readonly incomingRed: Float32Array;
+  private readonly frontConsumption: Float32Array;
   private readonly deltaBlue: Float32Array;
   private readonly deltaRed: Float32Array;
   private readonly drainBlue: Float32Array;
@@ -84,6 +91,8 @@ export class Simulation {
     this.control = new Float32Array(this.size);
     this.warBlue = new Float32Array(this.size);
     this.warRed = new Float32Array(this.size);
+    this.committedBlue = new Float32Array(this.size);
+    this.committedRed = new Float32Array(this.size);
     this.instabilityBlue = new Float32Array(this.size);
     this.instabilityRed = new Float32Array(this.size);
     this.terrainDefense = new Float32Array(this.size);
@@ -104,8 +113,13 @@ export class Simulation {
     this.forcing = new Float32Array(this.size);
     this.massBlue = new Float32Array(this.size);
     this.massRed = new Float32Array(this.size);
+    this.commitmentTargetBlue = new Float32Array(this.size);
+    this.commitmentTargetRed = new Float32Array(this.size);
+    this.availableMassBlue = new Float32Array(this.size);
+    this.availableMassRed = new Float32Array(this.size);
     this.incomingBlue = new Float32Array(this.size);
     this.incomingRed = new Float32Array(this.size);
+    this.frontConsumption = new Float32Array(this.size);
     this.deltaBlue = new Float32Array(this.size);
     this.deltaRed = new Float32Array(this.size);
     this.drainBlue = new Float32Array(this.size);
@@ -176,6 +190,8 @@ export class Simulation {
       control: this.control.slice(),
       warBlue: this.warBlue.slice(),
       warRed: this.warRed.slice(),
+      committedBlue: this.committedBlue.slice(),
+      committedRed: this.committedRed.slice(),
       instabilityBlue: this.instabilityBlue.slice(),
       instabilityRed: this.instabilityRed.slice(),
       frontMassBlue: this.massBlue.slice(),
@@ -329,7 +345,19 @@ export class Simulation {
   }
 
   private isFront(i: number): boolean {
-    return Math.abs(this.control[i]) <= CFG.frontBand;
+    const c = this.control[i];
+    if (Math.abs(c) <= CFG.frontBand) return true;
+
+    // A contour usually runs between grid cells. Mark both cells touching a
+    // sign-changing edge as frontline cells so transport/combat do not depend
+    // on which side of the zero contour happens to contain the nearest cell.
+    const x = i % this.width;
+    const y = Math.floor(i / this.width);
+    if (x > 0 && c * this.control[i - 1] <= 0) return true;
+    if (x + 1 < this.width && c * this.control[i + 1] <= 0) return true;
+    if (y > 0 && c * this.control[i - this.width] <= 0) return true;
+    if (y + 1 < this.height && c * this.control[i + this.width] <= 0) return true;
+    return false;
   }
 
   private edgeFactor(x: number, y: number, dx: number, dy: number): number {
@@ -376,10 +404,76 @@ export class Simulation {
   private computeFrontMassAndNeed(): void {
     this.massBlue.fill(0);
     this.massRed.fill(0);
+    this.availableMassBlue.fill(0);
+    this.availableMassRed.fill(0);
+    this.commitmentTargetBlue.fill(0);
+    this.commitmentTargetRed.fill(0);
     this.needBlue.fill(0);
     this.needRed.fill(0);
 
     const r = CFG.massRadius;
+
+    // First pass: measure all locally available War Resource around each front
+    // cell. This only determines how much of the single resource is committed
+    // to the fight; reserve/excess has no combat value until committed.
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const i = this.index(x, y);
+        if (!this.isFront(i)) continue;
+
+        let blueAvailable = 0;
+        let redAvailable = 0;
+        for (let dy = -r; dy <= r; dy++) {
+          const yy = y + dy;
+          if (yy < 0 || yy >= this.height) continue;
+          for (let dx = -r; dx <= r; dx++) {
+            const xx = x + dx;
+            if (xx < 0 || xx >= this.width) continue;
+            const j = this.index(xx, yy);
+            const w = 1 / (1 + Math.hypot(dx, dy));
+            blueAvailable += this.warBlue[j] * w;
+            redAvailable += this.warRed[j] * w;
+          }
+        }
+        this.availableMassBlue[i] = blueAvailable;
+        this.availableMassRed[i] = redAvailable;
+
+        const blueTarget = this.frontCommitment(
+          blueAvailable,
+          redAvailable,
+          this.terrainDefense[i],
+          this.collapseBlue[i] === 1,
+        );
+        const redTarget = this.frontCommitment(
+          redAvailable,
+          blueAvailable,
+          this.terrainDefense[i],
+          this.collapseRed[i] === 1,
+        );
+
+        for (let dy = -r; dy <= r; dy++) {
+          const yy = y + dy;
+          if (yy < 0 || yy >= this.height) continue;
+          for (let dx = -r; dx <= r; dx++) {
+            const xx = x + dx;
+            if (xx < 0 || xx >= this.width) continue;
+            const j = this.index(xx, yy);
+            if (blueTarget > 0 && this.sideAccess('blue', j) > 0.01) {
+              this.commitmentTargetBlue[j] = Math.max(this.commitmentTargetBlue[j], blueTarget);
+            }
+            if (redTarget > 0 && this.sideAccess('red', j) > 0.01) {
+              this.commitmentTargetRed[j] = Math.max(this.commitmentTargetRed[j], redTarget);
+            }
+          }
+        }
+      }
+    }
+
+    this.updateCommittedAmounts('blue');
+    this.updateCommittedAmounts('red');
+
+    // Second pass: the combat-facing front mass is derived from committed
+    // resource only. Mobile reserve remains transportable but does not fight.
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
         const i = this.index(x, y);
@@ -395,17 +489,72 @@ export class Simulation {
             if (xx < 0 || xx >= this.width) continue;
             const j = this.index(xx, yy);
             const w = 1 / (1 + Math.hypot(dx, dy));
-            blue += this.warBlue[j] * w;
-            red += this.warRed[j] * w;
+            blue += this.committedBlue[j] * w;
+            red += this.committedRed[j] * w;
           }
         }
         this.massBlue[i] = blue;
         this.massRed[i] = red;
 
-        this.needBlue[i] = 0.65 + 1.8 * this.instabilityBlue[i] + 0.025 * red;
-        this.needRed[i] = 0.65 + 1.8 * this.instabilityRed[i] + 0.025 * blue;
+        const blueShortage = Math.max(0, red - blue);
+        const redShortage = Math.max(0, blue - red);
+        this.needBlue[i] = 0.65 + 1.8 * this.instabilityBlue[i] + 0.025 * red + 0.018 * blueShortage;
+        this.needRed[i] = 0.65 + 1.8 * this.instabilityRed[i] + 0.025 * blue + 0.018 * redShortage;
       }
     }
+  }
+
+  private updateCommittedAmounts(side: Side): void {
+    const war = side === 'blue' ? this.warBlue : this.warRed;
+    const committed = side === 'blue' ? this.committedBlue : this.committedRed;
+    const targetFraction = side === 'blue' ? this.commitmentTargetBlue : this.commitmentTargetRed;
+    const collapsed = side === 'blue' ? this.collapseBlue : this.collapseRed;
+
+    for (let i = 0; i < this.size; i++) {
+      committed[i] = Math.min(committed[i], war[i]);
+      const desired = war[i] * targetFraction[i];
+      const current = committed[i];
+
+      if (desired > current) {
+        const alpha = 1 - Math.exp(-CFG.commitmentEngagePerSecond * CFG.dt);
+        committed[i] = Math.min(war[i], current + (desired - current) * alpha);
+      } else if (desired < current) {
+        const releaseRate = CFG.commitmentReleasePerSecond *
+          (collapsed[i] ? CFG.collapseReleaseMultiplier : 1);
+        const alpha = 1 - Math.exp(-releaseRate * CFG.dt);
+        committed[i] = Math.max(desired, current - (current - desired) * alpha);
+      }
+    }
+  }
+
+  private frontCommitment(
+    ownMass: number,
+    enemyMass: number,
+    terrainDefense: number,
+    collapsed: boolean,
+  ): number {
+    if (ownMass <= EPS) return 0;
+    if (enemyMass <= EPS) {
+      const commitment = CFG.frontUnopposedCommitment;
+      return collapsed ? commitment * CFG.collapseCommitmentFactor : commitment;
+    }
+
+    const requiredMass =
+      (enemyMass * CFG.baseProbe * CFG.frontCommitmentSafety) /
+      (CFG.defenceAdvantage * terrainDefense + EPS);
+    const defensiveAmount = Math.max(ownMass * CFG.frontCommitmentFloor, requiredMass);
+    const superiority = clamp((ownMass - enemyMass) / (ownMass + enemyMass + EPS), 0, 1);
+    const offensiveAmount =
+      Math.max(0, ownMass - defensiveAmount) *
+      CFG.frontOffensiveCommitmentShare *
+      superiority;
+    let commitment = clamp(
+      (defensiveAmount + offensiveAmount) / ownMass,
+      0,
+      CFG.frontCommitmentMax,
+    );
+    if (collapsed) commitment *= CFG.collapseCommitmentFactor;
+    return commitment;
   }
 
   private rebuildPotential(side: Side): void {
@@ -460,6 +609,7 @@ export class Simulation {
 
   private transportResource(side: Side): void {
     const war = side === 'blue' ? this.warBlue : this.warRed;
+    const committed = side === 'blue' ? this.committedBlue : this.committedRed;
     const potential = side === 'blue' ? this.potentialBlue : this.potentialRed;
     const delta = side === 'blue' ? this.deltaBlue : this.deltaRed;
     const incoming = side === 'blue' ? this.incomingBlue : this.incomingRed;
@@ -481,8 +631,8 @@ export class Simulation {
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
         const i = this.index(x, y);
-        const amount = war[i];
-        if (amount <= 0.0001) continue;
+        const reserve = Math.max(0, war[i] - committed[i]);
+        if (reserve <= 0.0001) continue;
         const access = this.sideAccess(side, i);
         if (access <= 0.01) continue;
 
@@ -511,11 +661,11 @@ export class Simulation {
 
         if (gradientSum <= 0 || candidates.length === 0) continue;
 
-        const movable = amount * CFG.resourceMoveFraction;
+        const movable = reserve * CFG.resourceMoveFraction;
         let sent = 0;
         for (const c of candidates) {
           const desired = movable * (c.gradient / gradientSum);
-          const moved = Math.min(desired, c.capacity, amount - sent);
+          const moved = Math.min(desired, c.capacity, reserve - sent);
           if (moved <= 0) continue;
           delta[i] -= moved;
           delta[c.j] += moved;
@@ -523,13 +673,13 @@ export class Simulation {
           flowX[i] += (moved / CFG.dt) * c.dx;
           flowY[i] += (moved / CFG.dt) * c.dy;
           sent += moved;
-          if (sent >= amount - EPS) break;
+          if (sent >= reserve - EPS) break;
         }
       }
     }
 
     for (let i = 0; i < this.size; i++) {
-      war[i] = Math.max(0, war[i] + delta[i]);
+      war[i] = Math.max(committed[i], war[i] + delta[i]);
     }
   }
 
@@ -537,6 +687,7 @@ export class Simulation {
     this.forcing.fill(0);
     this.drainBlue.fill(0);
     this.drainRed.fill(0);
+    this.frontConsumption.fill(0);
     this.advanceBlueDebug.fill(0);
     this.advanceRedDebug.fill(0);
     this.stressBlueDebug.fill(0);
@@ -634,13 +785,7 @@ export class Simulation {
   }
 
   private accumulateFrontConsumption(x: number, y: number, combatIntensity: number): void {
-    const i = this.index(x, y);
-    const base = CFG.maintenanceRate * CFG.dt;
-    const combat = CFG.combatConsumptionRate * combatIntensity * CFG.dt;
-    const blueStarvation = 1 + 2.8 * (1 - clamp(this.incomingBlue[i] / 2.0, 0, 1));
-    const redStarvation = 1 + 2.8 * (1 - clamp(this.incomingRed[i] / 2.0, 0, 1));
-    const blueAmount = (base + combat) * blueStarvation * (1 + this.instabilityBlue[i] * 0.9);
-    const redAmount = (base + combat) * redStarvation * (1 + this.instabilityRed[i] * 0.9);
+    const ratePerSecond = CFG.maintenanceRate + CFG.combatConsumptionRate * combatIntensity;
     const r = CFG.massRadius;
 
     for (let dy = -r; dy <= r; dy++) {
@@ -650,20 +795,31 @@ export class Simulation {
         const xx = x + dx;
         if (xx < 0 || xx >= this.width) continue;
         const j = this.index(xx, yy);
-        const distance = Math.hypot(dx, dy);
-        const weight = 1 / (1 + distance);
-        const blueAccess = smoothstep(-0.18, 0.62, this.control[j]);
-        const redAccess = smoothstep(-0.18, 0.62, -this.control[j]);
-        this.drainBlue[j] += blueAmount * weight * blueAccess;
-        this.drainRed[j] += redAmount * weight * redAccess;
+        const weight = 1 / (1 + Math.hypot(dx, dy));
+        this.frontConsumption[j] += ratePerSecond * weight;
       }
     }
   }
 
   private applyFrontConsumption(): void {
     for (let i = 0; i < this.size; i++) {
-      if (this.drainBlue[i] > 0) this.warBlue[i] = Math.max(0, this.warBlue[i] * (1 - Math.min(0.45, this.drainBlue[i])));
-      if (this.drainRed[i] > 0) this.warRed[i] = Math.max(0, this.warRed[i] * (1 - Math.min(0.45, this.drainRed[i])));
+      const exposure = this.frontConsumption[i];
+      if (exposure <= 0) continue;
+
+      const survival = Math.exp(-exposure * CFG.dt);
+      const blueBefore = this.committedBlue[i];
+      const redBefore = this.committedRed[i];
+      const blueAfter = blueBefore * survival;
+      const redAfter = redBefore * survival;
+      const blueLoss = blueBefore - blueAfter;
+      const redLoss = redBefore - redAfter;
+
+      this.committedBlue[i] = blueAfter;
+      this.committedRed[i] = redAfter;
+      this.warBlue[i] = Math.max(blueAfter, this.warBlue[i] - blueLoss);
+      this.warRed[i] = Math.max(redAfter, this.warRed[i] - redLoss);
+      this.drainBlue[i] = blueLoss;
+      this.drainRed[i] = redLoss;
     }
   }
 

@@ -13,6 +13,7 @@ First runnable prototype of the **living military atlas** concept.
 - finite route capacity / bottlenecks;
 - rivers and mountains affecting mobility, defence and throughput;
 - front mass emerging from accumulated War Resource;
+- battle commitment: mass needed to hold an active fight cannot freely drain back into the rear; only local excess remains mobile, while collapse releases commitment;
 - defensive advantage, instability and local collapse;
 - seeded local fluctuations;
 - city capture and gradual integration;
@@ -33,6 +34,7 @@ Build/tests:
 ```bash
 npm run build
 npm test
+npm run diagnostics
 ```
 
 ## Controls
@@ -47,3 +49,9 @@ npm test
 Do the autonomous fronts look like a system that tends to stabilise, while still producing visible local tension and occasional nonlinear retreats?
 
 Do not tune this into a full game yet. If the answer is no, change the simulation before adding strategic arrows.
+
+## Committed vs reserve diagnostics
+
+`npm run diagnostics` regenerates deterministic CSV and SVG plots under `diagnostics/`.
+
+See `docs/TEST_RESULTS.md` for the current committed/reserve regression checklist.

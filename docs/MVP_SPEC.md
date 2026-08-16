@@ -567,3 +567,30 @@ The desired autonomous sequence is:
 The central question is:
 
 > Can a few simple continuous rules produce a war that is interesting both to watch and to influence?
+
+---
+
+## 26. Reserve vs committed phase of War Resource
+
+The single War Resource has two local phases:
+
+- **committed mass** — War Resource actively engaged in the current fight;
+- **reserve / excess** — mobile War Resource not currently engaged.
+
+This does not introduce a second economic resource. It is a partition of the same conserved quantity:
+
+`total War Resource = committed + reserve`
+
+Only committed mass contributes to attack and defence and pays frontline combat / maintenance attrition.
+
+Only reserve / excess may be transported normally.
+
+Transition is gradual:
+
+`reserve -> committed` when a sector requires more combat mass;
+
+`committed -> reserve` when pressure falls or the local force is excessive.
+
+At an active front, local superiority can also commit reserve offensively. In a one-dimensional fight with no competing direction or bottleneck, front-local surplus should become pressure rather than idle reserve.
+
+Disengagement is normally slower than engagement. Collapse or loss of active contact may accelerate disengagement to permit retreat / redeployment.

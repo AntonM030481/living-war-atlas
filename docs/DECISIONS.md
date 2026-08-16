@@ -269,3 +269,35 @@ The simulation should be capable of producing, at least occasionally:
 **Decision:** Do not add game systems to compensate for an uninteresting autonomous front.
 
 If M0 is not interesting, fix the simulation / visualization first.
+
+### D046 — War Resource has two local phases, not two economic resources
+**Decision:** The single War Resource may be locally classified as:
+- `committed` — currently engaged in the fight;
+- `reserve/excess` — mobile War Resource not currently engaged.
+
+This is a partition of the same conserved resource, not a second resource economy.
+At every cell:
+
+`total War Resource = committed + reserve`
+
+### D047 — Only committed mass has combat effect
+**Decision:** Attack, defence, frontline maintenance, and combat attrition use committed mass only.
+
+Reserve / excess does not contribute to combat until it transitions into committed mass.
+
+At an active front, local superiority should transition part of nearby reserve into offensive commitment. In a one-dimensional single-front case, surplus reserve has no alternative direction and should not remain idle.
+
+### D048 — Committed mass cannot be transported while it provides combat value
+**Decision:** The transport system may move only reserve / excess.
+
+A resource amount cannot simultaneously provide defence and be redeployed elsewhere.
+
+### D049 — Commitment and release have inertia
+**Decision:** `reserve -> committed` and `committed -> reserve` are gradual transitions.
+
+Engagement should normally be faster than disengagement. Collapse accelerates disengagement so retreat remains possible.
+
+### D050 — Diagnostics are generated from deterministic scenarios
+**Decision:** Committed / reserve regression plots are generated via `npm run diagnostics`.
+
+The CSV and SVG outputs are diagnostic artifacts, not authoritative simulation inputs.

@@ -1,0 +1,8 @@
+check,value,pass
+commitment samples,40,1
+recovery success samples,57,1
+recovery success keeps blue city,blue,1
+recovery success restores blue mass,291.72305736541745,1
+failed recovery loses blue city,red,1
+tipping samples,14,1
+max tipping loss,41.004568496198516,1

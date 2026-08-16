@@ -891,3 +891,60 @@ After the core behavior is credible, add:
 - `1× / 2× / 4×`.
 
 Only then evaluate whether the result is becoming a game rather than merely an attractive simulation.
+
+---
+
+## 38. Committed / reserve partition
+
+Keep one conserved War Resource field per side, plus a persistent `committed` amount per cell:
+
+```ts
+warBlue[i] = committedBlue[i] + reserveBlue[i]
+reserveBlue[i] = warBlue[i] - committedBlue[i]
+```
+
+Same for Red.
+
+`committed` is a state / phase of the same resource, not an independently generated or transported resource.
+
+### Combat
+
+Derive front combat mass from `committed` only.
+
+Reserve does not affect attack, defence, or combat attrition until it commits.
+
+Local superiority at an active front creates offensive commitment. In a one-dimensional single-front case with no competing demand, surplus reserve near the front should be committed into pressure instead of remaining idle.
+
+### Transport
+
+Transport may move only:
+
+```text
+reserve = max(0, war - committed)
+```
+
+Committed mass remains at its location while it is providing combat value.
+
+### Attrition
+
+Combat / frontline maintenance reduces committed mass and removes the same absolute amount from total War Resource. Therefore reserve remains unchanged by combat attrition.
+
+### Transition
+
+Compute a target committed fraction from local opposing mass and terrain. Move gradually toward that target:
+
+- engagement rate: relatively fast;
+- release rate: slower;
+- collapse release: faster than normal release.
+
+Release applies when pressure falls, collapse releases the front, or the active front/contact disappears. It should not prevent exploitation at an active front with unopposed or weak enemy mass.
+
+Always preserve:
+
+```text
+0 <= committed <= war
+```
+
+### Diagnostics
+
+`npm run diagnostics` regenerates CSV and SVG artifacts under `diagnostics/` from deterministic simulation scenarios.

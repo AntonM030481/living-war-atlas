@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "diagnostics": "DIAGNOSTICS=1 vitest run diagnostics/generate-diagnostics.test.ts"
   },
   "dependencies": {
     "pixi.js": "^8.12.0"
