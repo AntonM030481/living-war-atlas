@@ -1,4 +1,4 @@
-import type { Side } from './Config';
+import type { Side, Speed } from './Config';
 
 export interface City {
   id: string;
@@ -55,7 +55,7 @@ export interface SimulationStats {
 
 export type WorkerInMessage =
   | { type: 'start'; seed: number }
-  | { type: 'speed'; speed: 1 | 2 | 4 }
+  | { type: 'speed'; speed: Speed }
   | { type: 'reset'; seed: number }
   | { type: 'pause'; paused: boolean };
 

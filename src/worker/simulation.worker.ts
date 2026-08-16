@@ -1,12 +1,12 @@
 /// <reference lib="webworker" />
 
-import { CFG } from '../sim/Config';
+import { type Speed } from '../sim/Config';
 import { Simulation } from '../sim/Simulation';
 import type { WorkerInMessage, WorkerOutMessage } from '../sim/types';
 import { testMap } from '../map/testMap';
 
 let sim: Simulation | null = null;
-let speed: 1 | 2 | 4 = 1;
+let speed: Speed = 1;
 let paused = false;
 let seed = 1;
 let timer: ReturnType<typeof setInterval> | null = null;
@@ -18,7 +18,6 @@ function post(message: WorkerOutMessage): void {
 function createSimulation(nextSeed: number): void {
   seed = nextSeed >>> 0 || 1;
   sim = new Simulation(testMap, seed);
-  sim.runWarmup(CFG.warmupSeconds);
   post({ type: 'ready', seed });
   post({ type: 'snapshot', snapshot: sim.snapshot() });
 }

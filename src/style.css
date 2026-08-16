@@ -3,6 +3,9 @@
   color: #201e1a;
   background: #cfc49e;
   font-synthesis: none;
+  --side-panel-width: 240px;
+  --side-panel-gap: 10px;
+  --side-panel-right: 12px;
 }
 
 * { box-sizing: border-box; }
@@ -12,12 +15,14 @@ canvas { display: block; }
 
 .hud {
   position: fixed;
-  left: 14px;
-  top: 14px;
+  right: var(--side-panel-right);
+  top: 12px;
   z-index: 10;
   display: flex;
-  gap: 8px;
-  align-items: center;
+  flex-direction: column;
+  gap: 7px;
+  align-items: stretch;
+  width: var(--side-panel-width);
   padding: 9px 10px;
   border: 1px solid rgba(64, 52, 32, .42);
   border-radius: 2px;
@@ -28,17 +33,14 @@ canvas { display: block; }
 
 .hud strong {
   font-size: 12px;
-  margin-right: 4px;
   letter-spacing: .02em;
   text-transform: uppercase;
 }
 .hud span {
   font-size: 11px;
   opacity: .82;
-  min-width: 118px;
 }
 #telemetry {
-  min-width: 360px;
   color: #7f231e;
 }
 .hud button {
@@ -46,18 +48,20 @@ canvas { display: block; }
   background: #fff7dc;
   color: #2c2923;
   border-radius: 2px;
-  padding: 5px 8px;
+  padding: 4px 8px;
   cursor: pointer;
   font: inherit;
+  width: 100%;
 }
 .hud button.active { background: #2f2b24; color: #fff7dc; }
 .hud button:hover { filter: brightness(.97); }
 
 .legend {
   position: fixed;
-  right: 14px;
-  bottom: 14px;
+  right: var(--side-panel-right);
+  top: 334px;
   z-index: 10;
+  width: var(--side-panel-width);
   padding: 8px 10px;
   border-radius: 2px;
   background: rgba(246, 239, 215, .90);
@@ -65,7 +69,13 @@ canvas { display: block; }
   font-size: 11px;
   line-height: 1.45;
   pointer-events: none;
-  min-width: 198px;
+}
+
+@media (max-height: 720px) {
+  .legend {
+    top: 324px;
+    font-size: 10px;
+  }
 }
 
 .legend b {

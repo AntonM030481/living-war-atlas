@@ -4,7 +4,7 @@ export const CFG = {
   dt: 0.1,
   snapshotEverySteps: 2,
   potentialEverySteps: 10,
-  potentialIterations: 44,
+  potentialIterations: 96,
   potentialDecay: 0.965,
   resourceMoveFraction: 0.58,
   baseEdgeCapacityPerSecond: 7.0,
@@ -26,7 +26,12 @@ export const CFG = {
   cityIntegrationPerSecond: 1 / 70,
   cityCaptureThreshold: 0.42,
   noiseAmplitude: 0.02,
+  initialCityResourceSeconds: 12,
+  initialFrontResource: 5.5,
   warmupSeconds: 75,
 } as const;
 
+export const SPEEDS = [1, 2, 4] as const;
+
 export type Side = 'blue' | 'red';
+export type Speed = typeof SPEEDS[number];

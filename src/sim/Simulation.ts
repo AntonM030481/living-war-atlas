@@ -274,7 +274,16 @@ export class Simulation {
     for (const city of this.cities) {
       const i = this.index(city.x, city.y);
       const target = city.owner === 'blue' ? this.warBlue : this.warRed;
-      target[i] += city.baseProduction * 12;
+      target[i] += city.baseProduction * CFG.initialCityResourceSeconds;
+    }
+
+    for (let i = 0; i < this.size; i++) {
+      const c = this.control[i];
+      const frontProximity = Math.max(0, 1 - Math.abs(c) / 0.82);
+      if (frontProximity <= 0) continue;
+      const amount = CFG.initialFrontResource * frontProximity;
+      if (c >= 0) this.warBlue[i] += amount;
+      else this.warRed[i] += amount;
     }
   }
 

@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Text } from 'pixi.js';
+import { Application, Container, Graphics } from 'pixi.js';
 import type { SimulationSnapshot, MapDefinition, City } from '../sim/types';
 
 const BLUE = 0x4f769d;
@@ -23,8 +23,6 @@ export class AtlasRenderer {
   private readonly front = new Graphics();
   private readonly instability = new Graphics();
   private readonly cities = new Graphics();
-  private readonly labels = new Container();
-  private readonly annotations = new Container();
   private debug = false;
 
   constructor(
@@ -40,15 +38,11 @@ export class AtlasRenderer {
       this.front,
       this.instability,
       this.cities,
-      this.labels,
-      this.annotations,
     );
     this.app.stage.addChild(this.world);
     this.drawTerrain();
     this.drawGrid();
     this.drawHistoricalBorder();
-    this.createCityLabels();
-    this.createAtlasAnnotations();
     this.fit();
     window.addEventListener('resize', () => this.fit());
   }
@@ -73,11 +67,13 @@ export class AtlasRenderer {
 
   private fit(): void {
     const margin = 18;
-    const sx = (this.app.screen.width - margin * 2) / this.map.width;
+    const rightPanelWidth = 254;
+    const availableWidth = Math.max(240, this.app.screen.width - rightPanelWidth);
+    const sx = (availableWidth - margin * 2) / this.map.width;
     const sy = (this.app.screen.height - margin * 2) / this.map.height;
     const scale = Math.max(0.1, Math.min(sx, sy));
     this.world.scale.set(scale);
-    this.world.x = (this.app.screen.width - this.map.width * scale) / 2;
+    this.world.x = (availableWidth - this.map.width * scale) / 2;
     this.world.y = (this.app.screen.height - this.map.height * scale) / 2;
   }
 
@@ -236,11 +232,11 @@ export class AtlasRenderer {
       g.stroke({ color, width, alpha });
     };
 
-    drawSegments(BLUE_DARK, 0.82, 0.58);
-    drawSegments(RED_DARK, 0.50, 0.72);
-    drawSegments(INK, 0.14, 0.95);
+    drawSegments(PAPER_LIGHT, 0.78, 0.72);
+    drawSegments(INK, 0.34, 0.95);
+    drawSegments(RED_DARK, 0.12, 0.90);
 
-    for (let i = 0; i < segments.length; i += 7) {
+    for (let i = 0; i < segments.length; i += 8) {
       const [a, b] = segments[i];
       const mx = (a.x + b.x) * 0.5;
       const my = (a.y + b.y) * 0.5;
@@ -250,9 +246,9 @@ export class AtlasRenderer {
       if (len < 1e-4) continue;
       const nx = -dy / len;
       const ny = dx / len;
-      g.moveTo(mx - nx * 0.32, my - ny * 0.32).lineTo(mx + nx * 0.32, my + ny * 0.32);
+      g.moveTo(mx - nx * 0.24, my - ny * 0.24).lineTo(mx + nx * 0.24, my + ny * 0.24);
     }
-    g.stroke({ color: RED_DARK, width: 0.10, alpha: 0.55 });
+    g.stroke({ color: BLUE_DARK, width: 0.10, alpha: 0.58 });
   }
 
   private sampleVector(
@@ -415,52 +411,4 @@ export class AtlasRenderer {
     }
   }
 
-  private createCityLabels(): void {
-    for (const city of this.map.cities) {
-      const label = new Text({
-        text: city.name,
-        style: {
-          fontFamily: 'Georgia, Times New Roman, serif',
-          fontSize: 2.05,
-          fontWeight: '600',
-          fill: '#2d2922',
-          stroke: { color: '#f6efd7', width: 0.48 },
-        },
-      });
-      label.x = city.x + 1.45;
-      label.y = city.y - 1.18;
-      label.resolution = 3;
-      this.labels.addChild(label);
-    }
-  }
-
-  private createAtlasAnnotations(): void {
-    const entries = [
-      { text: 'СЕВЕРНЫЙ ФРОНТ', x: 52, y: 7, color: '#b12620', rot: -0.03 },
-      { text: 'ЦЕНТРАЛЬНЫЙ ФРОНТ', x: 70, y: 39, color: '#b12620', rot: 0.02 },
-      { text: 'ЮЖНЫЙ ФРОНТ', x: 57, y: 71, color: '#164f91', rot: -0.04 },
-      { text: 'ГРУППА АРМИЙ', x: 23, y: 49, color: '#164f91', rot: 0.03 },
-      { text: 'ПРИФРОНТОВАЯ ЗОНА', x: 92, y: 25, color: '#b12620', rot: -0.02 },
-    ];
-
-    for (const entry of entries) {
-      const label = new Text({
-        text: entry.text,
-        style: {
-          fontFamily: 'Georgia, Times New Roman, serif',
-          fontSize: 2.0,
-          fontWeight: '700',
-          fill: entry.color,
-          letterSpacing: 0,
-          stroke: { color: '#f6efd7', width: 0.18 },
-        },
-      });
-      label.x = entry.x;
-      label.y = entry.y;
-      label.rotation = entry.rot;
-      label.alpha = 0.68;
-      label.resolution = 3;
-      this.annotations.addChild(label);
-    }
-  }
 }

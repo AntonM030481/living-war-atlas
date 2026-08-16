@@ -3,6 +3,7 @@ import { Application } from 'pixi.js';
 import { AtlasRenderer } from './rendering/AtlasRenderer';
 import { testMap } from './map/testMap';
 import type { WorkerInMessage, WorkerOutMessage } from './sim/types';
+import { SPEEDS, type Speed } from './sim/Config';
 
 const root = document.querySelector<HTMLDivElement>('#app');
 if (!root) throw new Error('Missing #app');
@@ -24,9 +25,12 @@ const worker = new Worker(new URL('./worker/simulation.worker.ts', import.meta.u
 });
 
 let currentSeed = 20260816;
-let speed: 1 | 2 | 4 = 1;
+let speed: Speed = SPEEDS[0];
 let paused = false;
 let debug = false;
+const speedButtons = SPEEDS.map((value) =>
+  `<button data-speed="${value}" class="${value === speed ? 'active' : ''}">${value}×</button>`,
+).join('');
 
 const hud = document.createElement('div');
 hud.className = 'hud';
@@ -34,9 +38,7 @@ hud.innerHTML = `
   <strong>Living War Atlas · M0</strong>
   <span id="status">warming up…</span>
   <span id="telemetry">front -- · stress --</span>
-  <button data-speed="1" class="active">1×</button>
-  <button data-speed="2">2×</button>
-  <button data-speed="4">4×</button>
+  ${speedButtons}
   <button id="pause">Pause</button>
   <button id="debug">Debug</button>
   <button id="reset">New seed</button>
@@ -71,7 +73,11 @@ function send(message: WorkerInMessage): void {
   worker.postMessage(message);
 }
 
-function setSpeed(next: 1 | 2 | 4): void {
+function isSpeed(value: number): value is Speed {
+  return (SPEEDS as readonly number[]).includes(value);
+}
+
+function setSpeed(next: Speed): void {
   speed = next;
   send({ type: 'speed', speed });
   hud.querySelectorAll<HTMLButtonElement>('[data-speed]').forEach((button) => {
@@ -93,7 +99,10 @@ function setDebug(next: boolean): void {
 }
 
 hud.querySelectorAll<HTMLButtonElement>('[data-speed]').forEach((button) => {
-  button.addEventListener('click', () => setSpeed(Number(button.dataset.speed) as 1 | 2 | 4));
+  button.addEventListener('click', () => {
+    const next = Number(button.dataset.speed);
+    if (isSpeed(next)) setSpeed(next);
+  });
 });
 pauseButton.addEventListener('click', () => setPaused(!paused));
 debugButton.addEventListener('click', () => setDebug(!debug));
@@ -104,9 +113,8 @@ hud.querySelector<HTMLButtonElement>('#reset')!.addEventListener('click', () => 
 });
 
 window.addEventListener('keydown', (event) => {
-  if (event.key === '1') setSpeed(1);
-  if (event.key === '2') setSpeed(2);
-  if (event.key === '4') setSpeed(4);
+  const nextSpeed = Number(event.key);
+  if (isSpeed(nextSpeed)) setSpeed(nextSpeed);
   if (event.key === ' ') {
     event.preventDefault();
     setPaused(!paused);
