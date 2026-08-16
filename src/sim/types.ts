@@ -24,6 +24,7 @@ export interface SimulationSnapshot {
   height: number;
   step: number;
   gameTime: number;
+  stats: SimulationStats;
   control: Float32Array;
   warBlue: Float32Array;
   warRed: Float32Array;
@@ -36,6 +37,20 @@ export interface SimulationSnapshot {
   terrainDefense: Float32Array;
   terrainMobility: Float32Array;
   cities: City[];
+}
+
+export interface SimulationStats {
+  frontCells: number;
+  maxInstabilityBlue: number;
+  maxInstabilityRed: number;
+  collapseBlueCells: number;
+  collapseRedCells: number;
+  totalWarBlue: number;
+  totalWarRed: number;
+  activeFlowBlue: number;
+  activeFlowRed: number;
+  blueCities: number;
+  redCities: number;
 }
 
 export type WorkerInMessage =

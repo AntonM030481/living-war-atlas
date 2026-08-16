@@ -1,20 +1,22 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import type { SimulationSnapshot, MapDefinition, City } from '../sim/types';
 
-const BLUE = 0x557895;
-const BLUE_DARK = 0x315b7f;
-const RED = 0xb06a58;
-const RED_DARK = 0x8f4638;
-const PAPER = 0xd8cfb8;
-const PAPER_LIGHT = 0xeee7d5;
-const INK = 0x3b3932;
-const RIVER = 0x718da2;
+const BLUE = 0x4f769d;
+const BLUE_DARK = 0x164f91;
+const RED = 0xc76b5c;
+const RED_DARK = 0xb12620;
+const PAPER = 0xe6ddb7;
+const PAPER_LIGHT = 0xf6efd7;
+const INK = 0x2f2b24;
+const RIVER = 0x4fa6bd;
+const GRID = 0x8b7a59;
 
 interface Point { x: number; y: number }
 
 export class AtlasRenderer {
   private readonly world = new Container();
   private readonly terrain = new Graphics();
+  private readonly grid = new Graphics();
   private readonly historicalBorder = new Graphics();
   private readonly territory = new Graphics();
   private readonly flows = new Graphics();
@@ -22,6 +24,7 @@ export class AtlasRenderer {
   private readonly instability = new Graphics();
   private readonly cities = new Graphics();
   private readonly labels = new Container();
+  private readonly annotations = new Container();
   private debug = false;
 
   constructor(
@@ -30,6 +33,7 @@ export class AtlasRenderer {
   ) {
     this.world.addChild(
       this.terrain,
+      this.grid,
       this.historicalBorder,
       this.territory,
       this.flows,
@@ -37,11 +41,14 @@ export class AtlasRenderer {
       this.instability,
       this.cities,
       this.labels,
+      this.annotations,
     );
     this.app.stage.addChild(this.world);
     this.drawTerrain();
+    this.drawGrid();
     this.drawHistoricalBorder();
     this.createCityLabels();
+    this.createAtlasAnnotations();
     this.fit();
     window.addEventListener('resize', () => this.fit());
   }
@@ -79,20 +86,24 @@ export class AtlasRenderer {
     g.clear();
     g.rect(0, 0, this.map.width, this.map.height).fill(PAPER);
 
-    // Very light cartographic paper texture: sparse horizontal strokes.
-    for (let y = 3; y < this.map.height; y += 5) {
-      g.moveTo(0, y).lineTo(this.map.width, y + 0.12);
+    for (let y = 2; y < this.map.height; y += 2.8) {
+      const wobble = Math.sin(y * 1.73) * 0.16;
+      g.moveTo(0, y).lineTo(this.map.width, y + wobble);
     }
-    g.stroke({ color: 0x8a806d, width: 0.06, alpha: 0.08 });
+    g.stroke({ color: 0x8a806d, width: 0.055, alpha: 0.12 });
 
-    // Mountains are hachures only; no large translucent circles.
+    for (let x = 4; x < this.map.width; x += 6) {
+      g.moveTo(x, 0).lineTo(x + Math.sin(x) * 0.25, this.map.height);
+    }
+    g.stroke({ color: 0xb8a77d, width: 0.04, alpha: 0.06 });
+
     for (const m of this.map.mountains) {
-      for (let row = -3; row <= 3; row++) {
-        const yy = m.y + row * (m.r / 4.3);
-        const inside = Math.max(0, 1 - (row / 3.6) ** 2);
+      for (let row = -5; row <= 5; row++) {
+        const yy = m.y + row * (m.r / 6.2);
+        const inside = Math.max(0, 1 - (row / 5.8) ** 2);
         const half = m.r * 0.72 * Math.sqrt(inside);
         if (half < 0.5) continue;
-        const segments = Math.max(2, Math.round(half / 2.3));
+        const segments = Math.max(2, Math.round(half / 1.75));
         for (let s = 0; s < segments; s++) {
           const x = m.x - half + ((s + 0.5) / segments) * half * 2;
           const size = 0.9 + 0.35 * Math.sin((s + row) * 1.7);
@@ -102,7 +113,7 @@ export class AtlasRenderer {
         }
       }
     }
-    g.stroke({ color: 0x766e5f, width: 0.16, alpha: 0.50 });
+    g.stroke({ color: 0x766e5f, width: 0.14, alpha: 0.58 });
 
     // River: pale outer stroke and a thinner core like an atlas symbol.
     for (let y = 0; y < this.map.height - 0.5; y += 0.5) {
@@ -115,6 +126,21 @@ export class AtlasRenderer {
         .lineTo(this.map.riverX(y + 0.5), y + 0.5);
     }
     g.stroke({ color: RIVER, width: 0.46, alpha: 0.82 });
+  }
+
+  private drawGrid(): void {
+    const g = this.grid;
+    g.clear();
+    g.rect(0.6, 0.6, this.map.width - 1.2, this.map.height - 1.2);
+    g.stroke({ color: 0x4d6f43, width: 0.16, alpha: 0.55 });
+
+    for (let x = 16; x < this.map.width; x += 16) {
+      g.moveTo(x, 0.7).lineTo(x, this.map.height - 0.7);
+    }
+    for (let y = 13; y < this.map.height; y += 13) {
+      g.moveTo(0.7, y).lineTo(this.map.width - 0.7, y);
+    }
+    g.stroke({ color: GRID, width: 0.06, alpha: 0.28 });
   }
 
   private drawHistoricalBorder(): void {
@@ -165,61 +191,68 @@ export class AtlasRenderer {
     return c > 0 ? q : -q;
   }
 
-  private frontXByRow(snapshot: SimulationSnapshot): Array<number | null> {
-    const out: Array<number | null> = new Array(snapshot.height).fill(null);
+  private contourSegments(snapshot: SimulationSnapshot): Array<[Point, Point]> {
+    const segments: Array<[Point, Point]> = [];
     const { width, height, control } = snapshot;
-    for (let y = 0; y < height; y++) {
-      const candidates: number[] = [];
+
+    const edgePoint = (x1: number, y1: number, v1: number, x2: number, y2: number, v2: number): Point => {
+      const t = Math.abs(v1) / (Math.abs(v1) + Math.abs(v2) + 1e-6);
+      return { x: x1 + (x2 - x1) * t, y: y1 + (y2 - y1) * t };
+    };
+
+    for (let y = 0; y < height - 1; y++) {
       for (let x = 0; x < width - 1; x++) {
-        const a = control[y * width + x];
-        const b = control[y * width + x + 1];
-        if ((a >= 0) === (b >= 0)) continue;
-        const t = Math.abs(a) / (Math.abs(a) + Math.abs(b) + 1e-6);
-        candidates.push(x + t);
-      }
-      if (candidates.length > 0) {
-        // Main theatre: choose the crossing nearest the map centre.
-        let best = candidates[0];
-        let bestD = Math.abs(best - width / 2);
-        for (const x of candidates) {
-          const d = Math.abs(x - width / 2);
-          if (d < bestD) { best = x; bestD = d; }
+        const i = y * width + x;
+        const c00 = control[i];
+        const c10 = control[i + 1];
+        const c01 = control[i + width];
+        const c11 = control[i + width + 1];
+        const points: Point[] = [];
+
+        if ((c00 >= 0) !== (c10 >= 0)) points.push(edgePoint(x, y, c00, x + 1, y, c10));
+        if ((c10 >= 0) !== (c11 >= 0)) points.push(edgePoint(x + 1, y, c10, x + 1, y + 1, c11));
+        if ((c01 >= 0) !== (c11 >= 0)) points.push(edgePoint(x, y + 1, c01, x + 1, y + 1, c11));
+        if ((c00 >= 0) !== (c01 >= 0)) points.push(edgePoint(x, y, c00, x, y + 1, c01));
+
+        if (points.length === 2) segments.push([points[0], points[1]]);
+        else if (points.length === 4) {
+          segments.push([points[0], points[1]], [points[2], points[3]]);
         }
-        out[y] = best;
       }
     }
 
-    // Gentle visual smoothing only; simulation remains untouched.
-    const smoothed = out.slice();
-    for (let y = 2; y < height - 2; y++) {
-      const values = [out[y - 2], out[y - 1], out[y], out[y + 1], out[y + 2]]
-        .filter((v): v is number => v !== null);
-      if (values.length >= 3) smoothed[y] = values.reduce((a, b) => a + b, 0) / values.length;
-    }
-    return smoothed;
+    return segments;
   }
 
   private drawFront(snapshot: SimulationSnapshot): void {
     const g = this.front;
     g.clear();
-    const rows = this.frontXByRow(snapshot);
+    const segments = this.contourSegments(snapshot);
 
-    const drawPath = (offset: number, color: number, width: number, alpha: number) => {
-      let started = false;
-      for (let y = 0; y < rows.length; y++) {
-        const x = rows[y];
-        if (x === null) { started = false; continue; }
-        if (!started) { g.moveTo(x + offset, y); started = true; }
-        else g.lineTo(x + offset, y);
+    const drawSegments = (color: number, width: number, alpha: number) => {
+      for (const [a, b] of segments) {
+        g.moveTo(a.x, a.y).lineTo(b.x, b.y);
       }
       g.stroke({ color, width, alpha });
     };
 
-    // Two faint opposing shoulders make the line read as a battle front,
-    // with a dark atlas line in the middle. No white contour halo.
-    drawPath(-0.27, BLUE_DARK, 0.42, 0.78);
-    drawPath(+0.27, RED_DARK, 0.42, 0.78);
-    drawPath(0, INK, 0.16, 0.96);
+    drawSegments(BLUE_DARK, 0.82, 0.58);
+    drawSegments(RED_DARK, 0.50, 0.72);
+    drawSegments(INK, 0.14, 0.95);
+
+    for (let i = 0; i < segments.length; i += 7) {
+      const [a, b] = segments[i];
+      const mx = (a.x + b.x) * 0.5;
+      const my = (a.y + b.y) * 0.5;
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len = Math.hypot(dx, dy);
+      if (len < 1e-4) continue;
+      const nx = -dy / len;
+      const ny = dx / len;
+      g.moveTo(mx - nx * 0.32, my - ny * 0.32).lineTo(mx + nx * 0.32, my + ny * 0.32);
+    }
+    g.stroke({ color: RED_DARK, width: 0.10, alpha: 0.55 });
   }
 
   private sampleVector(
@@ -304,6 +337,21 @@ export class AtlasRenderer {
     }
   }
 
+  private drawArrowHead(g: Graphics, points: Point[], color: number): void {
+    if (points.length < 2) return;
+    const tip = points[points.length - 1];
+    const prev = points[Math.max(0, points.length - 4)];
+    const angle = Math.atan2(tip.y - prev.y, tip.x - prev.x);
+    const size = 1.15;
+    const left = angle + Math.PI * 0.82;
+    const right = angle - Math.PI * 0.82;
+    g.moveTo(tip.x, tip.y)
+      .lineTo(tip.x + Math.cos(left) * size, tip.y + Math.sin(left) * size)
+      .lineTo(tip.x + Math.cos(right) * size, tip.y + Math.sin(right) * size)
+      .lineTo(tip.x, tip.y)
+      .fill({ color, alpha: 0.42 });
+  }
+
   private drawFlows(snapshot: SimulationSnapshot): void {
     const g = this.flows;
     g.clear();
@@ -328,6 +376,7 @@ export class AtlasRenderer {
         // Moving dashes make direction visible without filling the whole map with vectors.
         this.drawDashedPath(g, path, snapshot.gameTime * 0.9 + offset * 1.7);
         g.stroke({ color, width: 0.27, alpha: 0.56 });
+        this.drawArrowHead(g, path, color);
       }
     }
   }
@@ -335,20 +384,19 @@ export class AtlasRenderer {
   private drawInstability(snapshot: SimulationSnapshot): void {
     const g = this.instability;
     g.clear();
-    const rows = this.frontXByRow(snapshot);
     for (let y = 1; y < snapshot.height - 1; y += 2) {
-      const x = rows[y];
-      if (x === null) continue;
-      const ix = Math.max(0, Math.min(snapshot.width - 1, Math.round(x)));
-      const i = y * snapshot.width + ix;
-      const b = snapshot.instabilityBlue[i];
-      const r = snapshot.instabilityRed[i];
+      for (let x = 1; x < snapshot.width - 1; x += 2) {
+        const i = y * snapshot.width + x;
+        if (Math.abs(snapshot.control[i]) > 0.24) continue;
+        const b = snapshot.instabilityBlue[i];
+        const r = snapshot.instabilityRed[i];
       const v = Math.max(b, r);
       if (v < 0.08) continue;
       g.circle(x, y, 0.35 + Math.min(1, v) * 0.9).fill({
         color: b > r ? RED_DARK : BLUE_DARK,
         alpha: Math.min(0.50, 0.08 + v * 0.28),
       });
+      }
     }
   }
 
@@ -373,16 +421,46 @@ export class AtlasRenderer {
         text: city.name,
         style: {
           fontFamily: 'Georgia, Times New Roman, serif',
-          fontSize: 2.15,
+          fontSize: 2.05,
           fontWeight: '600',
-          fill: '#34312b',
-          stroke: { color: '#eee7d5', width: 0.42 },
+          fill: '#2d2922',
+          stroke: { color: '#f6efd7', width: 0.48 },
         },
       });
       label.x = city.x + 1.45;
       label.y = city.y - 1.18;
       label.resolution = 3;
       this.labels.addChild(label);
+    }
+  }
+
+  private createAtlasAnnotations(): void {
+    const entries = [
+      { text: 'СЕВЕРНЫЙ ФРОНТ', x: 52, y: 7, color: '#b12620', rot: -0.03 },
+      { text: 'ЦЕНТРАЛЬНЫЙ ФРОНТ', x: 70, y: 39, color: '#b12620', rot: 0.02 },
+      { text: 'ЮЖНЫЙ ФРОНТ', x: 57, y: 71, color: '#164f91', rot: -0.04 },
+      { text: 'ГРУППА АРМИЙ', x: 23, y: 49, color: '#164f91', rot: 0.03 },
+      { text: 'ПРИФРОНТОВАЯ ЗОНА', x: 92, y: 25, color: '#b12620', rot: -0.02 },
+    ];
+
+    for (const entry of entries) {
+      const label = new Text({
+        text: entry.text,
+        style: {
+          fontFamily: 'Georgia, Times New Roman, serif',
+          fontSize: 2.0,
+          fontWeight: '700',
+          fill: entry.color,
+          letterSpacing: 0,
+          stroke: { color: '#f6efd7', width: 0.18 },
+        },
+      });
+      label.x = entry.x;
+      label.y = entry.y;
+      label.rotation = entry.rot;
+      label.alpha = 0.68;
+      label.resolution = 3;
+      this.annotations.addChild(label);
     }
   }
 }

@@ -1,5 +1,5 @@
 import { CFG, type Side } from './Config';
-import type { City, MapDefinition, SimulationSnapshot } from './types';
+import type { City, MapDefinition, SimulationSnapshot, SimulationStats } from './types';
 
 const EPS = 1e-6;
 
@@ -145,6 +145,7 @@ export class Simulation {
       height: this.height,
       step: this.stepCount,
       gameTime: this.time,
+      stats: this.computeStats(),
       control: this.control.slice(),
       warBlue: this.warBlue.slice(),
       warRed: this.warRed.slice(),
@@ -157,6 +158,51 @@ export class Simulation {
       terrainDefense: this.terrainDefense.slice(),
       terrainMobility: this.terrainMobility.slice(),
       cities: this.cities.map((c) => ({ ...c })),
+    };
+  }
+
+  private computeStats(): SimulationStats {
+    let frontCells = 0;
+    let maxInstabilityBlue = 0;
+    let maxInstabilityRed = 0;
+    let collapseBlueCells = 0;
+    let collapseRedCells = 0;
+    let totalWarBlue = 0;
+    let totalWarRed = 0;
+    let activeFlowBlue = 0;
+    let activeFlowRed = 0;
+
+    for (let i = 0; i < this.size; i++) {
+      if (this.isFront(i)) frontCells += 1;
+      maxInstabilityBlue = Math.max(maxInstabilityBlue, this.instabilityBlue[i]);
+      maxInstabilityRed = Math.max(maxInstabilityRed, this.instabilityRed[i]);
+      collapseBlueCells += this.collapseBlue[i];
+      collapseRedCells += this.collapseRed[i];
+      totalWarBlue += this.warBlue[i];
+      totalWarRed += this.warRed[i];
+      activeFlowBlue += Math.hypot(this.flowBlueX[i], this.flowBlueY[i]);
+      activeFlowRed += Math.hypot(this.flowRedX[i], this.flowRedY[i]);
+    }
+
+    let blueCities = 0;
+    let redCities = 0;
+    for (const city of this.cities) {
+      if (city.owner === 'blue') blueCities += 1;
+      else redCities += 1;
+    }
+
+    return {
+      frontCells,
+      maxInstabilityBlue,
+      maxInstabilityRed,
+      collapseBlueCells,
+      collapseRedCells,
+      totalWarBlue,
+      totalWarRed,
+      activeFlowBlue,
+      activeFlowRed,
+      blueCities,
+      redCities,
     };
   }
 

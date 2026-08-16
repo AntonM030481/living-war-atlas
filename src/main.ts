@@ -33,6 +33,7 @@ hud.className = 'hud';
 hud.innerHTML = `
   <strong>Living War Atlas · M0</strong>
   <span id="status">warming up…</span>
+  <span id="telemetry">front -- · stress --</span>
   <button data-speed="1" class="active">1×</button>
   <button data-speed="2">2×</button>
   <button data-speed="4">4×</button>
@@ -46,13 +47,14 @@ const legend = document.createElement('div');
 legend.className = 'legend';
 legend.innerHTML = `
   <b>M0: autonomous front</b><br>
-  moving dashed routes = resource flow<br>
+  dashed arrows = physical War Resource flow<br>
   pale dashed line = pre-war border<br>
-  F3 = instability overlay · Space = pause
+  Debug shows instability · Space = pause
 `;
 document.body.appendChild(legend);
 
 const status = hud.querySelector<HTMLSpanElement>('#status')!;
+const telemetry = hud.querySelector<HTMLSpanElement>('#telemetry')!;
 const pauseButton = hud.querySelector<HTMLButtonElement>('#pause')!;
 const debugButton = hud.querySelector<HTMLButtonElement>('#debug')!;
 
@@ -116,7 +118,13 @@ worker.onmessage = (event: MessageEvent<WorkerOutMessage>) => {
     renderer.render(message.snapshot);
     const minutes = Math.floor(message.snapshot.gameTime / 60);
     const seconds = Math.floor(message.snapshot.gameTime % 60).toString().padStart(2, '0');
+    const stats = message.snapshot.stats;
+    const maxInstability = Math.max(stats.maxInstabilityBlue, stats.maxInstabilityRed);
+    const collapseCells = stats.collapseBlueCells + stats.collapseRedCells;
+    const totalWar = Math.round(stats.totalWarBlue + stats.totalWarRed);
+    const totalFlow = Math.round(stats.activeFlowBlue + stats.activeFlowRed);
     status.textContent = `seed ${currentSeed} · ${minutes}:${seconds} · ${speed}×`;
+    telemetry.textContent = `front ${stats.frontCells} · stress ${maxInstability.toFixed(2)} · collapse ${collapseCells} · war ${totalWar} · flow ${totalFlow}`;
   }
 };
 
