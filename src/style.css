@@ -43,6 +43,10 @@ canvas { display: block; }
 .city-points-badge {
   position: fixed;
   z-index: 9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
   padding: 4px 9px 5px;
   border-radius: 4px;
   background: rgba(246, 239, 215, .82);
@@ -52,6 +56,18 @@ canvas { display: block; }
   line-height: 1;
   pointer-events: none;
   text-shadow: 0 1px 0 rgba(255, 250, 229, .85);
+}
+
+.city-points-badge span {
+  display: block;
+}
+
+.city-points-badge small {
+  display: block;
+  font: 700 10px/1.05 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: .02em;
+  opacity: .78;
+  text-shadow: none;
 }
 
 .city-points-badge.blue {

@@ -37,12 +37,12 @@ function resizeMapStage(): void {
 
 const bluePointsBadge = document.createElement('div');
 bluePointsBadge.className = 'city-points-badge blue';
-bluePointsBadge.textContent = 'Blue --/--';
+bluePointsBadge.innerHTML = '<span>Blue --/--</span><small>war --</small>';
 document.body.appendChild(bluePointsBadge);
 
 const redPointsBadge = document.createElement('div');
 redPointsBadge.className = 'city-points-badge red';
-redPointsBadge.textContent = 'Red --/--';
+redPointsBadge.innerHTML = '<span>Red --/--</span><small>war --</small>';
 document.body.appendChild(redPointsBadge);
 
 const cityPowerLabels = new Map<string, HTMLDivElement>();
@@ -247,10 +247,14 @@ function updateMapOverlays(snapshot: SimulationSnapshot): void {
 function updateCityPointBadges(snapshot: SimulationSnapshot): void {
   const s = snapshot.stats;
   const rect = renderer.mapScreenRect();
-  bluePointsBadge.textContent =
-    `Blue ${formatPoints(s.activeCityPointsBlue)}/${formatPoints(s.controlledCityPointsBlue)}`;
-  redPointsBadge.textContent =
-    `Red ${formatPoints(s.activeCityPointsRed)}/${formatPoints(s.controlledCityPointsRed)}`;
+  bluePointsBadge.innerHTML = `
+    <span>Blue ${formatPoints(s.activeCityPointsBlue)}/${formatPoints(s.controlledCityPointsBlue)}</span>
+    <small>war ${Math.round(s.totalWarBlue)}</small>
+  `;
+  redPointsBadge.innerHTML = `
+    <span>Red ${formatPoints(s.activeCityPointsRed)}/${formatPoints(s.controlledCityPointsRed)}</span>
+    <small>war ${Math.round(s.totalWarRed)}</small>
+  `;
   bluePointsBadge.style.left = `${rect.left + 10}px`;
   bluePointsBadge.style.top = `${rect.top + 10}px`;
   redPointsBadge.style.left = `${rect.left + rect.width - redPointsBadge.offsetWidth - 10}px`;
