@@ -44,6 +44,10 @@ self.onmessage = (event: MessageEvent<WorkerInMessage>) => {
     case 'reset':
       createSimulation(message.seed);
       break;
+    case 'toggleCity':
+      sim?.toggleCityEnabled(message.cityId);
+      if (sim) post({ type: 'snapshot', snapshot: sim.snapshot() });
+      break;
     case 'pause':
       paused = message.paused;
       break;

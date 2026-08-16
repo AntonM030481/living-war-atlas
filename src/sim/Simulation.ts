@@ -55,6 +55,14 @@ export class Simulation {
   private readonly incomingRed: Float32Array;
   private readonly deltaBlue: Float32Array;
   private readonly deltaRed: Float32Array;
+  private readonly drainBlue: Float32Array;
+  private readonly drainRed: Float32Array;
+  private readonly advanceBlueDebug: Float32Array;
+  private readonly advanceRedDebug: Float32Array;
+  private readonly stressBlueDebug: Float32Array;
+  private readonly stressRedDebug: Float32Array;
+  private readonly rawForcingDebug: Float32Array;
+  private readonly pressureDebug: Float32Array;
   private readonly tmpControl: Float32Array;
   private readonly collapseBlue: Uint8Array;
   private readonly collapseRed: Uint8Array;
@@ -71,7 +79,7 @@ export class Simulation {
     this.width = map.width;
     this.height = map.height;
     this.size = this.width * this.height;
-    this.cities = map.cities.map((c) => ({ ...c }));
+    this.cities = map.cities.map((c) => ({ enabled: true, ...c }));
 
     this.control = new Float32Array(this.size);
     this.warBlue = new Float32Array(this.size);
@@ -100,6 +108,14 @@ export class Simulation {
     this.incomingRed = new Float32Array(this.size);
     this.deltaBlue = new Float32Array(this.size);
     this.deltaRed = new Float32Array(this.size);
+    this.drainBlue = new Float32Array(this.size);
+    this.drainRed = new Float32Array(this.size);
+    this.advanceBlueDebug = new Float32Array(this.size);
+    this.advanceRedDebug = new Float32Array(this.size);
+    this.stressBlueDebug = new Float32Array(this.size);
+    this.stressRedDebug = new Float32Array(this.size);
+    this.rawForcingDebug = new Float32Array(this.size);
+    this.pressureDebug = new Float32Array(this.size);
     this.tmpControl = new Float32Array(this.size);
     this.collapseBlue = new Uint8Array(this.size);
     this.collapseRed = new Uint8Array(this.size);
@@ -117,6 +133,12 @@ export class Simulation {
 
   get gameTime(): number {
     return this.time;
+  }
+
+  toggleCityEnabled(cityId: string): void {
+    const city = this.cities.find((candidate) => candidate.id === cityId);
+    if (!city) return;
+    city.enabled = !(city.enabled ?? true);
   }
 
   runWarmup(seconds = CFG.warmupSeconds): void {
@@ -144,6 +166,7 @@ export class Simulation {
   }
 
   snapshot(): SimulationSnapshot {
+    this.computeFrontMassAndNeed();
     return {
       width: this.width,
       height: this.height,
@@ -155,6 +178,19 @@ export class Simulation {
       warRed: this.warRed.slice(),
       instabilityBlue: this.instabilityBlue.slice(),
       instabilityRed: this.instabilityRed.slice(),
+      frontMassBlue: this.massBlue.slice(),
+      frontMassRed: this.massRed.slice(),
+      incomingBlue: this.incomingBlue.slice(),
+      incomingRed: this.incomingRed.slice(),
+      drainBlue: this.drainBlue.slice(),
+      drainRed: this.drainRed.slice(),
+      advanceBlue: this.advanceBlueDebug.slice(),
+      advanceRed: this.advanceRedDebug.slice(),
+      stressBlue: this.stressBlueDebug.slice(),
+      stressRed: this.stressRedDebug.slice(),
+      rawForcing: this.rawForcingDebug.slice(),
+      forcing: this.forcing.slice(),
+      pressure: this.pressureDebug.slice(),
       flowBlueX: this.flowBlueX.slice(),
       flowBlueY: this.flowBlueY.slice(),
       flowRedX: this.flowRedX.slice(),
@@ -329,6 +365,7 @@ export class Simulation {
 
   private generateCityResource(): void {
     for (const city of this.cities) {
+      if (city.enabled === false) continue;
       const i = this.index(city.x, city.y);
       const amount = city.baseProduction * city.integration * CFG.dt;
       if (city.owner === 'blue') this.warBlue[i] += amount;
@@ -498,6 +535,14 @@ export class Simulation {
 
   private resolveCombatAndInstability(): void {
     this.forcing.fill(0);
+    this.drainBlue.fill(0);
+    this.drainRed.fill(0);
+    this.advanceBlueDebug.fill(0);
+    this.advanceRedDebug.fill(0);
+    this.stressBlueDebug.fill(0);
+    this.stressRedDebug.fill(0);
+    this.rawForcingDebug.fill(0);
+    this.pressureDebug.fill(0);
     const noiseBucket = Math.floor(this.time / 2.5);
 
     for (let y = 0; y < this.height; y++) {
@@ -546,15 +591,32 @@ export class Simulation {
 
         let advanceBlue = Math.max(0, stressRed - 1);
         let advanceRed = Math.max(0, stressBlue - 1);
+        if (redMass < CFG.emptyFrontMass && blueMass > CFG.unopposedTinyMass) {
+          const strength = clamp(blueMass / CFG.unopposedUsefulMass, 0.15, 1);
+          advanceBlue = Math.max(advanceBlue, CFG.unopposedAdvance * strength);
+        }
+        if (blueMass < CFG.emptyFrontMass && redMass > CFG.unopposedTinyMass) {
+          const strength = clamp(redMass / CFG.unopposedUsefulMass, 0.15, 1);
+          advanceRed = Math.max(advanceRed, CFG.unopposedAdvance * strength);
+        }
         if (redCollapsed) advanceBlue *= CFG.collapseAdvanceMultiplier;
         if (blueCollapsed) advanceRed *= CFG.collapseAdvanceMultiplier;
 
-        this.forcing[i] = clamp(advanceBlue - advanceRed, -2.5, 2.5);
+        const rawForcing = advanceBlue - advanceRed;
+        this.forcing[i] = clamp(rawForcing, -2.5, 2.5);
+        this.advanceBlueDebug[i] = advanceBlue;
+        this.advanceRedDebug[i] = advanceRed;
+        this.stressBlueDebug[i] = stressBlue;
+        this.stressRedDebug[i] = stressRed;
+        this.rawForcingDebug[i] = rawForcing;
+        this.pressureDebug[i] = (blueMass - redMass) / (blueMass + redMass + EPS);
 
         const combatIntensity = Math.min(blueMass, redMass) / (8 + Math.min(blueMass, redMass));
-        this.consumeNearFront(i, combatIntensity);
+        this.accumulateFrontConsumption(x, y, combatIntensity);
       }
     }
+
+    this.applyFrontConsumption();
   }
 
   private updateInstability(current: number, stress: number, mass: number, incoming: number): number {
@@ -571,14 +633,38 @@ export class Simulation {
     return clamp(current, 0, 1.8);
   }
 
-  private consumeNearFront(i: number, combatIntensity: number): void {
+  private accumulateFrontConsumption(x: number, y: number, combatIntensity: number): void {
+    const i = this.index(x, y);
     const base = CFG.maintenanceRate * CFG.dt;
     const combat = CFG.combatConsumptionRate * combatIntensity * CFG.dt;
-    const blueRate = base + combat;
-    const redRate = base + combat;
+    const blueStarvation = 1 + 2.8 * (1 - clamp(this.incomingBlue[i] / 2.0, 0, 1));
+    const redStarvation = 1 + 2.8 * (1 - clamp(this.incomingRed[i] / 2.0, 0, 1));
+    const blueAmount = (base + combat) * blueStarvation * (1 + this.instabilityBlue[i] * 0.9);
+    const redAmount = (base + combat) * redStarvation * (1 + this.instabilityRed[i] * 0.9);
+    const r = CFG.massRadius;
 
-    this.warBlue[i] = Math.max(0, this.warBlue[i] * (1 - blueRate));
-    this.warRed[i] = Math.max(0, this.warRed[i] * (1 - redRate));
+    for (let dy = -r; dy <= r; dy++) {
+      const yy = y + dy;
+      if (yy < 0 || yy >= this.height) continue;
+      for (let dx = -r; dx <= r; dx++) {
+        const xx = x + dx;
+        if (xx < 0 || xx >= this.width) continue;
+        const j = this.index(xx, yy);
+        const distance = Math.hypot(dx, dy);
+        const weight = 1 / (1 + distance);
+        const blueAccess = smoothstep(-0.18, 0.62, this.control[j]);
+        const redAccess = smoothstep(-0.18, 0.62, -this.control[j]);
+        this.drainBlue[j] += blueAmount * weight * blueAccess;
+        this.drainRed[j] += redAmount * weight * redAccess;
+      }
+    }
+  }
+
+  private applyFrontConsumption(): void {
+    for (let i = 0; i < this.size; i++) {
+      if (this.drainBlue[i] > 0) this.warBlue[i] = Math.max(0, this.warBlue[i] * (1 - Math.min(0.45, this.drainBlue[i])));
+      if (this.drainRed[i] > 0) this.warRed[i] = Math.max(0, this.warRed[i] * (1 - Math.min(0.45, this.drainRed[i])));
+    }
   }
 
   private updateControl(): void {

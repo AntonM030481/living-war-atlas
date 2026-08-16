@@ -12,6 +12,51 @@ const RIVER = 0x4fa6bd;
 const GRID = 0x8b7a59;
 
 interface Point { x: number; y: number }
+interface FrontSample extends Point {
+  sampleIndex: number;
+  nx: number;
+  ny: number;
+  blueWidth: number;
+  redWidth: number;
+}
+interface FlowTrace {
+  points: Point[];
+  averageMagnitude: number;
+  maxMagnitude: number;
+}
+export interface FrontDebugInfo {
+  x: number;
+  y: number;
+  index: number;
+  distance: number;
+  radius: number;
+  control: number;
+  warBlue: number;
+  warRed: number;
+  frontMassBlue: number;
+  frontMassRed: number;
+  incomingBlue: number;
+  incomingRed: number;
+  drainBlue: number;
+  drainRed: number;
+  advanceBlue: number;
+  advanceRed: number;
+  stressBlue: number;
+  stressRed: number;
+  rawForcing: number;
+  forcing: number;
+  pressure: number;
+  instabilityBlue: number;
+  instabilityRed: number;
+  terrainDefense: number;
+  terrainMobility: number;
+  flowBlue: number;
+  flowRed: number;
+  localWarBlue: number;
+  localWarRed: number;
+  localDrainBlue: number;
+  localDrainRed: number;
+}
 
 export class AtlasRenderer {
   private readonly world = new Container();
@@ -19,11 +64,14 @@ export class AtlasRenderer {
   private readonly grid = new Graphics();
   private readonly historicalBorder = new Graphics();
   private readonly territory = new Graphics();
+  private readonly resourceDensity = new Graphics();
   private readonly flows = new Graphics();
   private readonly front = new Graphics();
   private readonly instability = new Graphics();
   private readonly cities = new Graphics();
+  private readonly probe = new Graphics();
   private debug = false;
+  private selectedFrontIndex: number | null = null;
 
   constructor(
     private readonly app: Application,
@@ -34,10 +82,12 @@ export class AtlasRenderer {
       this.grid,
       this.historicalBorder,
       this.territory,
+      this.resourceDensity,
       this.flows,
       this.front,
       this.instability,
       this.cities,
+      this.probe,
     );
     this.app.stage.addChild(this.world);
     this.drawTerrain();
@@ -50,6 +100,7 @@ export class AtlasRenderer {
   setDebug(value: boolean): void {
     this.debug = value;
     this.instability.visible = value;
+    this.resourceDensity.visible = value;
   }
 
   toggleDebug(): boolean {
@@ -57,12 +108,104 @@ export class AtlasRenderer {
     return this.debug;
   }
 
+  cityIdAtClientPoint(clientX: number, clientY: number): string | null {
+    const { x, y } = this.clientToWorld(clientX, clientY);
+    let best: string | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    for (const city of this.map.cities) {
+      const radius = (1.15 + city.baseProduction * 0.14) * this.mapScale();
+      const distance = Math.hypot(x - city.x, y - city.y);
+      if (distance <= radius && distance < bestDistance) {
+        best = city.id;
+        bestDistance = distance;
+      }
+    }
+
+    return best;
+  }
+
+  inspectFrontAtClientPoint(snapshot: SimulationSnapshot, clientX: number, clientY: number): FrontDebugInfo | null {
+    return this.inspectFrontAtWorldPoint(snapshot, this.clientToWorld(clientX, clientY));
+  }
+
+  inspectFrontAtWorldPoint(snapshot: SimulationSnapshot, point: Point): FrontDebugInfo | null {
+    let best: FrontSample | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    for (const sample of this.frontSamples(snapshot)) {
+      const distance = Math.hypot(point.x - sample.x, point.y - sample.y);
+      if (distance < bestDistance) {
+        best = sample;
+        bestDistance = distance;
+      }
+    }
+
+    if (!best || bestDistance > 4.5 * this.mapScale()) {
+      this.selectedFrontIndex = null;
+      this.probe.clear();
+      return null;
+    }
+
+    const i = best.sampleIndex;
+    const radius = Math.round(5 * this.mapScale());
+    this.selectedFrontIndex = i;
+    return {
+      x: best.x,
+      y: best.y,
+      index: i,
+      distance: bestDistance,
+      radius,
+      control: this.localAverage(snapshot, snapshot.control, best.x, best.y, radius),
+      warBlue: this.localAverage(snapshot, snapshot.warBlue, best.x, best.y, radius),
+      warRed: this.localAverage(snapshot, snapshot.warRed, best.x, best.y, radius),
+      frontMassBlue: this.localAverage(snapshot, snapshot.frontMassBlue, best.x, best.y, radius),
+      frontMassRed: this.localAverage(snapshot, snapshot.frontMassRed, best.x, best.y, radius),
+      incomingBlue: this.localAverage(snapshot, snapshot.incomingBlue, best.x, best.y, radius),
+      incomingRed: this.localAverage(snapshot, snapshot.incomingRed, best.x, best.y, radius),
+      drainBlue: this.localAverage(snapshot, snapshot.drainBlue, best.x, best.y, radius),
+      drainRed: this.localAverage(snapshot, snapshot.drainRed, best.x, best.y, radius),
+      advanceBlue: this.localAverage(snapshot, snapshot.advanceBlue, best.x, best.y, radius),
+      advanceRed: this.localAverage(snapshot, snapshot.advanceRed, best.x, best.y, radius),
+      stressBlue: this.localAverage(snapshot, snapshot.stressBlue, best.x, best.y, radius),
+      stressRed: this.localAverage(snapshot, snapshot.stressRed, best.x, best.y, radius),
+      rawForcing: this.localAverage(snapshot, snapshot.rawForcing, best.x, best.y, radius),
+      forcing: this.localAverage(snapshot, snapshot.forcing, best.x, best.y, radius),
+      pressure: this.localAverage(snapshot, snapshot.pressure, best.x, best.y, radius),
+      instabilityBlue: this.localAverage(snapshot, snapshot.instabilityBlue, best.x, best.y, radius),
+      instabilityRed: this.localAverage(snapshot, snapshot.instabilityRed, best.x, best.y, radius),
+      terrainDefense: this.localAverage(snapshot, snapshot.terrainDefense, best.x, best.y, radius),
+      terrainMobility: this.localAverage(snapshot, snapshot.terrainMobility, best.x, best.y, radius),
+      flowBlue: this.localVectorMagnitudeAverage(snapshot, snapshot.flowBlueX, snapshot.flowBlueY, best.x, best.y, radius),
+      flowRed: this.localVectorMagnitudeAverage(snapshot, snapshot.flowRedX, snapshot.flowRedY, best.x, best.y, radius),
+      localWarBlue: this.localSum(snapshot, snapshot.warBlue, best.x, best.y, radius),
+      localWarRed: this.localSum(snapshot, snapshot.warRed, best.x, best.y, radius),
+      localDrainBlue: this.localSum(snapshot, snapshot.drainBlue, best.x, best.y, radius),
+      localDrainRed: this.localSum(snapshot, snapshot.drainRed, best.x, best.y, radius),
+    };
+  }
+
+  private clientToWorld(clientX: number, clientY: number): Point {
+    const rect = this.app.canvas.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left - this.world.x) / this.world.scale.x,
+      y: (clientY - rect.top - this.world.y) / this.world.scale.y,
+    };
+  }
+
+  private mapScale(): number {
+    return this.map.width / 128;
+  }
+
   render(snapshot: SimulationSnapshot): void {
     this.drawTerritory(snapshot);
+    if (this.debug) this.drawResourceDensity(snapshot);
+    else this.resourceDensity.clear();
     this.drawFlows(snapshot);
     this.drawFront(snapshot);
     this.drawCities(snapshot);
     if (this.debug) this.drawInstability(snapshot);
+    this.drawProbe(snapshot);
   }
 
   private fit(): void {
@@ -156,99 +299,162 @@ export class AtlasRenderer {
   private drawTerritory(snapshot: SimulationSnapshot): void {
     const g = this.territory;
     g.clear();
+  }
+
+  private drawResourceDensity(snapshot: SimulationSnapshot): void {
+    const g = this.resourceDensity;
+    g.clear();
+    this.drawResourceHeightmap(g, snapshot, 'blue');
+    this.drawResourceHeightmap(g, snapshot, 'red');
+  }
+
+  private drawResourceHeightmap(g: Graphics, snapshot: SimulationSnapshot, side: 'blue' | 'red'): void {
+    const color = side === 'blue' ? BLUE_DARK : RED_DARK;
+    const war = side === 'blue' ? snapshot.warBlue : snapshot.warRed;
+
+    for (let y = 0; y < snapshot.height; y++) {
+      for (let x = 0; x < snapshot.width; x++) {
+        const i = y * snapshot.width + x;
+        const control = side === 'blue' ? snapshot.control[i] : -snapshot.control[i];
+        if (control < -0.12) continue;
+        const v = war[i];
+        if (v < 0.08) continue;
+        const strength = Math.max(0, Math.min(1, Math.pow(v / 3.2, 0.58)));
+        g.rect(x, y, 1, 1).fill({
+          color,
+          alpha: 0.035 + strength * 0.32,
+        });
+      }
+    }
+  }
+
+  private frontSamples(snapshot: SimulationSnapshot): FrontSample[] {
+    const rows: Array<{ x: number; y: number; sampleIndex: number } | null> = new Array(snapshot.height).fill(null);
     const { width, height, control } = snapshot;
 
-    // Keep occupation tint restrained. The atlas should still look like paper.
     for (let y = 0; y < height; y++) {
-      let runStart = 0;
-      let runKey = this.controlKey(control[y * width]);
-      for (let x = 1; x <= width; x++) {
-        const key = x < width ? this.controlKey(control[y * width + x]) : 999;
-        if (key !== runKey) {
-          if (runKey !== 0) {
-            const strength = Math.abs(runKey) / 3;
-            const color = runKey > 0 ? BLUE : RED;
-            g.rect(runStart, y, x - runStart, 1).fill({
-              color,
-              alpha: 0.055 + strength * 0.075,
-            });
-          }
-          runStart = x;
-          runKey = key;
-        }
-      }
-    }
-  }
-
-  private controlKey(c: number): number {
-    const strength = Math.abs(c);
-    if (strength < 0.08) return 0;
-    const q = Math.min(3, Math.max(1, Math.ceil(strength * 3)));
-    return c > 0 ? q : -q;
-  }
-
-  private contourSegments(snapshot: SimulationSnapshot): Array<[Point, Point]> {
-    const segments: Array<[Point, Point]> = [];
-    const { width, height, control } = snapshot;
-
-    const edgePoint = (x1: number, y1: number, v1: number, x2: number, y2: number, v2: number): Point => {
-      const t = Math.abs(v1) / (Math.abs(v1) + Math.abs(v2) + 1e-6);
-      return { x: x1 + (x2 - x1) * t, y: y1 + (y2 - y1) * t };
-    };
-
-    for (let y = 0; y < height - 1; y++) {
+      let bestX: number | null = null;
+      let bestD = Number.POSITIVE_INFINITY;
       for (let x = 0; x < width - 1; x++) {
-        const i = y * width + x;
-        const c00 = control[i];
-        const c10 = control[i + 1];
-        const c01 = control[i + width];
-        const c11 = control[i + width + 1];
-        const points: Point[] = [];
-
-        if ((c00 >= 0) !== (c10 >= 0)) points.push(edgePoint(x, y, c00, x + 1, y, c10));
-        if ((c10 >= 0) !== (c11 >= 0)) points.push(edgePoint(x + 1, y, c10, x + 1, y + 1, c11));
-        if ((c01 >= 0) !== (c11 >= 0)) points.push(edgePoint(x, y + 1, c01, x + 1, y + 1, c11));
-        if ((c00 >= 0) !== (c01 >= 0)) points.push(edgePoint(x, y, c00, x, y + 1, c01));
-
-        if (points.length === 2) segments.push([points[0], points[1]]);
-        else if (points.length === 4) {
-          segments.push([points[0], points[1]], [points[2], points[3]]);
+        const a = control[y * width + x];
+        const b = control[y * width + x + 1];
+        if ((a >= 0) === (b >= 0)) continue;
+        const t = Math.abs(a) / (Math.abs(a) + Math.abs(b) + 1e-6);
+        const crossingX = x + t;
+        const d = Math.abs(crossingX - width / 2);
+        if (d < bestD) {
+          bestX = crossingX;
+          bestD = d;
         }
       }
+      if (bestX !== null) rows[y] = { x: bestX, y, sampleIndex: this.indexClamp(snapshot, bestX, y) };
     }
 
-    return segments;
+    const smoothed = rows.map((row, y) => {
+      if (!row) return null;
+      let total = 0;
+      let count = 0;
+      for (let yy = y - 2; yy <= y + 2; yy++) {
+        const neighbor = rows[yy];
+        if (!neighbor) continue;
+        total += neighbor.x;
+        count += 1;
+      }
+      const x = count > 0 ? total / count : row.x;
+      return { x, y: row.y, sampleIndex: this.indexClamp(snapshot, x, row.y) };
+    });
+
+    const samples: FrontSample[] = [];
+    for (let y = 0; y < smoothed.length; y++) {
+      const row = smoothed[y];
+      if (!row) continue;
+      const prev = smoothed[Math.max(0, y - 2)] ?? row;
+      const next = smoothed[Math.min(smoothed.length - 1, y + 2)] ?? row;
+      const tx = next.x - prev.x;
+      const ty = Math.max(0.001, next.y - prev.y);
+      const len = Math.hypot(tx, ty);
+      const nx = -ty / len;
+      const ny = tx / len;
+      samples.push({
+        ...row,
+        nx,
+        ny,
+        blueWidth: this.frontSideWidth(snapshot.frontMassBlue[row.sampleIndex]),
+        redWidth: this.frontSideWidth(snapshot.frontMassRed[row.sampleIndex]),
+      });
+    }
+
+    return samples;
+  }
+
+  private indexClamp(snapshot: SimulationSnapshot, x: number, y: number): number {
+    const ix = Math.max(0, Math.min(snapshot.width - 1, Math.round(x)));
+    const iy = Math.max(0, Math.min(snapshot.height - 1, Math.round(y)));
+    return iy * snapshot.width + ix;
+  }
+
+  private frontSideWidth(mass: number): number {
+    const strength = Math.max(0, Math.min(1, Math.sqrt(mass / 16)));
+    return 0.34 + strength * 2.35;
   }
 
   private drawFront(snapshot: SimulationSnapshot): void {
     const g = this.front;
     g.clear();
-    const segments = this.contourSegments(snapshot);
+    const samples = this.frontSamples(snapshot);
 
-    const drawSegments = (color: number, width: number, alpha: number) => {
-      for (const [a, b] of segments) {
-        g.moveTo(a.x, a.y).lineTo(b.x, b.y);
+    const drawSide = (side: 'blue' | 'red', dark: number) => {
+      const sign = side === 'blue' ? 1 : -1;
+      for (let i = 1; i < samples.length; i++) {
+        const a = samples[i - 1];
+        const b = samples[i];
+        if (b.y - a.y > 1.5) continue;
+        const aw = side === 'blue' ? a.blueWidth : a.redWidth;
+        const bw = side === 'blue' ? b.blueWidth : b.redWidth;
+        const ax = a.x + a.nx * sign * (0.24 + aw * 0.28);
+        const ay = a.y + a.ny * sign * (0.24 + aw * 0.28);
+        const bx = b.x + b.nx * sign * (0.24 + bw * 0.28);
+        const by = b.y + b.ny * sign * (0.24 + bw * 0.28);
+        const width = (aw + bw) * 0.5;
+        g.moveTo(ax, ay).lineTo(bx, by);
+        g.stroke({ color: dark, width: Math.max(0.18, width * 0.34), alpha: 1 });
       }
-      g.stroke({ color, width, alpha });
     };
 
-    drawSegments(PAPER_LIGHT, 0.78, 0.72);
-    drawSegments(INK, 0.34, 0.95);
-    drawSegments(RED_DARK, 0.12, 0.90);
+    drawSide('blue', BLUE_DARK);
+    drawSide('red', RED_DARK);
+    this.drawIncomingMarkers(g, snapshot, samples);
 
-    for (let i = 0; i < segments.length; i += 8) {
-      const [a, b] = segments[i];
-      const mx = (a.x + b.x) * 0.5;
-      const my = (a.y + b.y) * 0.5;
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const len = Math.hypot(dx, dy);
-      if (len < 1e-4) continue;
-      const nx = -dy / len;
-      const ny = dx / len;
-      g.moveTo(mx - nx * 0.24, my - ny * 0.24).lineTo(mx + nx * 0.24, my + ny * 0.24);
+    for (let i = 1; i < samples.length; i++) {
+      const a = samples[i - 1];
+      const b = samples[i];
+      if (b.y - a.y > 1.5) continue;
+      g.moveTo(a.x, a.y).lineTo(b.x, b.y);
+      g.stroke({ color: INK, width: 0.14, alpha: 1 });
     }
-    g.stroke({ color: BLUE_DARK, width: 0.10, alpha: 0.58 });
+  }
+
+  private drawIncomingMarkers(g: Graphics, snapshot: SimulationSnapshot, samples: FrontSample[]): void {
+    const drawSideMarkers = (side: 'blue' | 'red', color: number) => {
+      const sign = side === 'blue' ? 1 : -1;
+      const incoming = side === 'blue' ? snapshot.incomingBlue : snapshot.incomingRed;
+      for (let i = 1; i < samples.length; i += 4) {
+        const sample = samples[i];
+        const amount = incoming[sample.sampleIndex];
+        if (amount < 0.08) continue;
+        const strength = Math.max(0, Math.min(1, Math.sqrt(amount / 4.2)));
+        const width = side === 'blue' ? sample.blueWidth : sample.redWidth;
+        const baseX = sample.x + sample.nx * sign * (0.38 + width * 0.50);
+        const baseY = sample.y + sample.ny * sign * (0.38 + width * 0.50);
+        const tipX = baseX + sample.nx * sign * (0.62 + strength * 1.20);
+        const tipY = baseY + sample.ny * sign * (0.62 + strength * 1.20);
+        g.moveTo(baseX, baseY).lineTo(tipX, tipY);
+        g.stroke({ color, width: 0.14 + strength * 0.36, alpha: 1 });
+      }
+    };
+
+    drawSideMarkers('blue', BLUE_DARK);
+    drawSideMarkers('red', RED_DARK);
   }
 
   private sampleVector(
@@ -270,11 +476,14 @@ export class AtlasRenderer {
     flowX: Float32Array,
     flowY: Float32Array,
     lateralOffset: number,
-  ): Point[] {
+  ): FlowTrace {
     let x = city.x;
     let y = city.y + lateralOffset;
     const points: Point[] = [{ x, y }];
     let stale = 0;
+    let magnitudeSum = 0;
+    let magnitudeSamples = 0;
+    let maxMagnitude = 0;
 
     for (let step = 0; step < 150; step++) {
       const v = this.sampleVector(snapshot, flowX, flowY, x, y);
@@ -287,6 +496,9 @@ export class AtlasRenderer {
         x += sign * 0.42;
       } else {
         stale = 0;
+        magnitudeSum += mag;
+        magnitudeSamples += 1;
+        maxMagnitude = Math.max(maxMagnitude, mag);
         const stepSize = 0.55;
         x += (v.x / mag) * stepSize;
         y += (v.y / mag) * stepSize;
@@ -297,7 +509,11 @@ export class AtlasRenderer {
       const i = Math.round(y) * snapshot.width + Math.round(x);
       if (i >= 0 && i < snapshot.control.length && Math.abs(snapshot.control[i]) < 0.22) break;
     }
-    return points;
+    return {
+      points,
+      averageMagnitude: magnitudeSamples > 0 ? magnitudeSum / magnitudeSamples : 0,
+      maxMagnitude,
+    };
   }
 
   private drawDashedPath(g: Graphics, points: Point[], phase: number, dash = 1.2, gap = 1.3): void {
@@ -353,6 +569,7 @@ export class AtlasRenderer {
     g.clear();
 
     for (const city of snapshot.cities) {
+      if (city.enabled === false) continue;
       if (city.integration < 0.08) continue;
       const blue = city.owner === 'blue';
       const flowX = blue ? snapshot.flowBlueX : snapshot.flowRedX;
@@ -361,17 +578,24 @@ export class AtlasRenderer {
       const offsets = city.baseProduction >= 4.5 ? [-0.7, 0, 0.7] : [-0.35, 0.35];
 
       for (const offset of offsets) {
-        const path = this.traceFlow(snapshot, city, flowX, flowY, offset);
+        const trace = this.traceFlow(snapshot, city, flowX, flowY, offset);
+        const path = trace.points;
         if (path.length < 4) continue;
+
+        const strength = Math.min(1, Math.sqrt(trace.averageMagnitude / 4.5));
+        const underlayWidth = 0.10 + strength * 0.20;
+        const routeWidth = 0.14 + strength * 0.34;
+        const routeAlpha = 0.22 + strength * 0.52;
+        const phaseSpeed = 0.35 + strength * 1.15;
 
         // Quiet route underlay.
         g.moveTo(path[0].x, path[0].y);
         for (let i = 1; i < path.length; i++) g.lineTo(path[i].x, path[i].y);
-        g.stroke({ color, width: 0.18, alpha: 0.16 });
+        g.stroke({ color, width: underlayWidth, alpha: 0.11 + strength * 0.14 });
 
         // Moving dashes make direction visible without filling the whole map with vectors.
-        this.drawDashedPath(g, path, snapshot.gameTime * 0.9 + offset * 1.7);
-        g.stroke({ color, width: 0.27, alpha: 0.56 });
+        this.drawDashedPath(g, path, snapshot.gameTime * phaseSpeed + offset * 1.7);
+        g.stroke({ color, width: routeWidth, alpha: routeAlpha });
         this.drawArrowHead(g, path, color);
       }
     }
@@ -396,19 +620,136 @@ export class AtlasRenderer {
     }
   }
 
+  private drawProbe(snapshot: SimulationSnapshot): void {
+    const g = this.probe;
+    g.clear();
+    if (this.selectedFrontIndex === null) return;
+    const x = this.selectedFrontIndex % snapshot.width;
+    const y = Math.floor(this.selectedFrontIndex / snapshot.width);
+    g.circle(x, y, 1.7).stroke({ color: INK, width: 0.22, alpha: 1 });
+    g.circle(x, y, 1.15).stroke({ color: PAPER_LIGHT, width: 0.24, alpha: 0.95 });
+    g.moveTo(x - 2.1, y).lineTo(x + 2.1, y);
+    g.moveTo(x, y - 2.1).lineTo(x, y + 2.1);
+    g.stroke({ color: INK, width: 0.10, alpha: 0.88 });
+  }
+
   private drawCities(snapshot: SimulationSnapshot): void {
     const g = this.cities;
     g.clear();
     for (const city of snapshot.cities) {
       const radius = 0.62 + city.baseProduction * 0.11;
       const color = city.owner === 'blue' ? BLUE_DARK : RED_DARK;
+      const enabled = city.enabled !== false;
+      const reserve = this.cityLocalResource(snapshot, city);
+      const reserveStrength = Math.max(0, Math.min(1, Math.sqrt(reserve / 42)));
+      if (reserveStrength > 0.02) {
+        g.circle(city.x, city.y, radius + 0.72 + reserveStrength * 1.65).stroke({
+          color,
+          width: 0.16 + reserveStrength * 0.34,
+          alpha: enabled ? 0.82 : 0.42,
+        });
+      }
       g.circle(city.x, city.y, radius + 0.28).fill({ color: PAPER_LIGHT, alpha: 0.96 });
-      g.circle(city.x, city.y, radius).fill({ color, alpha: 0.96 });
+      if (enabled) {
+        g.circle(city.x, city.y, radius).fill({ color, alpha: 0.96 });
+      } else {
+        g.circle(city.x, city.y, radius).fill({ color: PAPER, alpha: 1 });
+        g.circle(city.x, city.y, Math.max(0.22, radius - 0.18)).stroke({
+          color,
+          width: 0.24,
+          alpha: 0.92,
+        });
+        g.moveTo(city.x - radius * 0.75, city.y + radius * 0.75)
+          .lineTo(city.x + radius * 0.75, city.y - radius * 0.75);
+        g.stroke({ color, width: 0.22, alpha: 0.92 });
+      }
       if (city.integration < 0.999) {
         const ring = Math.max(0.1, city.integration);
         g.circle(city.x, city.y, radius * ring).fill({ color: PAPER_LIGHT, alpha: 0.36 });
       }
     }
+  }
+
+  private cityLocalResource(snapshot: SimulationSnapshot, city: City): number {
+    const war = city.owner === 'blue' ? snapshot.warBlue : snapshot.warRed;
+    let total = 0;
+    const radius = 5;
+
+    for (let dy = -radius; dy <= radius; dy++) {
+      const y = city.y + dy;
+      if (y < 0 || y >= snapshot.height) continue;
+      for (let dx = -radius; dx <= radius; dx++) {
+        const x = city.x + dx;
+        if (x < 0 || x >= snapshot.width) continue;
+        const d = Math.hypot(dx, dy);
+        if (d > radius) continue;
+        const i = y * snapshot.width + x;
+        total += war[i] * (1 - d / (radius + 1));
+      }
+    }
+
+    return total;
+  }
+
+  private localSum(snapshot: SimulationSnapshot, field: Float32Array, x: number, y: number, radius: number): number {
+    let total = 0;
+    for (const { index, weight } of this.localWeightedCells(snapshot, x, y, radius)) total += field[index] * weight;
+    return total;
+  }
+
+  private localAverage(snapshot: SimulationSnapshot, field: Float32Array, x: number, y: number, radius: number): number {
+    let total = 0;
+    let weightTotal = 0;
+    for (const { index, weight } of this.localWeightedCells(snapshot, x, y, radius)) {
+      total += field[index] * weight;
+      weightTotal += weight;
+    }
+    return weightTotal > 0 ? total / weightTotal : 0;
+  }
+
+  private localVectorMagnitudeAverage(
+    snapshot: SimulationSnapshot,
+    xField: Float32Array,
+    yField: Float32Array,
+    x: number,
+    y: number,
+    radius: number,
+  ): number {
+    let total = 0;
+    let weightTotal = 0;
+    for (const { index, weight } of this.localWeightedCells(snapshot, x, y, radius)) {
+      total += Math.hypot(xField[index], yField[index]) * weight;
+      weightTotal += weight;
+    }
+    return weightTotal > 0 ? total / weightTotal : 0;
+  }
+
+  private localWeightedCells(
+    snapshot: SimulationSnapshot,
+    x: number,
+    y: number,
+    radius: number,
+  ): Array<{ index: number; weight: number }> {
+    const cells: Array<{ index: number; weight: number }> = [];
+    const cx = Math.round(x);
+    const cy = Math.round(y);
+
+    for (let dy = -radius; dy <= radius; dy++) {
+      const yy = cy + dy;
+      if (yy < 0 || yy >= snapshot.height) continue;
+      for (let dx = -radius; dx <= radius; dx++) {
+        const xx = cx + dx;
+        if (xx < 0 || xx >= snapshot.width) continue;
+        const d = Math.hypot(dx, dy);
+        if (d > radius) continue;
+        cells.push({
+          index: yy * snapshot.width + xx,
+          weight: 1 - d / (radius + 1),
+        });
+      }
+    }
+
+    return cells;
   }
 
 }

@@ -8,6 +8,7 @@ export interface City {
   baseProduction: number;
   owner: Side;
   integration: number;
+  enabled?: boolean;
 }
 
 export interface MapDefinition {
@@ -30,6 +31,19 @@ export interface SimulationSnapshot {
   warRed: Float32Array;
   instabilityBlue: Float32Array;
   instabilityRed: Float32Array;
+  frontMassBlue: Float32Array;
+  frontMassRed: Float32Array;
+  incomingBlue: Float32Array;
+  incomingRed: Float32Array;
+  drainBlue: Float32Array;
+  drainRed: Float32Array;
+  advanceBlue: Float32Array;
+  advanceRed: Float32Array;
+  stressBlue: Float32Array;
+  stressRed: Float32Array;
+  rawForcing: Float32Array;
+  forcing: Float32Array;
+  pressure: Float32Array;
   flowBlueX: Float32Array;
   flowBlueY: Float32Array;
   flowRedX: Float32Array;
@@ -57,6 +71,7 @@ export type WorkerInMessage =
   | { type: 'start'; seed: number }
   | { type: 'speed'; speed: Speed }
   | { type: 'reset'; seed: number }
+  | { type: 'toggleCity'; cityId: string }
   | { type: 'pause'; paused: boolean };
 
 export type WorkerOutMessage =
