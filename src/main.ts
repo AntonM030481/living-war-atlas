@@ -12,7 +12,12 @@ const mapStage = document.createElement('div');
 mapStage.className = 'map-stage';
 root.appendChild(mapStage);
 
+console.log('PIX1: before Application');
+
 const app = new Application();
+
+console.log('PIX2: before init');
+
 await app.init({
   resizeTo: mapStage,
   backgroundColor: 0xd9cfb4,
@@ -21,7 +26,12 @@ await app.init({
   resolution: Math.min(window.devicePixelRatio, 2),
   autoDensity: true,
 });
+
+console.log('PIX3: after init', app.canvas);
+
 mapStage.appendChild(app.canvas);
+
+console.log('PIX4: canvas attached');
 
 const renderer = new AtlasRenderer(app, testMap);
 const worker = new Worker(new URL('./worker/simulation.worker.ts', import.meta.url), {
