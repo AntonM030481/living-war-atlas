@@ -1,6 +1,6 @@
 import './style.css';
 import { Application } from 'pixi.js';
-import { AtlasRenderer, type FrontDebugInfo } from './rendering/AtlasRenderer';
+//import { AtlasRenderer, type FrontDebugInfo } from './rendering/AtlasRenderer';
 import { testMap } from './map/testMap';
 import type { HistoryInfo, SimulationSnapshot, WorkerInMessage, WorkerOutMessage } from './sim/types';
 import { SPEEDS, type Speed } from './sim/Config';
