@@ -300,7 +300,7 @@ canvas { display: block; }
   }
 }
 
-@media (max-width: 860px) and (orientation: landscape) {
+@media (orientation: landscape) and (max-height: 500px) {
   :root {
     --side-panel-gap: 6px;
     --app-padding: 6px;
