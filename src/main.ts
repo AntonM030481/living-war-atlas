@@ -453,9 +453,6 @@ function handleSecondaryCityClick(event: MouseEvent | PointerEvent, force = fals
   send({ type: 'flipCityOwner', cityId });
 }
 
-window.addEventListener('pointerdown', (event) => handleSecondaryCityClick(event), true);
-window.addEventListener('mousedown', (event) => handleSecondaryCityClick(event), true);
-window.addEventListener('auxclick', (event) => handleSecondaryCityClick(event), true);
 window.addEventListener('contextmenu', (event) => handleSecondaryCityClick(event, true), true);
 
 window.addEventListener('keydown', (event) => {
