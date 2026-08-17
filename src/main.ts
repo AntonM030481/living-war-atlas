@@ -434,7 +434,7 @@ app.canvas.addEventListener('click', (event) => {
     send({ type: 'toggleCity', cityId });
     return;
   }
-  if (!latestSnapshot) return;
+  if (!diagnosticsEnabled || !latestSnapshot) return;
   selectedProbe = renderer.inspectFrontAtClientPoint(latestSnapshot, event.clientX, event.clientY);
   renderProbe(selectedProbe);
 });
