@@ -473,6 +473,16 @@ canvas { display: block; }
   align-items: center;
 }
 
+.legend-grid::after {
+  content: "resources";
+  grid-column: 1 / -1;
+  min-height: 12px;
+  padding-left: 42px;
+  background:
+    radial-gradient(circle at 10px 50%, rgba(22, 79, 145, .62) 0 3px, rgba(22, 79, 145, .22) 4px, transparent 8px),
+    radial-gradient(circle at 24px 50%, rgba(177, 38, 32, .62) 0 3px, rgba(177, 38, 32, .22) 4px, transparent 8px);
+}
+
 .legend-mark {
   position: relative;
   display: inline-block;
