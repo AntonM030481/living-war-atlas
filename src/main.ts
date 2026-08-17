@@ -31,11 +31,16 @@ setTimeout(() => {
   console.log('PIX init still pending after 5s', app);
 }, 5000);
 
-await initPromise;
+try {
+  await initPromise;
 
-console.log('PIX3: after init', app.canvas);
+  console.log('PIX3: after init', app.canvas);
+  mapStage.appendChild(app.canvas);
 
-mapStage.appendChild(app.canvas);
+} catch (err) {
+  console.error('PixiJS error:', err);
+}
+
 
 console.log('PIX4: canvas attached');
 
