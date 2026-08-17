@@ -112,7 +112,7 @@ legend.innerHTML = `
     <span class="legend-mark forest-mark"></span><span>forest</span>
     <span class="legend-mark stress-mark"></span><span>front instability</span>
   </div>
-  <div class="legend-note">City left click: production on/off<br>City right click: switch side<br>Base overlay: resource + stress<br>Diag / F3: flow arrows + city checks<br>Space: pause · ←/→: rewind · ↑/↓: speed</div>
+  <div class="legend-note">City left click: production on/off<br>City right click: switch side<br>Space: pause · ←/→: rewind · ↑/↓: speed</div>
 `;
 sidePanel.appendChild(legend);
 
