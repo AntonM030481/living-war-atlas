@@ -22,7 +22,7 @@ const initPromise = app.init({
   resizeTo: mapStage,
   backgroundColor: 0xd9cfb4,
   antialias: true,
-  preference: 'webgl',
+  preference: ['webgl'],
   resolution: Math.min(window.devicePixelRatio, 2),
   autoDensity: true,
 });
