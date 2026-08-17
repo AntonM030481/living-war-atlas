@@ -270,6 +270,14 @@ canvas { display: block; }
   overflow: auto;
 }
 
+.probe-panel {
+  display: none;
+}
+
+.side-panel:has(.diagnostics-panel:not([hidden])) .probe-panel {
+  display: block;
+}
+
 @media (max-width: 860px) {
   #app {
     grid-template-columns: minmax(0, 1fr);
@@ -289,6 +297,25 @@ canvas { display: block; }
   .probe-panel,
   .diagnostics-panel {
     min-width: 0;
+  }
+}
+
+@media (max-width: 860px) and (orientation: landscape) {
+  :root {
+    --side-panel-gap: 6px;
+    --app-padding: 6px;
+  }
+
+  #app {
+    grid-template-columns: minmax(0, 1fr) clamp(210px, 28vw, 260px);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .side-panel {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - var(--app-padding) * 2);
+    overflow: auto;
   }
 }
 
