@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 
 import type { Speed } from '../sim/Config';
+import { forceCityEnclave } from '../sim/DebugActions';
 import { Simulation } from '../sim/Simulation';
 import type { HistoryInfo, SimulationState, WorkerInMessage, WorkerOutMessage } from '../sim/types';
 import { testMap } from '../map/testMap';
@@ -214,7 +215,7 @@ self.onmessage = (event: MessageEvent<WorkerInMessage>) => {
       postSnapshot();
       break;
     case 'flipCityOwner':
-      sim?.flipCityOwner(message.cityId);
+      if (sim) forceCityEnclave(sim, message.cityId);
       saveHistoryCheckpoint(true);
       postSnapshot();
       break;
