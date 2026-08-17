@@ -18,7 +18,7 @@ const app = new Application();
 
 console.log('PIX2: before init');
 
-await app.init({
+const initPromise = app.init({
   resizeTo: mapStage,
   backgroundColor: 0xd9cfb4,
   antialias: true,
@@ -26,6 +26,12 @@ await app.init({
   resolution: Math.min(window.devicePixelRatio, 2),
   autoDensity: true,
 });
+
+setTimeout(() => {
+  console.log('PIX init still pending after 5s', app);
+}, 5000);
+
+await initPromise;
 
 console.log('PIX3: after init', app.canvas);
 
