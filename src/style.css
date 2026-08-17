@@ -278,6 +278,23 @@ canvas { display: block; }
   display: block;
 }
 
+.legend .blue-flow,
+.legend .blue-flow + span,
+.legend .red-flow,
+.legend .red-flow + span {
+  display: none;
+}
+
+.side-panel:has(.diagnostics-panel:not([hidden])) .legend .blue-flow,
+.side-panel:has(.diagnostics-panel:not([hidden])) .legend .red-flow {
+  display: inline-block;
+}
+
+.side-panel:has(.diagnostics-panel:not([hidden])) .legend .blue-flow + span,
+.side-panel:has(.diagnostics-panel:not([hidden])) .legend .red-flow + span {
+  display: inline;
+}
+
 @media (max-width: 860px) {
   #app {
     grid-template-columns: minmax(0, 1fr);
