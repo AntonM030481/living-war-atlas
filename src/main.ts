@@ -1,6 +1,7 @@
 import './style.css';
 import { Application } from 'pixi.js';
-//import { AtlasRenderer, type FrontDebugInfo } from './rendering/AtlasRenderer';
+import { extensions, WebGLRenderer } from 'pixi.js';
+import { AtlasRenderer, type FrontDebugInfo } from './rendering/AtlasRenderer';
 import { testMap } from './map/testMap';
 import type { HistoryInfo, SimulationSnapshot, WorkerInMessage, WorkerOutMessage } from './sim/types';
 import { SPEEDS, type Speed } from './sim/Config';
@@ -12,6 +13,8 @@ const mapStage = document.createElement('div');
 mapStage.className = 'map-stage';
 root.appendChild(mapStage);
 
+extensions.add(WebGLRenderer);
+
 console.log('PIX1: before Application');
 
 const app = new Application();
@@ -22,7 +25,7 @@ const initPromise = app.init({
   resizeTo: mapStage,
   backgroundColor: 0xd9cfb4,
   antialias: true,
-  preference: ['webgl'],
+  preference: 'webgl', // Оставляем строкой
   resolution: Math.min(window.devicePixelRatio, 2),
   autoDensity: true,
 });
@@ -33,10 +36,8 @@ setTimeout(() => {
 
 try {
   await initPromise;
-
   console.log('PIX3: after init', app.canvas);
   mapStage.appendChild(app.canvas);
-
 } catch (err) {
   console.error('PixiJS error:', err);
 }
