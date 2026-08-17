@@ -326,7 +326,7 @@ export class AtlasRenderer {
       }
       draw = !draw;
     }
-    g.stroke({ color: INK, width: 0.16, alpha: 0.24 });
+    g.stroke({ color: INK, width: 0.26, alpha: 0.24 });
   }
 
   private drawTerritory(snapshot: SimulationSnapshot): void {
