@@ -5,6 +5,31 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Living War Atlas</title>
+    <style>
+      /* Tablet / medium viewport: use the otherwise-empty space below the map.
+         Short landscape phones keep the dedicated side-panel layout. */
+      @media (max-width: 1200px) and (min-height: 501px) {
+        body #app {
+          grid-template-columns: minmax(0, 1fr);
+          grid-template-rows: minmax(0, 1fr) auto;
+        }
+
+        body .side-panel {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          align-items: start;
+          max-height: min(38vh, 300px);
+          overflow: auto;
+        }
+
+        body .hud,
+        body .legend,
+        body .probe-panel,
+        body .diagnostics-panel {
+          min-width: 0;
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="app"></div>
