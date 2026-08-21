@@ -58,9 +58,7 @@ canvas { display: block; }
   text-shadow: 0 1px 0 rgba(255, 250, 229, .85);
 }
 
-.city-points-badge span {
-  display: block;
-}
+.city-points-badge span { display: block; }
 
 .city-points-badge small {
   display: block;
@@ -144,13 +142,8 @@ canvas { display: block; }
   text-shadow: 0 1px 0 rgba(255, 250, 229, .9);
 }
 
-.city-name-label.blue {
-  color: #164f91;
-}
-
-.city-name-label.red {
-  color: #b12620;
-}
+.city-name-label.blue { color: #164f91; }
+.city-name-label.red { color: #b12620; }
 
 .city-name-label.disabled {
   opacity: .50;
@@ -190,15 +183,18 @@ canvas { display: block; }
   letter-spacing: .02em;
   text-transform: uppercase;
 }
+
 .hud span {
   font-size: 10px;
   opacity: .82;
 }
+
 #status {
   font-size: 22px;
   font-weight: 700;
   opacity: .96;
 }
+
 .speed-row,
 .transport-row,
 .action-row {
@@ -206,17 +202,9 @@ canvas { display: block; }
   gap: 6px;
 }
 
-.speed-row {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
-.transport-row {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) minmax(0, 1fr);
-}
-
-.action-row {
-  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
-}
+.speed-row { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.transport-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) minmax(0, 1fr); }
+.action-row { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); }
 
 .hud button {
   border: 1px solid rgba(64, 52, 32, .38);
@@ -235,10 +223,7 @@ canvas { display: block; }
 
 .hud button.active { background: #2f2b24; color: #fff7dc; }
 .hud button:hover { filter: brightness(.97); }
-.hud button:disabled {
-  cursor: default;
-  opacity: .45;
-}
+.hud button:disabled { cursor: default; opacity: .45; }
 
 .legend {
   width: 100%;
@@ -250,11 +235,10 @@ canvas { display: block; }
   line-height: 1.45;
   pointer-events: auto;
   user-select: none;
+  container-type: inline-size;
 }
 
-.legend:not([open]) {
-  padding-bottom: 7px;
-}
+.legend:not([open]) { padding-bottom: 7px; }
 
 .probe-panel,
 .diagnostics-panel {
@@ -270,13 +254,8 @@ canvas { display: block; }
   overflow: auto;
 }
 
-.probe-panel {
-  display: none;
-}
-
-.side-panel:has(.diagnostics-panel:not([hidden])) .probe-panel {
-  display: block;
-}
+.probe-panel { display: none; }
+.side-panel:has(.diagnostics-panel:not([hidden])) .probe-panel { display: block; }
 
 .legend .blue-flow,
 .legend .blue-flow + span,
@@ -295,17 +274,28 @@ canvas { display: block; }
   display: inline;
 }
 
-@media (max-width: 860px) {
+/* Narrow or relatively square viewports use the otherwise-empty space below
+   the fixed-aspect map. Wide landscape viewports keep the panel on the side. */
+@media (max-aspect-ratio: 3 / 2) and (min-height: 501px) {
   #app {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) auto;
   }
 
+  .map-stage {
+    width: auto;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    justify-self: start;
+  }
+
   .side-panel {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(280px, 1fr) minmax(360px, 1.35fr);
     align-items: start;
-    max-height: min(38vh, 300px);
+    width: 100%;
+    max-height: min(34vh, 280px);
     overflow: auto;
   }
 
@@ -314,6 +304,29 @@ canvas { display: block; }
   .probe-panel,
   .diagnostics-panel {
     min-width: 0;
+  }
+}
+
+@media (max-width: 860px) and (min-height: 501px) {
+  #app {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .map-stage {
+    width: auto;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    justify-self: start;
+  }
+
+  .side-panel {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    max-height: min(38vh, 300px);
+    overflow: auto;
   }
 }
 
@@ -336,9 +349,7 @@ canvas { display: block; }
   }
 }
 
-.diagnostics-panel {
-  max-height: min(330px, 42vh);
-}
+.diagnostics-panel { max-height: min(330px, 42vh); }
 
 .probe-panel b,
 .diagnostics-panel b {
@@ -349,9 +360,7 @@ canvas { display: block; }
 }
 
 .probe-empty,
-.diagnostics-empty {
-  opacity: .62;
-}
+.diagnostics-empty { opacity: .62; }
 
 .probe-row {
   display: flex;
@@ -362,9 +371,7 @@ canvas { display: block; }
 }
 
 .probe-row span,
-.probe-split span {
-  opacity: .72;
-}
+.probe-split span { opacity: .72; }
 
 .probe-row b {
   margin: 0;
@@ -434,9 +441,7 @@ canvas { display: block; }
 }
 
 @media (max-height: 720px) {
-  .legend {
-    font-size: 10px;
-  }
+  .legend { font-size: 10px; }
 }
 
 .legend summary {
@@ -448,23 +453,10 @@ canvas { display: block; }
   list-style: none;
 }
 
-.legend summary::-webkit-details-marker {
-  display: none;
-}
-
-.legend summary::after {
-  content: "+";
-  float: right;
-  font-weight: 700;
-}
-
-.legend[open] summary {
-  margin-bottom: 6px;
-}
-
-.legend[open] summary::after {
-  content: "-";
-}
+.legend summary::-webkit-details-marker { display: none; }
+.legend summary::after { content: "+"; float: right; font-weight: 700; }
+.legend[open] summary { margin-bottom: 6px; }
+.legend[open] summary::after { content: "-"; }
 
 .legend-grid {
   display: grid;
@@ -481,6 +473,15 @@ canvas { display: block; }
   background:
     radial-gradient(circle at 10px 50%, rgba(22, 79, 145, .62) 0 3px, rgba(22, 79, 145, .22) 4px, transparent 8px),
     radial-gradient(circle at 24px 50%, rgba(177, 38, 32, .62) 0 3px, rgba(177, 38, 32, .22) 4px, transparent 8px);
+}
+
+@container (min-width: 520px) {
+  .legend-grid {
+    grid-template-columns: 34px minmax(0, 1fr) 34px minmax(0, 1fr);
+    column-gap: 8px;
+  }
+
+  .legend-grid::after { grid-column: span 2; }
 }
 
 .legend-mark {
