@@ -37,6 +37,37 @@ npm test
 npm run diagnostics
 ```
 
+## iOS / App Store
+
+The web build is configured for an iOS wrapper through Capacitor 8.5.0. Capacitor 8 requires Node.js 22+; iOS development requires macOS with Xcode 26+.
+
+First-time native setup on a Mac:
+
+```bash
+npm install
+npm run ios:init
+```
+
+This builds the Vite app, creates `ios/`, copies `dist/` into the native project, and opens the project in Xcode.
+
+After web-code changes:
+
+```bash
+npm run ios:open
+```
+
+`ios:open` rebuilds the web app, synchronizes it into the native project, and opens Xcode.
+
+The initial bundle identifier is:
+
+```text
+io.github.antonm030481.livingwaratlas
+```
+
+Change it in `capacitor.config.ts` before registering the final App ID in Apple Developer if a different identifier is preferred.
+
+After running `npm run ios:init`, commit the generated `ios/` project and the refreshed `package-lock.json` so native builds are reproducible.
+
 ## Controls
 
 - `1`, `2`, `4` — simulation speed
