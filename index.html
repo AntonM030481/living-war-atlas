@@ -38,6 +38,21 @@
           min-width: 0;
         }
       }
+
+      body .legend {
+        container-type: inline-size;
+      }
+
+      @container (min-width: 520px) {
+        body .legend-grid {
+          grid-template-columns: 34px minmax(0, 1fr) 34px minmax(0, 1fr);
+          column-gap: 8px;
+        }
+
+        body .legend-grid::after {
+          grid-column: span 2;
+        }
+      }
     </style>
   </head>
   <body>
