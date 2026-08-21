@@ -8,12 +8,18 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "diagnostics": "DIAGNOSTICS=1 vitest run diagnostics/generate-diagnostics.test.ts"
+    "diagnostics": "DIAGNOSTICS=1 vitest run diagnostics/generate-diagnostics.test.ts",
+    "ios:init": "npm run build && npx cap add ios && npx cap open ios",
+    "ios:sync": "npm run build && npx cap sync ios",
+    "ios:open": "npm run ios:sync && npx cap open ios"
   },
   "dependencies": {
+    "@capacitor/core": "8.5.0",
+    "@capacitor/ios": "8.5.0",
     "pixi.js": "^8.12.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "8.5.0",
     "typescript": "^5.8.0",
     "vite": "^7.0.0",
     "vitest": "^3.2.0"
