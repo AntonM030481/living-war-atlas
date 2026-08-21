@@ -276,10 +276,12 @@ canvas { display: block; }
 
 /* Narrow or relatively square viewports use the otherwise-empty space below
    the fixed-aspect map. Wide landscape viewports keep the panel on the side. */
-@media (max-aspect-ratio: 3 / 2) and (min-height: 501px) {
+@media (max-aspect-ratio: 3 / 2) and (min-height: 501px),
+       (max-width: 860px) and (min-height: 501px) {
   #app {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) auto;
+    gap: 6px;
   }
 
   .map-stage {
@@ -287,15 +289,16 @@ canvas { display: block; }
     height: 100%;
     max-width: 100%;
     max-height: 100%;
-    justify-self: start;
+    justify-self: center;
   }
 
   .side-panel {
     display: grid;
-    grid-template-columns: minmax(280px, 1fr) minmax(360px, 1.35fr);
+    grid-template-columns: minmax(260px, .9fr) minmax(360px, 1.3fr);
     align-items: start;
+    gap: 6px;
     width: 100%;
-    max-height: min(34vh, 280px);
+    max-height: min(28vh, 220px);
     overflow: auto;
   }
 
@@ -305,28 +308,69 @@ canvas { display: block; }
   .diagnostics-panel {
     min-width: 0;
   }
+
+  .hud {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    column-gap: 10px;
+    row-gap: 4px;
+    align-items: center;
+    padding: 6px 8px;
+  }
+
+  .hud strong {
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .hud #status {
+    font-size: 16px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .hud #history-status {
+    justify-self: end;
+    white-space: nowrap;
+  }
+
+  .speed-row,
+  .transport-row,
+  .action-row {
+    grid-column: 1 / -1;
+    gap: 4px;
+  }
+
+  .hud button {
+    min-height: 26px;
+    padding: 2px 4px;
+    font-size: 13px;
+  }
+
+  .legend {
+    padding: 5px 7px;
+    line-height: 1.25;
+  }
+
+  .legend[open] summary {
+    margin-bottom: 3px;
+  }
+
+  .legend-grid {
+    row-gap: 2px;
+  }
+
+  .legend-note {
+    margin-top: 4px;
+    padding-top: 3px;
+    line-height: 1.2;
+  }
 }
 
-@media (max-width: 860px) and (min-height: 501px) {
-  #app {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto;
-  }
-
-  .map-stage {
-    width: auto;
-    height: 100%;
-    max-width: 100%;
-    max-height: 100%;
-    justify-self: start;
-  }
-
+@media (max-width: 700px) and (min-height: 501px) {
   .side-panel {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: start;
-    max-height: min(38vh, 300px);
-    overflow: auto;
+    grid-template-columns: minmax(0, 1fr);
+    max-height: min(40vh, 300px);
   }
 }
 
