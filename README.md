@@ -37,6 +37,27 @@ npm test
 npm run diagnostics
 ```
 
+## Deploy with Cloudflare Wrangler
+
+The Cloudflare Worker is configured in `wrangler.json` to serve the production build from `./dist`.
+
+Build first, then deploy:
+
+```bash
+npm run build
+npx wrangler deploy
+```
+
+If Wrangler is installed globally, the deploy command can also be run as:
+
+```bash
+wrangler deploy
+```
+
+`npm run build` must be run before deployment so that `dist/` contains the latest Vite output. A Git commit is not required for a manual Wrangler deploy; Wrangler uploads the files currently present in the local `dist/` directory.
+
+Static files placed in `public/` are copied into `dist/` by Vite during the build. For example, `public/privacy.html` is deployed as `/privacy.html`.
+
 ## iOS / App Store
 
 The web build is configured for an iOS wrapper through Capacitor 8.5.0. Capacitor 8 requires Node.js 22+; iOS development requires macOS with Xcode 26+.
