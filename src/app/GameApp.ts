@@ -3,7 +3,6 @@ import { SPEEDS, type Speed } from '../sim/Config';
 import type { HistoryInfo, MapDefinition, SimulationSnapshot, WorkerOutMessage } from '../sim/types';
 import { AtlasRenderer } from '../rendering/AtlasRenderer';
 import { buildCityDiagnostics } from '../diagnostics/CityDiagnostics';
-import { FrontInspector } from '../diagnostics/FrontInspector';
 import type { FrontDebugInfo } from '../diagnostics/types';
 import { CityOverlays } from '../ui/CityOverlays';
 import { DiagnosticsPanel } from '../ui/DiagnosticsPanel';
@@ -16,7 +15,6 @@ export class GameApp {
   private readonly pixi = new Application();
   private readonly simulation = new SimulationClient();
   private renderer!: AtlasRenderer;
-  private frontInspector!: FrontInspector;
   private overlays!: CityOverlays;
   private hud!: Hud;
   private probe!: FrontProbe;
@@ -45,7 +43,6 @@ export class GameApp {
 
     await this.initPixi();
     this.renderer = new AtlasRenderer(this.pixi, this.map);
-    this.frontInspector = new FrontInspector(this.renderer);
     this.renderer.setDebug(true);
     this.renderer.setShowFlows(false);
 
@@ -171,7 +168,7 @@ export class GameApp {
       return;
     }
     if (!this.diagnosticsEnabled || !this.latestSnapshot) return;
-    this.selectedProbe = this.frontInspector.atClientPoint(this.latestSnapshot, event.clientX, event.clientY);
+    this.selectedProbe = this.renderer.inspectFrontAtClientPoint(this.latestSnapshot, event.clientX, event.clientY);
     this.probe.render(this.selectedProbe);
   }
 
@@ -205,7 +202,7 @@ export class GameApp {
     this.renderDiagnostics();
 
     if (this.selectedProbe) {
-      this.selectedProbe = this.frontInspector.refresh(message.snapshot, this.selectedProbe);
+      this.selectedProbe = this.renderer.inspectFrontAtWorldPoint(message.snapshot, this.selectedProbe);
       this.probe.render(this.selectedProbe);
     }
 
