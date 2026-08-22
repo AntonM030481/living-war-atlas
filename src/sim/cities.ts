@@ -1,4 +1,5 @@
 import type { Side } from './Config';
+import { requireSide, type SideFieldMap } from './sides';
 import type { City } from './types';
 
 export interface CityUpdateConfig {
@@ -7,6 +8,7 @@ export interface CityUpdateConfig {
   dt: number;
 }
 
+/** Current binary territorial-control adapter. */
 export function updateCities(
   cities: City[],
   control: Float32Array,
@@ -35,16 +37,14 @@ export function updateCities(
 export function generateCityResource(
   cities: readonly City[],
   width: number,
-  warBlue: Float32Array,
-  warRed: Float32Array,
+  sides: SideFieldMap,
   dt: number,
 ): void {
   for (const city of cities) {
     if (city.enabled === false) continue;
     const index = city.y * width + city.x;
     const amount = city.baseProduction * city.integration * dt;
-    const target = city.owner === 'blue' ? warBlue : warRed;
-    target[index] += amount;
+    requireSide(sides, city.owner).war[index] += amount;
   }
 }
 
@@ -54,6 +54,7 @@ export function toggleCityEnabled(cities: City[], cityId: string): void {
   city.enabled = !(city.enabled ?? true);
 }
 
+/** Debug helper for the current two-side map. */
 export function flipCityOwner(cities: City[], cityId: string): Side | null {
   const city = cities.find((candidate) => candidate.id === cityId);
   if (!city) return null;
