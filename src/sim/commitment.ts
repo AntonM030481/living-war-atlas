@@ -1,4 +1,3 @@
-import type { Side } from './Config';
 import type { SideFields } from './sides';
 
 const EPS = 1e-6;
@@ -51,58 +50,10 @@ export function frontCommitment(
   return commitment;
 }
 
-type CommitmentFields = Pick<SideFields, 'war' | 'committed' | 'commitmentTarget' | 'collapse'>;
-
-type LegacyCommitmentFields = {
-  warBlue: Float32Array;
-  warRed: Float32Array;
-  committedBlue: Float32Array;
-  committedRed: Float32Array;
-  commitmentTargetBlue: Float32Array;
-  commitmentTargetRed: Float32Array;
-  collapseBlue: Uint8Array;
-  collapseRed: Uint8Array;
-};
-
-export function updateCommittedAmounts(fields: CommitmentFields, config: CommitmentConfig): void;
 export function updateCommittedAmounts(
-  side: Side,
-  size: number,
-  fields: LegacyCommitmentFields,
+  fields: Pick<SideFields, 'war' | 'committed' | 'commitmentTarget' | 'collapse'>,
   config: CommitmentConfig,
-): void;
-export function updateCommittedAmounts(
-  fieldsOrSide: CommitmentFields | Side,
-  configOrSize: CommitmentConfig | number,
-  legacyFields?: LegacyCommitmentFields,
-  legacyConfig?: CommitmentConfig,
 ): void {
-  let fields: CommitmentFields;
-  let config: CommitmentConfig;
-
-  if (typeof fieldsOrSide === 'string') {
-    const side = fieldsOrSide;
-    if (!legacyFields || !legacyConfig) throw new Error('Missing legacy commitment arguments');
-    fields = side === 'blue'
-      ? {
-          war: legacyFields.warBlue,
-          committed: legacyFields.committedBlue,
-          commitmentTarget: legacyFields.commitmentTargetBlue,
-          collapse: legacyFields.collapseBlue,
-        }
-      : {
-          war: legacyFields.warRed,
-          committed: legacyFields.committedRed,
-          commitmentTarget: legacyFields.commitmentTargetRed,
-          collapse: legacyFields.collapseRed,
-        };
-    config = legacyConfig;
-    void configOrSize;
-  } else {
-    fields = fieldsOrSide;
-    config = configOrSize as CommitmentConfig;
-  }
-
   const { war, committed, commitmentTarget, collapse } = fields;
   for (let i = 0; i < war.length; i++) {
     committed[i] = Math.min(committed[i], war[i]);
@@ -144,7 +95,7 @@ export function computePairCommitment(
     side.need.fill(0);
   }
 
-  const r = grid.radius;
+  const radius = grid.radius;
   for (let y = 0; y < grid.height; y++) {
     for (let x = 0; x < grid.width; x++) {
       const i = y * grid.width + x;
@@ -152,10 +103,10 @@ export function computePairCommitment(
 
       let firstAvailable = 0;
       let secondAvailable = 0;
-      for (let dy = -r; dy <= r; dy++) {
+      for (let dy = -radius; dy <= radius; dy++) {
         const yy = y + dy;
         if (yy < 0 || yy >= grid.height) continue;
-        for (let dx = -r; dx <= r; dx++) {
+        for (let dx = -radius; dx <= radius; dx++) {
           const xx = x + dx;
           if (xx < 0 || xx >= grid.width) continue;
           const j = yy * grid.width + xx;
@@ -168,16 +119,24 @@ export function computePairCommitment(
       second.availableMass[i] = secondAvailable;
 
       const firstTarget = frontCommitment(
-        firstAvailable, secondAvailable, grid.terrainDefense[i], first.collapse[i] === 1, config,
+        firstAvailable,
+        secondAvailable,
+        grid.terrainDefense[i],
+        first.collapse[i] === 1,
+        config,
       );
       const secondTarget = frontCommitment(
-        secondAvailable, firstAvailable, grid.terrainDefense[i], second.collapse[i] === 1, config,
+        secondAvailable,
+        firstAvailable,
+        grid.terrainDefense[i],
+        second.collapse[i] === 1,
+        config,
       );
 
-      for (let dy = -r; dy <= r; dy++) {
+      for (let dy = -radius; dy <= radius; dy++) {
         const yy = y + dy;
         if (yy < 0 || yy >= grid.height) continue;
-        for (let dx = -r; dx <= r; dx++) {
+        for (let dx = -radius; dx <= radius; dx++) {
           const xx = x + dx;
           if (xx < 0 || xx >= grid.width) continue;
           const j = yy * grid.width + xx;
@@ -201,10 +160,10 @@ export function computePairCommitment(
       if (!grid.isFront(i)) continue;
       let firstMass = 0;
       let secondMass = 0;
-      for (let dy = -r; dy <= r; dy++) {
+      for (let dy = -radius; dy <= radius; dy++) {
         const yy = y + dy;
         if (yy < 0 || yy >= grid.height) continue;
-        for (let dx = -r; dx <= r; dx++) {
+        for (let dx = -radius; dx <= radius; dx++) {
           const xx = x + dx;
           if (xx < 0 || xx >= grid.width) continue;
           const j = yy * grid.width + xx;
