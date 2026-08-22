@@ -23,6 +23,7 @@ export interface TransportConfig {
   potentialDecay: number;
   baseEdgeCapacityPerSecond: number;
   resourceMoveFraction: number;
+  resourceCellCapacity: number;
 }
 
 export interface TransportGrid {
@@ -161,7 +162,12 @@ export function transportResource(
       let sent = 0;
       for (const candidate of candidates) {
         const desired = movable * (candidate.gradient / gradientSum);
-        const moved = Math.min(desired, candidate.capacity, reserve - sent);
+        const projectedDestination = Math.max(
+          committed[candidate.j],
+          war[candidate.j] + delta[candidate.j],
+        );
+        const freeCellCapacity = Math.max(0, config.resourceCellCapacity - projectedDestination);
+        const moved = Math.min(desired, candidate.capacity, freeCellCapacity, reserve - sent);
         if (moved <= 0) continue;
         delta[i] -= moved;
         delta[candidate.j] += moved;
