@@ -41,7 +41,6 @@ export class PointProbe {
 
     this.content.className = '';
     this.content.innerHTML = `
-      ${row('x,y', `${info.x.toFixed(2)}, ${info.y.toFixed(2)}`)}
       ${row('cell', `${info.cellX}, ${info.cellY}`)}
       ${row('control', fmt(info.control))}
       ${row('cell capacity', fmt(info.cellCapacity))}
