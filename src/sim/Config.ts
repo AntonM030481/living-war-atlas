@@ -8,7 +8,7 @@ export const CFG = {
   potentialDecay: 0.988,
   resourceMoveFraction: 0.58,
   baseEdgeCapacityPerSecond: 7.0,
-  resourceCellCapacity: 12,
+  resourceCellCapacity: 1,
   frontCommitmentSafety: 1.60,
   frontCommitmentMax: 1.0,
   frontCommitmentFloor: 0.025,
@@ -42,7 +42,7 @@ export const CFG = {
   cityCaptureThreshold: 0.42,
   noiseAmplitude: 0.02,
   initialCityResourceSeconds: 12,
-  initialFrontResource: 5.5,
+  initialFrontResource: 1,
   warmupSeconds: 75,
 } as const;
 
