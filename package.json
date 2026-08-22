@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "diagnostics": "DIAGNOSTICS=1 vitest run diagnostics/generate-diagnostics.test.ts",
+    "diagnostics": "DIAGNOSTICS=1 vitest run tests/diagnostics/generate-diagnostics.test.ts",
     "ios:init": "npm run build && npx cap add ios && npx cap open ios",
     "ios:sync": "npm run build && npx cap sync ios",
     "ios:open": "npm run ios:sync && npx cap open ios"
