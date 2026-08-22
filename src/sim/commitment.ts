@@ -119,3 +119,106 @@ export function updateCommittedAmounts(
     }
   }
 }
+
+export interface PairCommitmentGrid {
+  width: number;
+  height: number;
+  radius: number;
+  terrainDefense: Float32Array;
+  isFront: (index: number) => boolean;
+  firstAccess: (index: number) => number;
+  secondAccess: (index: number) => number;
+}
+
+/** Derives committed front mass and demand for one pair of opposing sides. */
+export function computePairCommitment(
+  first: SideFields,
+  second: SideFields,
+  grid: PairCommitmentGrid,
+  config: CommitmentConfig,
+): void {
+  for (const side of [first, second]) {
+    side.mass.fill(0);
+    side.availableMass.fill(0);
+    side.commitmentTarget.fill(0);
+    side.need.fill(0);
+  }
+
+  const r = grid.radius;
+  for (let y = 0; y < grid.height; y++) {
+    for (let x = 0; x < grid.width; x++) {
+      const i = y * grid.width + x;
+      if (!grid.isFront(i)) continue;
+
+      let firstAvailable = 0;
+      let secondAvailable = 0;
+      for (let dy = -r; dy <= r; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= grid.height) continue;
+        for (let dx = -r; dx <= r; dx++) {
+          const xx = x + dx;
+          if (xx < 0 || xx >= grid.width) continue;
+          const j = yy * grid.width + xx;
+          const weight = 1 / (1 + Math.hypot(dx, dy));
+          firstAvailable += first.war[j] * weight;
+          secondAvailable += second.war[j] * weight;
+        }
+      }
+      first.availableMass[i] = firstAvailable;
+      second.availableMass[i] = secondAvailable;
+
+      const firstTarget = frontCommitment(
+        firstAvailable, secondAvailable, grid.terrainDefense[i], first.collapse[i] === 1, config,
+      );
+      const secondTarget = frontCommitment(
+        secondAvailable, firstAvailable, grid.terrainDefense[i], second.collapse[i] === 1, config,
+      );
+
+      for (let dy = -r; dy <= r; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= grid.height) continue;
+        for (let dx = -r; dx <= r; dx++) {
+          const xx = x + dx;
+          if (xx < 0 || xx >= grid.width) continue;
+          const j = yy * grid.width + xx;
+          if (firstTarget > 0 && grid.firstAccess(j) > 0.01) {
+            first.commitmentTarget[j] = Math.max(first.commitmentTarget[j], firstTarget);
+          }
+          if (secondTarget > 0 && grid.secondAccess(j) > 0.01) {
+            second.commitmentTarget[j] = Math.max(second.commitmentTarget[j], secondTarget);
+          }
+        }
+      }
+    }
+  }
+
+  updateCommittedAmounts(first, config);
+  updateCommittedAmounts(second, config);
+
+  for (let y = 0; y < grid.height; y++) {
+    for (let x = 0; x < grid.width; x++) {
+      const i = y * grid.width + x;
+      if (!grid.isFront(i)) continue;
+      let firstMass = 0;
+      let secondMass = 0;
+      for (let dy = -r; dy <= r; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= grid.height) continue;
+        for (let dx = -r; dx <= r; dx++) {
+          const xx = x + dx;
+          if (xx < 0 || xx >= grid.width) continue;
+          const j = yy * grid.width + xx;
+          const weight = 1 / (1 + Math.hypot(dx, dy));
+          firstMass += first.committed[j] * weight;
+          secondMass += second.committed[j] * weight;
+        }
+      }
+      first.mass[i] = firstMass;
+      second.mass[i] = secondMass;
+      const firstShortage = Math.max(0, secondMass - firstMass);
+      const secondShortage = Math.max(0, firstMass - secondMass);
+      first.need[i] = 0.65 + 1.8 * first.instability[i] + 0.025 * secondMass + 0.018 * firstShortage;
+      second.need[i] = 0.65 + 1.8 * second.instability[i] + 0.025 * firstMass + 0.018 * secondShortage;
+    }
+  }
+}
