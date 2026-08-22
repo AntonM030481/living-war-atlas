@@ -31,6 +31,8 @@ export interface SimulationSnapshot {
   warRed: Float32Array;
   committedBlue: Float32Array;
   committedRed: Float32Array;
+  potentialBlue: Float32Array;
+  potentialRed: Float32Array;
   instabilityBlue: Float32Array;
   instabilityRed: Float32Array;
   frontMassBlue: Float32Array;
@@ -52,6 +54,7 @@ export interface SimulationSnapshot {
   flowRedY: Float32Array;
   terrainDefense: Float32Array;
   terrainMobility: Float32Array;
+  terrainCapacity: Float32Array;
   cities: City[];
 }
 
