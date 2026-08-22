@@ -46,8 +46,6 @@ export interface PointDebugInfo extends Point {
   committedRed: number;
   reserveBlue: number;
   reserveRed: number;
-  potentialBlue: number;
-  potentialRed: number;
   incomingBlue: number;
   incomingRed: number;
   flowBlue: number;
@@ -59,9 +57,10 @@ export interface PointDebugInfo extends Point {
   freeCapacityRed: number;
   utilizationBlue: number;
   utilizationRed: number;
+  instabilityBlue: number;
+  instabilityRed: number;
   terrainDefense: number;
   terrainMobility: number;
-  terrainCapacity: number;
 }
 
 export interface CityDiagnostic {
