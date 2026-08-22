@@ -1,0 +1,109 @@
+.city-points-badge {
+  position: fixed;
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 4px 9px 5px;
+  border-radius: 4px;
+  background: rgba(246, 239, 215, .82);
+  box-shadow: 0 1px 5px rgba(60, 45, 20, .15);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+  text-shadow: 0 1px 0 rgba(255, 250, 229, .85);
+}
+
+.city-points-badge span { display: block; }
+
+.city-points-badge small {
+  display: block;
+  font: 700 10px/1.05 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: .02em;
+  opacity: .78;
+  text-shadow: none;
+}
+
+.city-points-badge.blue {
+  border: 1px solid rgba(22, 79, 145, .55);
+  color: #164f91;
+}
+
+.city-points-badge.red {
+  border: 1px solid rgba(177, 38, 32, .55);
+  color: #b12620;
+}
+
+.city-power-label {
+  position: fixed;
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(246, 239, 215, .96);
+  box-shadow: 0 1px 5px rgba(60, 45, 20, .18);
+  font: 800 16px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  text-shadow: 0 1px 0 rgba(255, 250, 229, .92);
+}
+
+.city-power-label.blue {
+  border: 3px solid rgba(22, 79, 145, .84);
+  color: #164f91;
+}
+
+.city-power-label.red {
+  border: 3px solid rgba(177, 38, 32, .84);
+  color: #b12620;
+}
+
+.city-power-label.power-2 {
+  width: 27px;
+  height: 27px;
+  font-size: 15px;
+}
+
+.city-power-label.power-6 {
+  width: 34px;
+  height: 34px;
+  font-size: 17px;
+}
+
+.city-power-label.disabled {
+  opacity: .50;
+  text-decoration: line-through;
+  background: rgba(246, 239, 215, .72);
+}
+
+.city-name-label {
+  position: fixed;
+  z-index: 9;
+  max-width: 78px;
+  padding: 2px 5px 3px;
+  border-radius: 3px;
+  background: rgba(246, 239, 215, .80);
+  box-shadow: 0 1px 4px rgba(60, 45, 20, .12);
+  font: 700 12px/1.05 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+  text-shadow: 0 1px 0 rgba(255, 250, 229, .9);
+}
+
+.city-name-label.blue { color: #164f91; }
+.city-name-label.red { color: #b12620; }
+
+.city-name-label.disabled {
+  opacity: .50;
+  text-decoration: line-through;
+}
