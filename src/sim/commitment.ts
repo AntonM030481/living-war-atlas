@@ -1,3 +1,4 @@
+import type { Side } from './Config';
 import type { SideFields } from './sides';
 
 const EPS = 1e-6;
@@ -50,12 +51,59 @@ export function frontCommitment(
   return commitment;
 }
 
-export function updateCommittedAmounts(
-  fields: Pick<SideFields, 'war' | 'committed' | 'commitmentTarget' | 'collapse'>,
-  config: CommitmentConfig,
-): void {
-  const { war, committed, commitmentTarget, collapse } = fields;
+type CommitmentFields = Pick<SideFields, 'war' | 'committed' | 'commitmentTarget' | 'collapse'>;
 
+type LegacyCommitmentFields = {
+  warBlue: Float32Array;
+  warRed: Float32Array;
+  committedBlue: Float32Array;
+  committedRed: Float32Array;
+  commitmentTargetBlue: Float32Array;
+  commitmentTargetRed: Float32Array;
+  collapseBlue: Uint8Array;
+  collapseRed: Uint8Array;
+};
+
+export function updateCommittedAmounts(fields: CommitmentFields, config: CommitmentConfig): void;
+export function updateCommittedAmounts(
+  side: Side,
+  size: number,
+  fields: LegacyCommitmentFields,
+  config: CommitmentConfig,
+): void;
+export function updateCommittedAmounts(
+  fieldsOrSide: CommitmentFields | Side,
+  configOrSize: CommitmentConfig | number,
+  legacyFields?: LegacyCommitmentFields,
+  legacyConfig?: CommitmentConfig,
+): void {
+  let fields: CommitmentFields;
+  let config: CommitmentConfig;
+
+  if (typeof fieldsOrSide === 'string') {
+    const side = fieldsOrSide;
+    if (!legacyFields || !legacyConfig) throw new Error('Missing legacy commitment arguments');
+    fields = side === 'blue'
+      ? {
+          war: legacyFields.warBlue,
+          committed: legacyFields.committedBlue,
+          commitmentTarget: legacyFields.commitmentTargetBlue,
+          collapse: legacyFields.collapseBlue,
+        }
+      : {
+          war: legacyFields.warRed,
+          committed: legacyFields.committedRed,
+          commitmentTarget: legacyFields.commitmentTargetRed,
+          collapse: legacyFields.collapseRed,
+        };
+    config = legacyConfig;
+    void configOrSize;
+  } else {
+    fields = fieldsOrSide;
+    config = configOrSize as CommitmentConfig;
+  }
+
+  const { war, committed, commitmentTarget, collapse } = fields;
   for (let i = 0; i < war.length; i++) {
     committed[i] = Math.min(committed[i], war[i]);
     const desired = war[i] * commitmentTarget[i];
