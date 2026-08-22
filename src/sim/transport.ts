@@ -24,6 +24,10 @@ export interface TransportConfig {
   baseEdgeCapacityPerSecond: number;
   resourceMoveFraction: number;
   resourceCellCapacity: number;
+  resourceRearTargetUtilization: number;
+  resourceFrontTargetUtilization: number;
+  resourceTargetDensityExponent: number;
+  resourceDestinationDeficitBias: number;
 }
 
 export interface TransportGrid {
@@ -117,6 +121,12 @@ export function rebuildPotential(
   }
 }
 
+function targetUtilization(normalizedPotential: number, config: TransportConfig): number {
+  const t = Math.pow(Math.max(0, Math.min(1, normalizedPotential)), config.resourceTargetDensityExponent);
+  return config.resourceRearTargetUtilization +
+    (config.resourceFrontTargetUtilization - config.resourceRearTargetUtilization) * t;
+}
+
 export function transportResource(
   fields: Pick<SideFields, 'war' | 'committed' | 'potential' | 'delta' | 'incoming' | 'flow'>,
   grid: TransportGrid,
@@ -128,16 +138,23 @@ export function transportResource(
   flow.x.fill(0);
   flow.y.fill(0);
 
+  let maxPotential = 0;
+  for (let i = 0; i < potential.length; i++) maxPotential = Math.max(maxPotential, potential[i]);
+  const potentialScale = maxPotential > EPS ? 1 / maxPotential : 0;
+
   for (let y = 0; y < grid.height; y++) {
     for (let x = 0; x < grid.width; x++) {
       const i = y * grid.width + x;
-      const reserve = Math.max(0, war[i] - committed[i]);
-      if (reserve <= 0.0001) continue;
       const access = grid.access(i);
       if (access <= 0.01) continue;
 
-      let gradientSum = 0;
-      const candidates: Array<{ j: number; dx: number; dy: number; gradient: number; capacity: number }> = [];
+      const sourceTarget = config.resourceCellCapacity * targetUtilization(potential[i] * potentialScale, config);
+      const retainedWar = Math.max(committed[i], sourceTarget);
+      const movableReserve = Math.max(0, war[i] - retainedWar);
+      if (movableReserve <= 0.0001) continue;
+
+      let weightSum = 0;
+      const candidates: Array<{ j: number; dx: number; dy: number; weight: number; capacity: number }> = [];
       for (const [dx, dy] of DIRS) {
         const nx = x + dx;
         const ny = y + dy;
@@ -148,26 +165,36 @@ export function transportResource(
         const gradient = potential[j] - potential[i];
         if (gradient <= 1e-5) continue;
 
+        const projectedDestination = Math.max(committed[j], war[j] + delta[j]);
+        const destinationTarget = config.resourceCellCapacity *
+          targetUtilization(potential[j] * potentialScale, config);
+        const targetDeficit = Math.max(0, destinationTarget - projectedDestination) /
+          Math.max(config.resourceCellCapacity, EPS);
+        const deficitWeight = (1 - config.resourceDestinationDeficitBias) +
+          config.resourceDestinationDeficitBias * Math.min(1, targetDeficit);
+        const weight = gradient * deficitWeight;
+        if (weight <= 0) continue;
+
         const conductivity = Math.min(access, neighborAccess);
         const terrainCap = Math.min(grid.terrainCapacity[i], grid.terrainCapacity[j]);
         const crossing = grid.edgeFactor(x, y, dx, dy);
         const capacity = config.baseEdgeCapacityPerSecond * terrainCap * crossing * conductivity * config.dt;
         if (capacity <= 0) continue;
-        gradientSum += gradient;
-        candidates.push({ j, dx, dy, gradient, capacity });
+        weightSum += weight;
+        candidates.push({ j, dx, dy, weight, capacity });
       }
 
-      if (gradientSum <= 0 || candidates.length === 0) continue;
-      const movable = reserve * config.resourceMoveFraction;
+      if (weightSum <= 0 || candidates.length === 0) continue;
+      const movable = movableReserve * config.resourceMoveFraction;
       let sent = 0;
       for (const candidate of candidates) {
-        const desired = movable * (candidate.gradient / gradientSum);
+        const desired = movable * (candidate.weight / weightSum);
         const projectedDestination = Math.max(
           committed[candidate.j],
           war[candidate.j] + delta[candidate.j],
         );
         const freeCellCapacity = Math.max(0, config.resourceCellCapacity - projectedDestination);
-        const moved = Math.min(desired, candidate.capacity, freeCellCapacity, reserve - sent);
+        const moved = Math.min(desired, candidate.capacity, freeCellCapacity, movableReserve - sent);
         if (moved <= 0) continue;
         delta[i] -= moved;
         delta[candidate.j] += moved;
@@ -175,7 +202,7 @@ export function transportResource(
         flow.x[i] += (moved / config.dt) * candidate.dx;
         flow.y[i] += (moved / config.dt) * candidate.dy;
         sent += moved;
-        if (sent >= reserve - EPS) break;
+        if (sent >= movableReserve - EPS) break;
       }
     }
   }
