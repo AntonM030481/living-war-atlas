@@ -1,4 +1,4 @@
-import type { Side } from './Config';
+import type { SideFields } from './sides';
 
 const EPS = 1e-6;
 
@@ -51,35 +51,21 @@ export function frontCommitment(
 }
 
 export function updateCommittedAmounts(
-  side: Side,
-  size: number,
-  fields: {
-    warBlue: Float32Array;
-    warRed: Float32Array;
-    committedBlue: Float32Array;
-    committedRed: Float32Array;
-    commitmentTargetBlue: Float32Array;
-    commitmentTargetRed: Float32Array;
-    collapseBlue: Uint8Array;
-    collapseRed: Uint8Array;
-  },
+  fields: Pick<SideFields, 'war' | 'committed' | 'commitmentTarget' | 'collapse'>,
   config: CommitmentConfig,
 ): void {
-  const war = side === 'blue' ? fields.warBlue : fields.warRed;
-  const committed = side === 'blue' ? fields.committedBlue : fields.committedRed;
-  const targetFraction = side === 'blue' ? fields.commitmentTargetBlue : fields.commitmentTargetRed;
-  const collapsed = side === 'blue' ? fields.collapseBlue : fields.collapseRed;
+  const { war, committed, commitmentTarget, collapse } = fields;
 
-  for (let i = 0; i < size; i++) {
+  for (let i = 0; i < war.length; i++) {
     committed[i] = Math.min(committed[i], war[i]);
-    const desired = war[i] * targetFraction[i];
+    const desired = war[i] * commitmentTarget[i];
     const current = committed[i];
     if (desired > current) {
       const alpha = 1 - Math.exp(-config.commitmentEngagePerSecond * config.dt);
       committed[i] = Math.min(war[i], current + (desired - current) * alpha);
     } else if (desired < current) {
       const releaseRate = config.commitmentReleasePerSecond *
-        (collapsed[i] ? config.collapseReleaseMultiplier : 1);
+        (collapse[i] ? config.collapseReleaseMultiplier : 1);
       const alpha = 1 - Math.exp(-releaseRate * config.dt);
       committed[i] = Math.max(desired, current - (current - desired) * alpha);
     }
