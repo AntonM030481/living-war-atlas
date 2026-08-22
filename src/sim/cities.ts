@@ -39,12 +39,14 @@ export function generateCityResource(
   width: number,
   sides: SideFieldMap,
   dt: number,
+  cellCapacity: number,
 ): void {
   for (const city of cities) {
     if (city.enabled === false) continue;
     const index = city.y * width + city.x;
     const amount = city.baseProduction * city.integration * dt;
-    requireSide(sides, city.owner).war[index] += amount;
+    const war = requireSide(sides, city.owner).war;
+    war[index] = Math.min(cellCapacity, war[index] + amount);
   }
 }
 
