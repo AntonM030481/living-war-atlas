@@ -3,11 +3,13 @@ import { SPEEDS, type Speed } from '../sim/Config';
 import type { HistoryInfo, MapDefinition, SimulationSnapshot, WorkerOutMessage } from '../sim/types';
 import { AtlasRenderer } from '../rendering/AtlasRenderer';
 import { buildCityDiagnostics } from '../diagnostics/CityDiagnostics';
-import type { FrontDebugInfo } from '../diagnostics/types';
+import { inspectPoint } from '../diagnostics/PointInspector';
+import type { FrontDebugInfo, PointDebugInfo } from '../diagnostics/types';
 import { CityOverlays } from '../ui/CityOverlays';
 import { DiagnosticsPanel } from '../ui/DiagnosticsPanel';
 import { FrontProbe } from '../ui/FrontProbe';
 import { Hud } from '../ui/Hud';
+import { PointProbe } from '../ui/PointProbe';
 import { InputController } from './InputController';
 import { SimulationClient } from './SimulationClient';
 
@@ -18,6 +20,7 @@ export class GameApp {
   private overlays!: CityOverlays;
   private hud!: Hud;
   private probe!: FrontProbe;
+  private pointProbe!: PointProbe;
   private diagnosticsPanel!: DiagnosticsPanel;
   private input!: InputController;
   private readonly mapStage = document.createElement('div');
@@ -30,6 +33,7 @@ export class GameApp {
   private latestSnapshot: SimulationSnapshot | null = null;
   private latestHistory: HistoryInfo | null = null;
   private selectedProbe: FrontDebugInfo | null = null;
+  private selectedPoint: PointDebugInfo | null = null;
   private suppressNextPrimaryClickUntil = 0;
   private lastCityFlipAt = 0;
   private lastCityFlipId: string | null = null;
@@ -76,9 +80,16 @@ export class GameApp {
       onReset: () => this.reset(),
       onDiagnosticsToggle: () => this.setDiagnostics(!this.diagnosticsEnabled),
     });
+    this.pointProbe = new PointProbe();
     this.probe = new FrontProbe();
     this.diagnosticsPanel = new DiagnosticsPanel();
-    this.sidePanel.append(this.hud.element, this.hud.legend, this.probe.element, this.diagnosticsPanel.element);
+    this.sidePanel.append(
+      this.hud.element,
+      this.hud.legend,
+      this.pointProbe.element,
+      this.probe.element,
+      this.diagnosticsPanel.element,
+    );
   }
 
   private attachResizeHandling(): void {
@@ -158,6 +169,13 @@ export class GameApp {
 
   private handlePrimaryClick(event: MouseEvent): void {
     if (Date.now() < this.suppressNextPrimaryClickUntil || event.ctrlKey || event.button !== 0) return;
+
+    if (this.diagnosticsEnabled && this.latestSnapshot) {
+      const point = this.clientToMapPoint(event.clientX, event.clientY);
+      this.selectedPoint = point ? inspectPoint(this.latestSnapshot, point.x, point.y) : null;
+      this.pointProbe.render(this.selectedPoint);
+    }
+
     const cityId = this.renderer.cityIdAtClientPoint(event.clientX, event.clientY);
     if (cityId) {
       this.simulation.toggleCity(cityId);
@@ -166,6 +184,17 @@ export class GameApp {
     if (!this.diagnosticsEnabled || !this.latestSnapshot) return;
     this.selectedProbe = this.renderer.inspectFrontAtClientPoint(this.latestSnapshot, event.clientX, event.clientY);
     this.probe.render(this.selectedProbe);
+  }
+
+  private clientToMapPoint(clientX: number, clientY: number): { x: number; y: number } | null {
+    const rect = this.renderer.mapScreenRect();
+    if (clientX < rect.left || clientY < rect.top || clientX >= rect.left + rect.width || clientY >= rect.top + rect.height) {
+      return null;
+    }
+    return {
+      x: ((clientX - rect.left) / rect.width) * this.map.width,
+      y: ((clientY - rect.top) / rect.height) * this.map.height,
+    };
   }
 
   private handleSecondaryCityClick(event: MouseEvent | PointerEvent, force = false): void {
@@ -196,6 +225,11 @@ export class GameApp {
     this.renderer.render(message.snapshot);
     this.overlays.update(message.snapshot);
     this.renderDiagnostics();
+
+    if (this.selectedPoint) {
+      this.selectedPoint = inspectPoint(message.snapshot, this.selectedPoint.x, this.selectedPoint.y);
+      this.pointProbe.render(this.selectedPoint);
+    }
 
     if (this.selectedProbe) {
       this.selectedProbe = this.renderer.inspectFrontAtWorldPoint(message.snapshot, this.selectedProbe);
