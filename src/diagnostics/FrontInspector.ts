@@ -1,5 +1,5 @@
 import type { SimulationSnapshot } from '../sim/types';
-import type { FrontRenderer } from '../rendering/FrontRenderer';
+import type { FrontRenderer, FrontSample } from '../rendering/FrontRenderer';
 import type { FrontDebugInfo, Point } from './types';
 
 export class FrontInspector {
@@ -15,7 +15,7 @@ export class FrontInspector {
   }
 
   inspect(snapshot: SimulationSnapshot, point: Point): FrontDebugInfo | null {
-    let best = null as ReturnType<FrontRenderer['samples']>[number] | null;
+    let best: FrontSample | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;
 
     for (const sample of this.front.samples(snapshot)) {
