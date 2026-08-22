@@ -13,6 +13,7 @@ export const CFG = {
   resourceFrontTargetUtilization: 0.78,
   resourceTargetDensityExponent: 1.35,
   resourceDestinationDeficitBias: 0.75,
+  resourceBelowTargetMoveFactor: 0.18,
   frontCommitmentSafety: 1.60,
   frontCommitmentMax: 1.0,
   frontCommitmentFloor: 0.025,
