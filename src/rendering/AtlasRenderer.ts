@@ -172,7 +172,6 @@ export class AtlasRenderer {
     this.drawResourceHeightmap(g, snapshot, 'red');
     this.drawResourceOverloadGlow(g, snapshot, 'blue');
     this.drawResourceOverloadGlow(g, snapshot, 'red');
-    this.drawCityResourceClouds(g, snapshot);
   }
 
   private drawResourceHeightmap(
@@ -220,22 +219,6 @@ export class AtlasRenderer {
     }
   }
 
-  private drawCityResourceClouds(g: Graphics, snapshot: SimulationSnapshot): void {
-    for (const city of snapshot.cities) {
-      const blue = city.owner === 'blue';
-      const war = blue ? snapshot.warBlue : snapshot.warRed;
-      const color = blue ? BLUE_DARK : RED_DARK;
-      const localWar = this.localSum(snapshot, war, city.x, city.y, 5);
-      if (localWar < 6) continue;
-
-      const strength = Math.min(1, Math.log1p(localWar) / Math.log1p(900));
-      const radius = 1.5 + strength * 6.5;
-      const alpha = 0.11 + strength * 0.27;
-      g.circle(city.x, city.y, radius * 1.45).fill({ color, alpha: alpha * 0.22 });
-      g.circle(city.x, city.y, radius).fill({ color, alpha });
-    }
-  }
-
   private drawInstability(snapshot: SimulationSnapshot): void {
     const g = this.instability;
     g.clear();
@@ -257,30 +240,5 @@ export class AtlasRenderer {
         g.stroke({ color, width, alpha });
       }
     }
-  }
-
-  private localSum(
-    snapshot: SimulationSnapshot,
-    field: Float32Array,
-    x: number,
-    y: number,
-    radius: number,
-  ): number {
-    let total = 0;
-    const cx = Math.round(x);
-    const cy = Math.round(y);
-    for (let dy = -radius; dy <= radius; dy++) {
-      const yy = cy + dy;
-      if (yy < 0 || yy >= snapshot.height) continue;
-      for (let dx = -radius; dx <= radius; dx++) {
-        const xx = cx + dx;
-        if (xx < 0 || xx >= snapshot.width) continue;
-        const distance = Math.hypot(dx, dy);
-        if (distance > radius) continue;
-        const weight = 1 - distance / (radius + 1);
-        total += field[yy * snapshot.width + xx] * weight;
-      }
-    }
-    return total;
   }
 }
