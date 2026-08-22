@@ -28,6 +28,7 @@ export interface TransportConfig {
   resourceFrontTargetUtilization: number;
   resourceTargetDensityExponent: number;
   resourceDestinationDeficitBias: number;
+  resourceBelowTargetMoveFactor: number;
 }
 
 export interface TransportGrid {
@@ -148,10 +149,15 @@ export function transportResource(
       const access = grid.access(i);
       if (access <= 0.01) continue;
 
+      const reserve = Math.max(0, war[i] - committed[i]);
+      if (reserve <= 0.0001) continue;
+
       const sourceTarget = config.resourceCellCapacity * targetUtilization(potential[i] * potentialScale, config);
-      const retainedWar = Math.max(committed[i], sourceTarget);
-      const movableReserve = Math.max(0, war[i] - retainedWar);
-      if (movableReserve <= 0.0001) continue;
+      const sourceUtilization = war[i] / Math.max(sourceTarget, EPS);
+      const sourceMoveFactor = sourceUtilization >= 1
+        ? 1
+        : config.resourceBelowTargetMoveFactor +
+          (1 - config.resourceBelowTargetMoveFactor) * sourceUtilization;
 
       let weightSum = 0;
       const candidates: Array<{ j: number; dx: number; dy: number; weight: number; capacity: number }> = [];
@@ -185,7 +191,7 @@ export function transportResource(
       }
 
       if (weightSum <= 0 || candidates.length === 0) continue;
-      const movable = movableReserve * config.resourceMoveFraction;
+      const movable = reserve * config.resourceMoveFraction * sourceMoveFactor;
       let sent = 0;
       for (const candidate of candidates) {
         const desired = movable * (candidate.weight / weightSum);
@@ -194,7 +200,7 @@ export function transportResource(
           war[candidate.j] + delta[candidate.j],
         );
         const freeCellCapacity = Math.max(0, config.resourceCellCapacity - projectedDestination);
-        const moved = Math.min(desired, candidate.capacity, freeCellCapacity, movableReserve - sent);
+        const moved = Math.min(desired, candidate.capacity, freeCellCapacity, reserve - sent);
         if (moved <= 0) continue;
         delta[i] -= moved;
         delta[candidate.j] += moved;
@@ -202,7 +208,7 @@ export function transportResource(
         flow.x[i] += (moved / config.dt) * candidate.dx;
         flow.y[i] += (moved / config.dt) * candidate.dy;
         sent += moved;
-        if (sent >= movableReserve - EPS) break;
+        if (sent >= reserve - EPS) break;
       }
     }
   }
