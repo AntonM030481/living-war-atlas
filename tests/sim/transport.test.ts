@@ -12,6 +12,7 @@ const config = {
   resourceFrontTargetUtilization: 0.78,
   resourceTargetDensityExponent: 1.35,
   resourceDestinationDeficitBias: 0.75,
+  resourceBelowTargetMoveFactor: 0.18,
 };
 
 describe('transport', () => {
@@ -61,25 +62,25 @@ describe('transport', () => {
     expect(after).toBeCloseTo(before, 6);
   });
 
-  it('retains a denser operational reserve near the front', () => {
-    const side = createSideFields(4);
-    side.war.set([10, 10, 10, 0]);
-    side.potential.set([1, 2, 3, 4]);
+  it('continues feeding the front even when the source is below its target density', () => {
+    const side = createSideFields(2);
+    side.war.set([1, 0]);
+    side.potential.set([1, 2]);
 
     const grid = {
-      width: 4,
+      width: 2,
       height: 1,
-      terrainMobility: new Float32Array([1, 1, 1, 1]),
-      terrainCapacity: new Float32Array([1, 1, 1, 1]),
-      isFront: (index: number) => index === 3,
+      terrainMobility: new Float32Array([1, 1]),
+      terrainCapacity: new Float32Array([1, 1]),
+      isFront: (index: number) => index === 1,
       access: () => 1,
       edgeFactor: () => 1,
     };
 
     transportResource(side, grid, config);
 
-    expect(side.war[2]).toBeGreaterThan(side.war[0]);
-    expect(side.war[2]).toBeGreaterThan(config.resourceCellCapacity * 0.5);
+    expect(side.war[1]).toBeGreaterThan(0);
+    expect(side.war[0]).toBeGreaterThan(0);
   });
 
   it('propagates potential through a long connected region', () => {
