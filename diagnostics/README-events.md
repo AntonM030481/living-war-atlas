@@ -1,0 +1,1 @@
+Diagnostic SVGs can include timeline event markers generated from their CSV data. Recovery charts mark production changes, city ownership changes, and Blue collapse transitions. Engagement/release charts mark the initial contact change. `tipping.svg` is intentionally not annotated because its x-axis is outage duration across separate runs rather than time within one run.
