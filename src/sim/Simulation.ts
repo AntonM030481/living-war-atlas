@@ -1,26 +1,12 @@
 import { CFG, type Side } from './Config';
 import type { City, MapDefinition, SimulationSnapshot, SimulationState, SimulationStats } from './types';
+import { clamp, hashNoise } from './combat';
+import { frontCommitment, updateCommittedAmounts } from './commitment';
+import { flipCityOwner, generateCityResource, toggleCityEnabled, updateCities } from './cities';
+import { assertStateDimensions, clearArrays, cloneCities } from './state';
+import { sideAccess } from './transport';
 
 const EPS = 1e-6;
-
-function clamp(v: number, lo: number, hi: number): number {
-  return Math.max(lo, Math.min(hi, v));
-}
-
-function smoothstep(edge0: number, edge1: number, x: number): number {
-  const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
-  return t * t * (3 - 2 * t);
-}
-
-function hashNoise(index: number, bucket: number, seed: number): number {
-  let x = (index * 0x9e3779b1) ^ (bucket * 0x85ebca6b) ^ seed;
-  x ^= x >>> 16;
-  x = Math.imul(x, 0x7feb352d);
-  x ^= x >>> 15;
-  x = Math.imul(x, 0x846ca68b);
-  x ^= x >>> 16;
-  return ((x >>> 0) / 0xffffffff) * 2 - 1;
-}
 
 export class Simulation {
   readonly width: number;
@@ -146,16 +132,11 @@ export class Simulation {
   }
 
   toggleCityEnabled(cityId: string): void {
-    const city = this.cities.find((candidate) => candidate.id === cityId);
-    if (!city) return;
-    city.enabled = !(city.enabled ?? true);
+    toggleCityEnabled(this.cities, cityId);
   }
 
   flipCityOwner(cityId: string): void {
-    const city = this.cities.find((candidate) => candidate.id === cityId);
-    if (!city) return;
-    city.owner = city.owner === 'blue' ? 'red' : 'blue';
-    city.integration = 0;
+    flipCityOwner(this.cities, cityId);
   }
 
   runWarmup(seconds = CFG.warmupSeconds): void {
@@ -164,8 +145,12 @@ export class Simulation {
   }
 
   tick(): void {
-    this.updateCities();
-    this.generateCityResource();
+    updateCities(this.cities, this.control, this.width, {
+      captureThreshold: CFG.cityCaptureThreshold,
+      integrationPerSecond: CFG.cityIntegrationPerSecond,
+      dt: CFG.dt,
+    });
+    generateCityResource(this.cities, this.width, this.warBlue, this.warRed, CFG.dt);
     this.computeFrontMassAndNeed();
 
     if (this.stepCount % CFG.potentialEverySteps === 0) {
@@ -216,7 +201,7 @@ export class Simulation {
       flowRedY: this.flowRedY.slice(),
       terrainDefense: this.terrainDefense.slice(),
       terrainMobility: this.terrainMobility.slice(),
-      cities: this.cities.map((c) => ({ ...c })),
+      cities: cloneCities(this.cities),
     };
   }
 
@@ -237,18 +222,15 @@ export class Simulation {
       potentialRed: this.potentialRed.slice(),
       collapseBlue: this.collapseBlue.slice(),
       collapseRed: this.collapseRed.slice(),
-      cities: this.cities.map((c) => ({ ...c })),
+      cities: cloneCities(this.cities),
     };
   }
 
   restoreState(state: SimulationState): void {
-    if (state.width !== this.width || state.height !== this.height) {
-      throw new Error('Cannot restore simulation state with different map dimensions');
-    }
-
+    assertStateDimensions(state, this.width, this.height);
     this.stepCount = state.step;
     this.time = state.gameTime;
-    this.cities.splice(0, this.cities.length, ...state.cities.map((c) => ({ ...c })));
+    this.cities.splice(0, this.cities.length, ...cloneCities(state.cities));
     this.control.set(state.control);
     this.warBlue.set(state.warBlue);
     this.warRed.set(state.warRed);
@@ -264,33 +246,35 @@ export class Simulation {
   }
 
   private clearDerivedFields(): void {
-    this.flowBlueX.fill(0);
-    this.flowBlueY.fill(0);
-    this.flowRedX.fill(0);
-    this.flowRedY.fill(0);
-    this.needBlue.fill(0);
-    this.needRed.fill(0);
-    this.forcing.fill(0);
-    this.massBlue.fill(0);
-    this.massRed.fill(0);
-    this.commitmentTargetBlue.fill(0);
-    this.commitmentTargetRed.fill(0);
-    this.availableMassBlue.fill(0);
-    this.availableMassRed.fill(0);
-    this.incomingBlue.fill(0);
-    this.incomingRed.fill(0);
-    this.frontConsumption.fill(0);
-    this.deltaBlue.fill(0);
-    this.deltaRed.fill(0);
-    this.drainBlue.fill(0);
-    this.drainRed.fill(0);
-    this.advanceBlueDebug.fill(0);
-    this.advanceRedDebug.fill(0);
-    this.stressBlueDebug.fill(0);
-    this.stressRedDebug.fill(0);
-    this.rawForcingDebug.fill(0);
-    this.pressureDebug.fill(0);
-    this.tmpControl.fill(0);
+    clearArrays([
+      this.flowBlueX,
+      this.flowBlueY,
+      this.flowRedX,
+      this.flowRedY,
+      this.needBlue,
+      this.needRed,
+      this.forcing,
+      this.massBlue,
+      this.massRed,
+      this.commitmentTargetBlue,
+      this.commitmentTargetRed,
+      this.availableMassBlue,
+      this.availableMassRed,
+      this.incomingBlue,
+      this.incomingRed,
+      this.frontConsumption,
+      this.deltaBlue,
+      this.deltaRed,
+      this.drainBlue,
+      this.drainRed,
+      this.advanceBlueDebug,
+      this.advanceRedDebug,
+      this.stressBlueDebug,
+      this.stressRedDebug,
+      this.rawForcingDebug,
+      this.pressureDebug,
+      this.tmpControl,
+    ]);
   }
 
   private computeStats(): SimulationStats {
@@ -432,8 +416,7 @@ export class Simulation {
   }
 
   private sideAccess(side: Side, i: number): number {
-    const c = side === 'blue' ? this.control[i] : -this.control[i];
-    return smoothstep(-0.10, 0.78, c);
+    return sideAccess(side, this.control[i]);
   }
 
   private isFront(i: number): boolean {
@@ -441,12 +424,7 @@ export class Simulation {
     const x = i % this.width;
     const y = Math.floor(i / this.width);
     if (!this.isFrontEligible(x, y)) return false;
-
     if (Math.abs(c) <= CFG.frontBand) return true;
-
-    // A contour usually runs between grid cells. Mark both cells touching a
-    // sign-changing edge as frontline cells so transport/combat do not depend
-    // on which side of the zero contour happens to contain the nearest cell.
     if (x > 0 && c * this.control[i - 1] <= 0) return true;
     if (x + 1 < this.width && c * this.control[i + 1] <= 0) return true;
     if (y > 0 && c * this.control[i - this.width] <= 0) return true;
@@ -469,38 +447,6 @@ export class Simulation {
     return 1;
   }
 
-  private updateCities(): void {
-    const threshold = CFG.cityCaptureThreshold;
-    for (const city of this.cities) {
-      const c = this.control[this.index(city.x, city.y)];
-      if (city.owner === 'blue' && c < -threshold) {
-        city.owner = 'red';
-        city.integration = 0;
-      } else if (city.owner === 'red' && c > threshold) {
-        city.owner = 'blue';
-        city.integration = 0;
-      }
-
-      const secure = city.owner === 'blue' ? c > threshold : c < -threshold;
-      if (secure) {
-        city.integration = Math.min(
-          1,
-          city.integration + CFG.cityIntegrationPerSecond * CFG.dt,
-        );
-      }
-    }
-  }
-
-  private generateCityResource(): void {
-    for (const city of this.cities) {
-      if (city.enabled === false) continue;
-      const i = this.index(city.x, city.y);
-      const amount = city.baseProduction * city.integration * CFG.dt;
-      if (city.owner === 'blue') this.warBlue[i] += amount;
-      else this.warRed[i] += amount;
-    }
-  }
-
   private computeFrontMassAndNeed(): void {
     this.massBlue.fill(0);
     this.massRed.fill(0);
@@ -512,10 +458,6 @@ export class Simulation {
     this.needRed.fill(0);
 
     const r = CFG.massRadius;
-
-    // First pass: measure all locally available War Resource around each front
-    // cell. This only determines how much of the single resource is committed
-    // to the fight; reserve/excess has no combat value until committed.
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
         const i = this.index(x, y);
@@ -538,17 +480,19 @@ export class Simulation {
         this.availableMassBlue[i] = blueAvailable;
         this.availableMassRed[i] = redAvailable;
 
-        const blueTarget = this.frontCommitment(
+        const blueTarget = frontCommitment(
           blueAvailable,
           redAvailable,
           this.terrainDefense[i],
           this.collapseBlue[i] === 1,
+          CFG,
         );
-        const redTarget = this.frontCommitment(
+        const redTarget = frontCommitment(
           redAvailable,
           blueAvailable,
           this.terrainDefense[i],
           this.collapseRed[i] === 1,
+          CFG,
         );
 
         for (let dy = -r; dy <= r; dy++) {
@@ -569,16 +513,13 @@ export class Simulation {
       }
     }
 
-    this.updateCommittedAmounts('blue');
-    this.updateCommittedAmounts('red');
+    updateCommittedAmounts('blue', this.size, this.commitmentFields(), CFG);
+    updateCommittedAmounts('red', this.size, this.commitmentFields(), CFG);
 
-    // Second pass: the combat-facing front mass is derived from committed
-    // resource only. Mobile reserve remains transportable but does not fight.
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
         const i = this.index(x, y);
         if (!this.isFront(i)) continue;
-
         let blue = 0;
         let red = 0;
         for (let dy = -r; dy <= r; dy++) {
@@ -595,7 +536,6 @@ export class Simulation {
         }
         this.massBlue[i] = blue;
         this.massRed[i] = red;
-
         const blueShortage = Math.max(0, red - blue);
         const redShortage = Math.max(0, blue - red);
         this.needBlue[i] = 0.65 + 1.8 * this.instabilityBlue[i] + 0.025 * red + 0.018 * blueShortage;
@@ -604,57 +544,17 @@ export class Simulation {
     }
   }
 
-  private updateCommittedAmounts(side: Side): void {
-    const war = side === 'blue' ? this.warBlue : this.warRed;
-    const committed = side === 'blue' ? this.committedBlue : this.committedRed;
-    const targetFraction = side === 'blue' ? this.commitmentTargetBlue : this.commitmentTargetRed;
-    const collapsed = side === 'blue' ? this.collapseBlue : this.collapseRed;
-
-    for (let i = 0; i < this.size; i++) {
-      committed[i] = Math.min(committed[i], war[i]);
-      const desired = war[i] * targetFraction[i];
-      const current = committed[i];
-
-      if (desired > current) {
-        const alpha = 1 - Math.exp(-CFG.commitmentEngagePerSecond * CFG.dt);
-        committed[i] = Math.min(war[i], current + (desired - current) * alpha);
-      } else if (desired < current) {
-        const releaseRate = CFG.commitmentReleasePerSecond *
-          (collapsed[i] ? CFG.collapseReleaseMultiplier : 1);
-        const alpha = 1 - Math.exp(-releaseRate * CFG.dt);
-        committed[i] = Math.max(desired, current - (current - desired) * alpha);
-      }
-    }
-  }
-
-  private frontCommitment(
-    ownMass: number,
-    enemyMass: number,
-    terrainDefense: number,
-    collapsed: boolean,
-  ): number {
-    if (ownMass <= EPS) return 0;
-    if (enemyMass <= EPS) {
-      const commitment = CFG.frontUnopposedCommitment;
-      return collapsed ? commitment * CFG.collapseCommitmentFactor : commitment;
-    }
-
-    const requiredMass =
-      (enemyMass * CFG.baseProbe * CFG.frontCommitmentSafety) /
-      (CFG.defenceAdvantage * terrainDefense + EPS);
-    const defensiveAmount = Math.max(ownMass * CFG.frontCommitmentFloor, requiredMass);
-    const superiority = clamp((ownMass - enemyMass) / (ownMass + enemyMass + EPS), 0, 1);
-    const offensiveAmount =
-      Math.max(0, ownMass - defensiveAmount) *
-      CFG.frontOffensiveCommitmentShare *
-      superiority;
-    let commitment = clamp(
-      (defensiveAmount + offensiveAmount) / ownMass,
-      0,
-      CFG.frontCommitmentMax,
-    );
-    if (collapsed) commitment *= CFG.collapseCommitmentFactor;
-    return commitment;
+  private commitmentFields() {
+    return {
+      warBlue: this.warBlue,
+      warRed: this.warRed,
+      committedBlue: this.committedBlue,
+      committedRed: this.committedRed,
+      commitmentTargetBlue: this.commitmentTargetBlue,
+      commitmentTargetRed: this.commitmentTargetRed,
+      collapseBlue: this.collapseBlue,
+      collapseRed: this.collapseRed,
+    };
   }
 
   private rebuildPotential(side: Side): void {
@@ -711,20 +611,13 @@ export class Simulation {
       }
     }
 
-    const dirs = [
-      [1, 0],
-      [-1, 0],
-      [0, 1],
-      [0, -1],
-    ] as const;
-
+    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
     while (true) {
       const entry = pop();
       if (!entry) break;
       if (entry.value < destination[entry.index] - 1e-7) continue;
       const x = entry.index % this.width;
       const y = Math.floor(entry.index / this.width);
-
       for (const [dx, dy] of dirs) {
         const nx = x + dx;
         const ny = y + dy;
@@ -733,11 +626,7 @@ export class Simulation {
         const access = this.sideAccess(side, j);
         if (access <= 0.01) continue;
         const terrainTransmission = 0.72 + 0.28 * this.terrainMobility[j];
-        const nextValue = entry.value *
-          CFG.potentialDecay *
-          this.edgeFactor(x, y, dx, dy) *
-          access *
-          terrainTransmission;
+        const nextValue = entry.value * CFG.potentialDecay * this.edgeFactor(x, y, dx, dy) * access * terrainTransmission;
         if (nextValue <= destination[j] + 1e-7) continue;
         destination[j] = nextValue;
         push(j, nextValue);
@@ -759,13 +648,7 @@ export class Simulation {
     flowX.fill(0);
     flowY.fill(0);
 
-    const dirs = [
-      [1, 0],
-      [-1, 0],
-      [0, 1],
-      [0, -1],
-    ] as const;
-
+    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
         const i = this.index(x, y);
@@ -776,7 +659,6 @@ export class Simulation {
 
         let gradientSum = 0;
         const candidates: Array<{ j: number; dx: number; dy: number; gradient: number; capacity: number }> = [];
-
         for (const [dx, dy] of dirs) {
           const nx = x + dx;
           const ny = y + dy;
@@ -786,30 +668,27 @@ export class Simulation {
           if (neighborAccess <= 0.01) continue;
           const gradient = potential[j] - potential[i];
           if (gradient <= 1e-5) continue;
-
           const conductivity = Math.min(access, neighborAccess);
           const terrainCap = Math.min(this.terrainCapacity[i], this.terrainCapacity[j]);
           const crossing = this.edgeFactor(x, y, dx, dy);
           const capacity = CFG.baseEdgeCapacityPerSecond * terrainCap * crossing * conductivity * CFG.dt;
           if (capacity <= 0) continue;
-
           gradientSum += gradient;
           candidates.push({ j, dx, dy, gradient, capacity });
         }
 
         if (gradientSum <= 0 || candidates.length === 0) continue;
-
         const movable = reserve * CFG.resourceMoveFraction;
         let sent = 0;
-        for (const c of candidates) {
-          const desired = movable * (c.gradient / gradientSum);
-          const moved = Math.min(desired, c.capacity, reserve - sent);
+        for (const candidate of candidates) {
+          const desired = movable * (candidate.gradient / gradientSum);
+          const moved = Math.min(desired, candidate.capacity, reserve - sent);
           if (moved <= 0) continue;
           delta[i] -= moved;
-          delta[c.j] += moved;
-          incoming[c.j] += moved / CFG.dt;
-          flowX[i] += (moved / CFG.dt) * c.dx;
-          flowY[i] += (moved / CFG.dt) * c.dy;
+          delta[candidate.j] += moved;
+          incoming[candidate.j] += moved / CFG.dt;
+          flowX[i] += (moved / CFG.dt) * candidate.dx;
+          flowY[i] += (moved / CFG.dt) * candidate.dy;
           sent += moved;
           if (sent >= reserve - EPS) break;
         }
@@ -848,28 +727,15 @@ export class Simulation {
         const blueMass = this.massBlue[i];
         const redMass = this.massRed[i];
         const localNoise = 1 + CFG.noiseAmplitude * hashNoise(i, noiseBucket, this.seed);
-
         const blueAttack = blueMass * CFG.baseProbe * localNoise;
         const redAttack = redMass * CFG.baseProbe / localNoise;
         const blueDefence = blueMass * CFG.defenceAdvantage * this.terrainDefense[i] + EPS;
         const redDefence = redMass * CFG.defenceAdvantage * this.terrainDefense[i] + EPS;
-
         const stressBlue = redAttack / blueDefence;
         const stressRed = blueAttack / redDefence;
 
-        this.instabilityBlue[i] = this.updateInstability(
-          this.instabilityBlue[i],
-          stressBlue,
-          blueMass,
-          this.incomingBlue[i],
-        );
-        this.instabilityRed[i] = this.updateInstability(
-          this.instabilityRed[i],
-          stressRed,
-          redMass,
-          this.incomingRed[i],
-        );
-
+        this.instabilityBlue[i] = this.updateInstability(this.instabilityBlue[i], stressBlue, blueMass, this.incomingBlue[i]);
+        this.instabilityRed[i] = this.updateInstability(this.instabilityRed[i], stressRed, redMass, this.incomingRed[i]);
         if (this.instabilityBlue[i] >= CFG.collapseEnter) this.collapseBlue[i] = 1;
         else if (this.instabilityBlue[i] <= CFG.collapseExit) this.collapseBlue[i] = 0;
         if (this.instabilityRed[i] >= CFG.collapseEnter) this.collapseRed[i] = 1;
@@ -877,7 +743,6 @@ export class Simulation {
 
         const redCollapsed = this.collapseRed[i] === 1;
         const blueCollapsed = this.collapseBlue[i] === 1;
-
         let advanceBlue = Math.max(0, stressRed - 1);
         let advanceRed = Math.max(0, stressBlue - 1);
         if (redMass < CFG.emptyFrontMass && blueMass > CFG.unopposedTinyMass) {
@@ -899,7 +764,6 @@ export class Simulation {
         this.stressRedDebug[i] = stressRed;
         this.rawForcingDebug[i] = rawForcing;
         this.pressureDebug[i] = (blueMass - redMass) / (blueMass + redMass + EPS);
-
         const combatIntensity = Math.min(blueMass, redMass) / (8 + Math.min(blueMass, redMass));
         this.accumulateFrontConsumption(x, y, combatIntensity);
       }
@@ -917,7 +781,6 @@ export class Simulation {
       const recovery = CFG.instabilityRecover * (0.35 + 0.45 * massFactor + 0.35 * flowFactor);
       current -= recovery * CFG.dt;
     }
-
     if (current < CFG.collapseExit) return Math.max(0, current);
     return clamp(current, 0, 1.8);
   }
@@ -925,7 +788,6 @@ export class Simulation {
   private accumulateFrontConsumption(x: number, y: number, combatIntensity: number): void {
     const ratePerSecond = CFG.maintenanceRate + CFG.combatConsumptionRate * combatIntensity;
     const r = CFG.massRadius;
-
     for (let dy = -r; dy <= r; dy++) {
       const yy = y + dy;
       if (yy < 0 || yy >= this.height) continue;
@@ -943,7 +805,6 @@ export class Simulation {
     for (let i = 0; i < this.size; i++) {
       const exposure = this.frontConsumption[i];
       if (exposure <= 0) continue;
-
       const survival = Math.exp(-exposure * CFG.dt);
       const blueBefore = this.committedBlue[i];
       const redBefore = this.committedRed[i];
@@ -951,7 +812,6 @@ export class Simulation {
       const redAfter = redBefore * survival;
       const blueLoss = blueBefore - blueAfter;
       const redLoss = redBefore - redAfter;
-
       this.committedBlue[i] = blueAfter;
       this.committedRed[i] = redAfter;
       this.warBlue[i] = Math.max(blueAfter, this.warBlue[i] - blueLoss);
@@ -966,7 +826,6 @@ export class Simulation {
       for (let x = 0; x < this.width; x++) {
         const i = this.index(x, y);
         const c = this.control[i];
-
         const wl = x > 0 ? this.edgeFactor(x, y, -1, 0) : 0;
         const wr = x + 1 < this.width ? this.edgeFactor(x, y, 1, 0) : 0;
         const wu = y > 0 ? this.edgeFactor(x, y, 0, -1) : 0;
@@ -977,13 +836,11 @@ export class Simulation {
         const down = y + 1 < this.height ? this.control[i + this.width] : c;
         const weightSum = wl + wr + wu + wd + EPS;
         const lap = (wl * left + wr * right + wu * up + wd * down) - weightSum * c;
-
         const interfaceWeight = Math.max(0, 1 - c * c);
         const mobility = this.terrainMobility[i];
         const smoothing = CFG.controlSmooth * lap * mobility;
         const restoring = CFG.controlRestore * c * interfaceWeight;
         const forcing = CFG.controlForce * this.forcing[i] * interfaceWeight * mobility;
-
         this.tmpControl[i] = clamp(
           c + (smoothing + restoring + forcing) * CFG.dt,
           -CFG.controlClamp,
@@ -991,7 +848,6 @@ export class Simulation {
         );
       }
     }
-
     this.control.set(this.tmpControl);
   }
 }
