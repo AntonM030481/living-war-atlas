@@ -1,5 +1,4 @@
 import './style.css';
-import './diagnostics.css';
 import { GameApp } from './app/GameApp';
 import { testMap } from './map/testMap';
 
