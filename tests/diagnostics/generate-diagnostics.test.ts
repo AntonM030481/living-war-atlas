@@ -1,5 +1,6 @@
-import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { afterAll } from 'vitest';
+import { annotateTimelineSvg, firstSampleEvent, recoveryEvents } from '../../diagnostics/EventMarkers';
 import { Simulation } from '../../src/sim/Simulation';
 
 // Transitional compatibility for the diagnostics generator while simulation
@@ -11,25 +12,33 @@ Object.defineProperty(Simulation.prototype, 'collapseBlue', {
   },
 });
 
-try {
-  await import('../../diagnostics/generate-diagnostics');
-} catch (error) {
-  try {
-    const csv = readFileSync(resolve('diagnostics/tests.csv'), 'utf8').trim();
-    const [, ...rows] = csv.split('\n');
-    const failed = rows
-      .map((row) => row.split(','))
-      .filter(([, , pass]) => pass === '0')
-      .map(([check, value]) => `  - ${check}: ${value}`);
+const diagnostics = (name: string) => resolve('diagnostics', name);
 
-    if (failed.length > 0) {
-      throw new Error(`Diagnostic checks failed:\n${failed.join('\n')}`, { cause: error });
-    }
-  } catch (reportError) {
-    if (reportError instanceof Error && reportError.message.startsWith('Diagnostic checks failed:')) {
-      throw reportError;
-    }
+afterAll(() => {
+  const successEvents = recoveryEvents(diagnostics('recovery-success.csv'));
+  const failedEvents = recoveryEvents(diagnostics('recovery-failed.csv'));
+
+  for (const graph of ['recovery-success-mass.svg', 'recovery-success-front.svg']) {
+    annotateTimelineSvg(graphPath(graph), diagnostics('recovery-success.csv'), successEvents);
+  }
+  for (const graph of ['recovery-failed-mass.svg', 'recovery-failed-front.svg']) {
+    annotateTimelineSvg(graphPath(graph), diagnostics('recovery-failed.csv'), failedEvents);
   }
 
-  throw error;
+  annotateTimelineSvg(
+    graphPath('engagement-transition.svg'),
+    diagnostics('engagement-transition.csv'),
+    firstSampleEvent(diagnostics('engagement-transition.csv'), 'enemy contact'),
+  );
+  annotateTimelineSvg(
+    graphPath('release-transition.svg'),
+    diagnostics('release-transition.csv'),
+    firstSampleEvent(diagnostics('release-transition.csv'), 'contact removed'),
+  );
+});
+
+function graphPath(name: string): string {
+  return diagnostics(name);
 }
+
+await import('../../diagnostics/generate-diagnostics');
