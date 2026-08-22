@@ -35,6 +35,35 @@ export interface FrontDebugInfo extends Point {
   localDrainRed: number;
 }
 
+export interface PointDebugInfo extends Point {
+  index: number;
+  cellX: number;
+  cellY: number;
+  control: number;
+  warBlue: number;
+  warRed: number;
+  committedBlue: number;
+  committedRed: number;
+  reserveBlue: number;
+  reserveRed: number;
+  potentialBlue: number;
+  potentialRed: number;
+  incomingBlue: number;
+  incomingRed: number;
+  flowBlue: number;
+  flowRed: number;
+  accessBlue: number;
+  accessRed: number;
+  cellCapacity: number;
+  freeCapacityBlue: number;
+  freeCapacityRed: number;
+  utilizationBlue: number;
+  utilizationRed: number;
+  terrainDefense: number;
+  terrainMobility: number;
+  terrainCapacity: number;
+}
+
 export interface CityDiagnostic {
   cityName: string;
   production: number;
