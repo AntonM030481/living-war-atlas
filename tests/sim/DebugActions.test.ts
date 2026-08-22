@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { testMap } from '../map/testMap';
-import { CFG } from './Config';
-import { forceCityEnclave, FORCED_ENCLAVE_RADIUS } from './DebugActions';
-import { Simulation } from './Simulation';
+import { testMap } from '../../src/map/testMap';
+import { CFG } from '../../src/sim/Config';
+import { forceCityEnclave, FORCED_ENCLAVE_RADIUS } from '../../src/sim/DebugActions';
+import { Simulation } from '../../src/sim/Simulation';
 
 function localSignChanges(sim: Simulation, cx: number, cy: number, radius: number): number {
   let changes = 0;

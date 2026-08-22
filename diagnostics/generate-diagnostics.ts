@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -372,31 +372,6 @@ function tippingScenario(): TippingSample[] {
   return rows;
 }
 
-function runSummary(): Array<Record<string, string | number>> {
-  const commitment = commitmentTransition();
-  const recoverySuccess = recoveryScenario(60);
-  const recoveryFailed = recoveryScenario(150);
-  const tipping = tippingScenario();
-  const cityFlow = cityFlowDiagnostics();
-  const successFinal = recoverySuccess[recoverySuccess.length - 1];
-  const successPostRestore = recoverySuccess.filter((row) => row.t >= 90);
-  const successMaxBlueMass = Math.max(...successPostRestore.map((row) => row.blueCommitted + row.blueReserve));
-  const failedFinal = recoveryFailed[recoveryFailed.length - 1];
-  const finalCityFlow = cityFlow.filter((row) => row.t === Math.max(...cityFlow.map((sample) => sample.t)));
-  return [
-    { check: 'commitment samples', value: commitment.length, pass: commitment.length > 0 ? 1 : 0 },
-    { check: 'recovery success samples', value: recoverySuccess.length, pass: recoverySuccess.length > 0 ? 1 : 0 },
-    { check: 'recovery success keeps blue city', value: successFinal.blueCityOwner, pass: successFinal.blueCityOwner === 'blue' ? 1 : 0 },
-    { check: 'recovery success restores blue mass', value: successMaxBlueMass, pass: successMaxBlueMass > 20 ? 1 : 0 },
-    { check: 'failed recovery loses blue city', value: failedFinal.blueCityOwner, pass: failedFinal.blueCityOwner === 'red' ? 1 : 0 },
-    { check: 'tipping samples', value: tipping.length, pass: tipping.length > 0 ? 1 : 0 },
-    { check: 'max tipping loss', value: Math.max(...tipping.map((row) => row.loss)), pass: Math.max(...tipping.map((row) => row.loss)) > 8 ? 1 : 0 },
-    { check: 'city flow samples', value: cityFlow.length, pass: cityFlow.length > 0 ? 1 : 0 },
-    { check: 'all active cities retain visible local resource', value: Math.min(...finalCityFlow.map((row) => row.ownWarLocal)), pass: Math.min(...finalCityFlow.map((row) => row.ownWarLocal)) > 1 ? 1 : 0 },
-    { check: 'all active cities have outgoing local flow', value: Math.min(...finalCityFlow.map((row) => row.localFlow)), pass: Math.min(...finalCityFlow.map((row) => row.localFlow)) > 0.1 ? 1 : 0 },
-  ];
-}
-
 function escapeXml(text: string): string {
   return text
     .replaceAll('&', '&amp;')
@@ -430,7 +405,7 @@ function plotSvg(title: string, description: string, xLabel: string, yLabel: str
     return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2.4"/>`;
   }).join('');
   const legend = series.map((s, i) =>
-    `<g transform="translate(${pad.left + i * 190}, ${height - 28})"><line x1="0" y1="0" x2="24" y2="0" stroke="${s.color}" stroke-width="3"/><text x="32" y="4">${s.label}</text></g>`
+    `<g transform="translate(${pad.left + i * 190}, ${height - 28})"><line x1="0" y1="0" x2="24" y2="0" stroke="${s.color}" stroke-width="3"/><text x="32" y="4">${s.label}</text></g>`,
   ).join('');
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <rect width="100%" height="100%" fill="#f7efd7"/>
@@ -449,13 +424,18 @@ function plotSvg(title: string, description: string, xLabel: string, yLabel: str
 }
 
 describe.runIf(process.env.DIAGNOSTICS === '1')('committed/reserve diagnostics', () => {
-  it('generates CSV and SVG diagnostics', () => {
-    const commitment = commitmentTransition();
-    const recoverySuccess = recoveryScenario(60);
-    const recoveryFailed = recoveryScenario(150);
-    const tipping = tippingScenario();
-    const cityFlow = cityFlowDiagnostics();
-    const summary = runSummary();
+  let commitment: CommitmentSample[];
+  let recoverySuccess: RecoverySample[];
+  let recoveryFailed: RecoverySample[];
+  let tipping: TippingSample[];
+  let cityFlow: CityFlowSample[];
+
+  beforeAll(() => {
+    commitment = commitmentTransition();
+    recoverySuccess = recoveryScenario(60);
+    recoveryFailed = recoveryScenario(150);
+    tipping = tippingScenario();
+    cityFlow = cityFlowDiagnostics();
 
     const engage = commitment.filter((row) => row.phase === 'engage');
     const release = commitment.filter((row) => row.phase === 'release');
@@ -465,74 +445,124 @@ describe.runIf(process.env.DIAGNOSTICS === '1')('committed/reserve diagnostics',
     writeText('recovery-failed.csv', csv(recoveryFailed));
     writeText('tipping.csv', csv(tipping));
     writeText('city-flow.csv', csv(cityFlow));
-    writeText('tests.csv', csv(summary));
     writeText('engagement-transition.svg', plotSvg(
       'Engagement transition',
       'Enemy contact causes mobile reserve to become committed combat mass over time.',
       'seconds',
       'resource',
       [
-      { label: 'committed', color: '#235d9f', values: engage.map((row) => ({ x: row.t, y: row.committed })) },
-      { label: 'reserve', color: '#7aa8cf', values: engage.map((row) => ({ x: row.t, y: row.reserve })) },
-    ]));
+        { label: 'committed', color: '#235d9f', values: engage.map((row) => ({ x: row.t, y: row.committed })) },
+        { label: 'reserve', color: '#7aa8cf', values: engage.map((row) => ({ x: row.t, y: row.reserve })) },
+      ],
+    ));
     writeText('release-transition.svg', plotSvg(
       'Release transition',
       'After the active front disappears, committed mass returns gradually to mobile reserve.',
       'seconds',
       'resource',
       [
-      { label: 'committed', color: '#235d9f', values: release.map((row) => ({ x: row.t, y: row.committed })) },
-      { label: 'reserve', color: '#7aa8cf', values: release.map((row) => ({ x: row.t, y: row.reserve })) },
-    ]));
+        { label: 'committed', color: '#235d9f', values: release.map((row) => ({ x: row.t, y: row.committed })) },
+        { label: 'reserve', color: '#7aa8cf', values: release.map((row) => ({ x: row.t, y: row.reserve })) },
+      ],
+    ));
     writeText('recovery-success-mass.svg', plotSvg(
       'Blue production recovery succeeds - mass',
       'Blue production is cut for 60s, then restored before capture; Blue mass returns while Red keeps producing.',
       'seconds',
       'front-local resource',
       [
-      { label: 'blue committed', color: '#235d9f', values: recoverySuccess.map((row) => ({ x: row.t, y: row.blueCommitted })) },
-      { label: 'blue reserve', color: '#7aa8cf', values: recoverySuccess.map((row) => ({ x: row.t, y: row.blueReserve })) },
-      { label: 'red committed', color: '#9f342d', values: recoverySuccess.map((row) => ({ x: row.t, y: row.redCommitted })) },
-      { label: 'red reserve', color: '#d48479', values: recoverySuccess.map((row) => ({ x: row.t, y: row.redReserve })) },
-    ]));
+        { label: 'blue committed', color: '#235d9f', values: recoverySuccess.map((row) => ({ x: row.t, y: row.blueCommitted })) },
+        { label: 'blue reserve', color: '#7aa8cf', values: recoverySuccess.map((row) => ({ x: row.t, y: row.blueReserve })) },
+        { label: 'red committed', color: '#9f342d', values: recoverySuccess.map((row) => ({ x: row.t, y: row.redCommitted })) },
+        { label: 'red reserve', color: '#d48479', values: recoverySuccess.map((row) => ({ x: row.t, y: row.redReserve })) },
+      ],
+    ));
     writeText('recovery-success-front.svg', plotSvg(
       'Blue production recovery succeeds - front',
       'Blue production is restored at t=60s; the city remains Blue and the front avoids irreversible collapse.',
       'seconds',
       'front x',
       [
-      { label: 'front', color: '#2f2b24', values: recoverySuccess.map((row) => ({ x: row.t, y: row.frontX })) },
-      { label: 'blue instability x30', color: '#b27619', values: recoverySuccess.map((row) => ({ x: row.t, y: row.blueInstability * 30 })) },
-    ]));
+        { label: 'front', color: '#2f2b24', values: recoverySuccess.map((row) => ({ x: row.t, y: row.frontX })) },
+        { label: 'blue instability x30', color: '#b27619', values: recoverySuccess.map((row) => ({ x: row.t, y: row.blueInstability * 30 })) },
+      ],
+    ));
     writeText('recovery-failed-mass.svg', plotSvg(
       'Blue production recovery fails - mass',
       'Blue production is cut for 150s; by restoration the front has crossed the capture threshold, so Blue mass cannot recover.',
       'seconds',
       'front-local resource',
       [
-      { label: 'blue committed', color: '#235d9f', values: recoveryFailed.map((row) => ({ x: row.t, y: row.blueCommitted })) },
-      { label: 'blue reserve', color: '#7aa8cf', values: recoveryFailed.map((row) => ({ x: row.t, y: row.blueReserve })) },
-      { label: 'red committed', color: '#9f342d', values: recoveryFailed.map((row) => ({ x: row.t, y: row.redCommitted })) },
-      { label: 'red reserve', color: '#d48479', values: recoveryFailed.map((row) => ({ x: row.t, y: row.redReserve })) },
-    ]));
+        { label: 'blue committed', color: '#235d9f', values: recoveryFailed.map((row) => ({ x: row.t, y: row.blueCommitted })) },
+        { label: 'blue reserve', color: '#7aa8cf', values: recoveryFailed.map((row) => ({ x: row.t, y: row.blueReserve })) },
+        { label: 'red committed', color: '#9f342d', values: recoveryFailed.map((row) => ({ x: row.t, y: row.redCommitted })) },
+        { label: 'red reserve', color: '#d48479', values: recoveryFailed.map((row) => ({ x: row.t, y: row.redReserve })) },
+      ],
+    ));
     writeText('recovery-failed-front.svg', plotSvg(
       'Blue production recovery fails - front',
       'Blue production is restored at t=150s, but the city is captured and the outage has become irreversible.',
       'seconds',
       'front x',
       [
-      { label: 'front', color: '#2f2b24', values: recoveryFailed.map((row) => ({ x: row.t, y: row.frontX })) },
-      { label: 'blue instability x30', color: '#b27619', values: recoveryFailed.map((row) => ({ x: row.t, y: row.blueInstability * 30 })) },
-    ]));
+        { label: 'front', color: '#2f2b24', values: recoveryFailed.map((row) => ({ x: row.t, y: row.frontX })) },
+        { label: 'blue instability x30', color: '#b27619', values: recoveryFailed.map((row) => ({ x: row.t, y: row.blueInstability * 30 })) },
+      ],
+    ));
     writeText('tipping.svg', plotSvg(
       'Temporary outage tipping curve',
       'Short outages are absorbed; longer outages cross a threshold into lasting territorial loss.',
       'outage seconds',
       'territorial loss',
       [
-      { label: 'loss', color: '#7f231e', values: tipping.map((row) => ({ x: row.duration, y: row.loss })) },
-    ]));
-
-    expect(summary.every((row) => row.pass === 1)).toBe(true);
+        { label: 'loss', color: '#7f231e', values: tipping.map((row) => ({ x: row.duration, y: row.loss })) },
+      ],
+    ));
   }, 30000);
+
+  it('produces commitment samples', () => {
+    expect(commitment.length).toBeGreaterThan(0);
+  });
+
+  it('produces recovery-success samples', () => {
+    expect(recoverySuccess.length).toBeGreaterThan(0);
+  });
+
+  it('keeps the blue city after a recoverable outage', () => {
+    expect(recoverySuccess.at(-1)?.blueCityOwner).toBe('blue');
+  });
+
+  it('restores blue mass after a recoverable outage', () => {
+    const postRestore = recoverySuccess.filter((row) => row.t >= 90);
+    const maxBlueMass = Math.max(...postRestore.map((row) => row.blueCommitted + row.blueReserve));
+    expect(maxBlueMass).toBeGreaterThan(20);
+  });
+
+  it('loses the blue city after an unrecoverable outage', () => {
+    expect(recoveryFailed.at(-1)?.blueCityOwner).toBe('red');
+  });
+
+  it('produces tipping samples', () => {
+    expect(tipping.length).toBeGreaterThan(0);
+  });
+
+  it('produces sufficient maximum tipping loss', () => {
+    expect(Math.max(...tipping.map((row) => row.loss))).toBeGreaterThan(8);
+  });
+
+  it('produces city-flow samples', () => {
+    expect(cityFlow.length).toBeGreaterThan(0);
+  });
+
+  it('keeps visible local resource at all active cities', () => {
+    const finalTime = Math.max(...cityFlow.map((row) => row.t));
+    const finalRows = cityFlow.filter((row) => row.t === finalTime);
+    expect(Math.min(...finalRows.map((row) => row.ownWarLocal))).toBeGreaterThan(1);
+  });
+
+  it('keeps outgoing flow at all active cities', () => {
+    const finalTime = Math.max(...cityFlow.map((row) => row.t));
+    const finalRows = cityFlow.filter((row) => row.t === finalTime);
+    expect(Math.min(...finalRows.map((row) => row.localFlow))).toBeGreaterThan(0.1);
+  });
 });

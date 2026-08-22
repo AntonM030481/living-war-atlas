@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { Simulation } from './Simulation';
-import { testMap } from '../map/testMap';
+import { testMap } from '../../src/map/testMap';
+import { applyFrontConsumption } from '../../src/sim/combat';
+import { CFG } from '../../src/sim/Config';
+import { Simulation } from '../../src/sim/Simulation';
 
 function total(a: Float32Array): number {
   let sum = 0;
@@ -155,8 +157,6 @@ describe('Simulation', () => {
 
     for (let i = 0; i < 400 / 0.1; i++) sim.tick();
 
-    // With no production, Blue must not be able to keep defending forever
-    // using resource that contributes to frontMass but never pays attrition.
     expect(frontPosition1D(sim, width)).toBeLessThan(initialFront - 1.5);
   });
 
@@ -185,12 +185,8 @@ describe('Simulation', () => {
     const equalFight = settleCommitment(1, 1);
     const overwhelmingBlue = settleCommitment(10, 1);
 
-    // Roughly equal contact commits most of the available local resource.
     expect(equalFight.committedBlue[3]).toBeGreaterThan(0.75);
     expect(equalFight.warBlue[3] - equalFight.committedBlue[3]).toBeLessThan(0.25);
-
-    // In a one-front 1D fight, local surplus should become offensive
-    // commitment instead of idling as reserve with no competing demand.
     expect(overwhelmingBlue.committedBlue[3]).toBeGreaterThan(6);
     expect(overwhelmingBlue.warBlue[3] - overwhelmingBlue.committedBlue[3]).toBeLessThan(4);
   });
@@ -295,15 +291,14 @@ describe('Simulation', () => {
     const internals = sim as unknown as {
       computeFrontMassAndNeed(): void;
       transportResource(side: 'blue' | 'red'): void;
-      potentialBlue: Float32Array;
     };
     for (let i = 0; i < 80; i++) internals.computeFrontMassAndNeed();
 
     const committedBefore = sim.committedBlue[3];
     const reserveBefore = sim.warBlue[3] - committedBefore;
-    internals.potentialBlue.fill(0);
-    internals.potentialBlue[3] = 1;
-    internals.potentialBlue[2] = 2; // deliberately request rearward redeployment
+    sim.sides.blue.potential.fill(0);
+    sim.sides.blue.potential[3] = 1;
+    sim.sides.blue.potential[2] = 2;
 
     const destinationBefore = sim.warBlue[2];
     internals.transportResource('blue');
@@ -340,15 +335,13 @@ describe('Simulation', () => {
       computeFrontMassAndNeed(): void;
       rebuildPotential(side: 'blue' | 'red'): void;
       transportResource(side: 'blue' | 'red'): void;
-      potentialBlue: Float32Array;
-      potentialRed: Float32Array;
     };
     for (let i = 0; i < 80; i++) internals.computeFrontMassAndNeed();
     internals.rebuildPotential('blue');
     internals.rebuildPotential('red');
 
-    expect(internals.potentialBlue[5]).toBeGreaterThan(0);
-    expect(internals.potentialRed[width - 6]).toBeGreaterThan(0);
+    expect(sim.sides.blue.potential[5]).toBeGreaterThan(0);
+    expect(sim.sides.red.potential[width - 6]).toBeGreaterThan(0);
 
     internals.transportResource('blue');
     internals.transportResource('red');
@@ -374,7 +367,6 @@ describe('Simulation', () => {
       computeFrontMassAndNeed(): void;
       rebuildPotential(side: 'blue' | 'red'): void;
       transportResource(side: 'blue' | 'red'): void;
-      potentialBlue: Float32Array;
     };
     internals.computeFrontMassAndNeed();
     internals.rebuildPotential('blue');
@@ -402,16 +394,11 @@ describe('Simulation', () => {
     sim.warBlue[3] = 10;
     sim.committedBlue[3] = 6;
 
-    const internals = sim as unknown as {
-      frontConsumption: Float32Array;
-      applyFrontConsumption(): void;
-    };
-    internals.frontConsumption.fill(0);
-    internals.frontConsumption[3] = 1;
-
+    const exposure = new Float32Array(sim.size);
+    exposure[3] = 1;
     const reserveBefore = sim.warBlue[3] - sim.committedBlue[3];
     const committedBefore = sim.committedBlue[3];
-    internals.applyFrontConsumption();
+    applyFrontConsumption(sim.sides.blue, exposure, CFG.dt);
     const reserveAfter = sim.warBlue[3] - sim.committedBlue[3];
 
     expect(sim.committedBlue[3]).toBeLessThan(committedBefore);
@@ -445,7 +432,7 @@ describe('Simulation', () => {
     const later = sim.committedBlue[3];
 
     expect(immediatelyAfter).toBeLessThan(committedBefore);
-    expect(immediatelyAfter).toBeGreaterThan(0); // no instantaneous disengagement
+    expect(immediatelyAfter).toBeGreaterThan(0);
     expect(later).toBeLessThan(immediatelyAfter * 0.1);
     expect(sim.warBlue[3] - later).toBeGreaterThan(9);
   });
