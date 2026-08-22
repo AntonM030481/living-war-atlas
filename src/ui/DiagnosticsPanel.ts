@@ -5,16 +5,18 @@ function fmt(value: number): string {
 }
 
 export class DiagnosticsPanel {
-  readonly element: HTMLDivElement;
+  readonly element: HTMLDetailsElement;
   private readonly content: HTMLDivElement;
 
   constructor() {
-    this.element = document.createElement('div');
+    this.element = document.createElement('details');
     this.element.className = 'diagnostics-panel';
     this.element.hidden = true;
-    this.element.innerHTML = '<b>CITY DIAGNOSTICS</b>';
+    this.element.open = true;
+    const summary = document.createElement('summary');
+    summary.innerHTML = '<b>CITY DIAGNOSTICS</b>';
     this.content = document.createElement('div');
-    this.element.appendChild(this.content);
+    this.element.append(summary, this.content);
     this.render(null, false);
   }
 
