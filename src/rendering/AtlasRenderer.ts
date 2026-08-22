@@ -170,8 +170,6 @@ export class AtlasRenderer {
     g.clear();
     this.drawResourceHeightmap(g, snapshot, 'blue');
     this.drawResourceHeightmap(g, snapshot, 'red');
-    this.drawResourceOverloadGlow(g, snapshot, 'blue');
-    this.drawResourceOverloadGlow(g, snapshot, 'red');
   }
 
   private drawResourceHeightmap(
@@ -189,34 +187,9 @@ export class AtlasRenderer {
         const control = side === 'blue' ? snapshot.control[i] : -snapshot.control[i];
         if (control < -0.12) continue;
         const utilization = Math.max(0, Math.min(1, war[i] / capacity));
-        if (utilization < 0.08) continue;
+        if (utilization <= 0) continue;
         const strength = Math.pow(utilization, 0.70);
         g.rect(x, y, 1, 1).fill({ color, alpha: 0.035 + strength * 0.31 });
-      }
-    }
-  }
-
-  private drawResourceOverloadGlow(
-    g: Graphics,
-    snapshot: SimulationSnapshot,
-    side: 'blue' | 'red',
-  ): void {
-    const color = side === 'blue' ? BLUE_DARK : RED_DARK;
-    const war = side === 'blue' ? snapshot.warBlue : snapshot.warRed;
-    const capacity = CFG.resourceCellCapacity;
-
-    for (let y = 0; y < snapshot.height; y += 2) {
-      for (let x = 0; x < snapshot.width; x += 2) {
-        const i = y * snapshot.width + x;
-        const control = side === 'blue' ? snapshot.control[i] : -snapshot.control[i];
-        if (control < -0.12) continue;
-        const overload = war[i] / capacity - 1;
-        if (overload <= 0) continue;
-        const strength = Math.min(1, Math.log1p(overload) / Math.log(2));
-        g.circle(x + 0.5, y + 0.5, 1.8 + strength * 3.4).fill({
-          color,
-          alpha: 0.035 + strength * 0.17,
-        });
       }
     }
   }
