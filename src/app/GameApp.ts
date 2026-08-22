@@ -124,10 +124,6 @@ export class GameApp {
     this.diagnosticsPanel.setVisible(next);
     this.renderer.setShowFlows(next);
     this.renderDiagnostics();
-    if (!next) {
-      this.selectedProbe = null;
-      this.probe.render(null);
-    }
   }
 
   private renderDiagnostics(): void {
