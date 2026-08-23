@@ -8,6 +8,8 @@ const HELP: Record<string, string> = {
   cell: 'Discrete simulation cell coordinates.',
   control: 'Local control: +1 is fully Blue, -1 is fully Red, values near 0 are contested.',
   war: 'War resource currently present in this cell for the shown side.',
+  committed: 'War resource committed locally and therefore unavailable for transport.',
+  reserve: 'Uncommitted war resource available for transport.',
   flow: 'Current smoothed resource flow through this cell for the shown side.',
   desired: 'Desired outgoing flow rate before route and destination limitations.',
   incoming: 'Actually accepted incoming resource flow rate.',
@@ -46,6 +48,8 @@ export class PointProbe {
     const sideRows = contested
       ? [
           ['war', info.warBlue, info.warRed],
+          ['committed', info.committedBlue, info.committedRed],
+          ['reserve', info.reserveBlue, info.reserveRed],
           ['flow', info.flowBlue, info.flowRed],
           ['desired', info.desiredBlue, info.desiredRed],
           ['incoming', info.incomingBlue, info.incomingRed],
@@ -57,6 +61,8 @@ export class PointProbe {
     const sideName = blue ? 'Blue' : 'Red';
     const singleRows = [
       ['war', blue ? info.warBlue : info.warRed],
+      ['committed', blue ? info.committedBlue : info.committedRed],
+      ['reserve', blue ? info.reserveBlue : info.reserveRed],
       ['flow', blue ? info.flowBlue : info.flowRed],
       ['desired', blue ? info.desiredBlue : info.desiredRed],
       ['incoming', blue ? info.incomingBlue : info.incomingRed],
