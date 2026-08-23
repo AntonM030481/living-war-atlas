@@ -21,7 +21,6 @@ export const CFG = {
   commitmentReleasePerSecond: 0.22,
   collapseReleaseMultiplier: 3.0,
   frontBand: 0.34,
-  frontBoundaryPadding: 1,
   massRadius: 4,
   defenceAdvantage: 1.36,
   baseProbe: 0.76,
