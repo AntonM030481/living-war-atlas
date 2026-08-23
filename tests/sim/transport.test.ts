@@ -9,11 +9,7 @@ const config = {
   resourceMoveFraction: 0.5,
   resourceCellCapacity: 12,
   resourceFrontCellCapacity: 24,
-  resourceRearTargetUtilization: 0.06,
-  resourceFrontTargetUtilization: 0.78,
-  resourceTargetDensityExponent: 1.35,
-  resourceDestinationDeficitBias: 0.75,
-  resourceBelowTargetMoveFactor: 0.18,
+  resourceCongestionStrength: 0.70,
 };
 
 describe('transport', () => {
@@ -84,32 +80,7 @@ describe('transport', () => {
     expect(side.war[1]).toBeLessThanOrEqual(config.resourceFrontCellCapacity + 1e-6);
   });
 
-  it('retains a denser operational reserve near the front', () => {
-    const side = createSideFields(4);
-    side.war.set([10, 10, 10, 0]);
-    side.potential.set([1, 2, 3, 4]);
-
-    const grid = {
-      width: 4,
-      height: 1,
-      terrainMobility: new Float32Array([1, 1, 1, 1]),
-      terrainCapacity: new Float32Array([1, 1, 1, 1]),
-      isFront: (index: number) => index === 3,
-      access: () => 1,
-      edgeFactor: () => 1,
-    };
-
-    transportResource(side, grid, config);
-
-    expect(side.war[2]).toBeGreaterThan(side.war[0]);
-    expect(side.war[2]).toBeGreaterThan(config.resourceCellCapacity * 0.5);
-  });
-
-  it('keeps feeding the front even when the source is below its target density', () => {
-    const side = createSideFields(2);
-    side.war.set([0.2, 0]);
-    side.potential.set([1, 2]);
-
+  it('moves a smaller fraction of resource from a denser source cell', () => {
     const grid = {
       width: 2,
       height: 1,
@@ -119,10 +90,22 @@ describe('transport', () => {
       access: () => 1,
       edgeFactor: () => 1,
     };
+    const unconstrained = { ...config, baseEdgeCapacityPerSecond: 1000 };
 
-    transportResource(side, grid, config);
+    const sparse = createSideFields(2);
+    sparse.war[0] = 3;
+    sparse.potential.set([1, 2]);
+    transportResource(sparse, grid, unconstrained);
+    const sparseMovedFraction = sparse.war[1] / 3;
 
-    expect(side.war[1]).toBeGreaterThan(0);
+    const dense = createSideFields(2);
+    dense.war[0] = 12;
+    dense.potential.set([1, 2]);
+    transportResource(dense, grid, unconstrained);
+    const denseMovedFraction = dense.war[1] / 12;
+
+    expect(denseMovedFraction).toBeLessThan(sparseMovedFraction);
+    expect(dense.war[1]).toBeGreaterThan(0);
   });
 
   it('propagates potential through a long connected region', () => {
