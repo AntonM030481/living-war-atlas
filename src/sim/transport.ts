@@ -26,6 +26,7 @@ export interface TransportConfig {
   resourceCellCapacity: number;
   resourceFrontCellCapacity: number;
   resourceCongestionStrength: number;
+  resourceFlowResponseSeconds: number;
 }
 
 export interface TransportGrid {
@@ -143,16 +144,21 @@ export function transportResource(
   const { war, committed, potential, delta, incoming, flow } = fields;
   delta.fill(0);
   incoming.fill(0);
-  flow.x.fill(0);
-  flow.y.fill(0);
+
+  const responseSeconds = Math.max(config.dt, config.resourceFlowResponseSeconds);
+  const response = 1 - Math.exp(-config.dt / responseSeconds);
 
   for (let y = 0; y < grid.height; y++) {
     for (let x = 0; x < grid.width; x++) {
       const i = y * grid.width + x;
       const reserve = Math.max(0, war[i] - committed[i]);
-      if (reserve <= 0.0001) continue;
       const access = grid.access(i);
-      if (access <= 0.01) continue;
+
+      if (reserve <= 0.0001 || access <= 0.01) {
+        flow.x[i] += (0 - flow.x[i]) * response;
+        flow.y[i] += (0 - flow.y[i]) * response;
+        continue;
+      }
 
       const sourceCapacity = cellCapacity(i, grid, config);
       const utilization = Math.max(0, Math.min(1, war[i] / Math.max(sourceCapacity, EPS)));
@@ -179,11 +185,39 @@ export function transportResource(
         candidates.push({ j, dx, dy, gradient, capacity });
       }
 
-      if (gradientSum <= 0 || candidates.length === 0) continue;
+      if (gradientSum <= 0 || candidates.length === 0) {
+        flow.x[i] += (0 - flow.x[i]) * response;
+        flow.y[i] += (0 - flow.y[i]) * response;
+        continue;
+      }
+
       const movable = reserve * config.resourceMoveFraction * moveFactor;
-      let sent = 0;
+      const desiredRate = movable / Math.max(config.dt, EPS);
+      let targetFlowX = 0;
+      let targetFlowY = 0;
       for (const candidate of candidates) {
-        const desired = movable * (candidate.gradient / gradientSum);
+        const share = candidate.gradient / gradientSum;
+        targetFlowX += desiredRate * share * candidate.dx;
+        targetFlowY += desiredRate * share * candidate.dy;
+      }
+
+      flow.x[i] += (targetFlowX - flow.x[i]) * response;
+      flow.y[i] += (targetFlowY - flow.y[i]) * response;
+
+      let momentumSum = 0;
+      const momentumWeights: number[] = [];
+      for (const candidate of candidates) {
+        const weight = Math.max(0, flow.x[i] * candidate.dx + flow.y[i] * candidate.dy);
+        momentumWeights.push(weight);
+        momentumSum += weight;
+      }
+      if (momentumSum <= EPS) continue;
+
+      const inertialMovable = Math.min(movable, Math.hypot(flow.x[i], flow.y[i]) * config.dt);
+      let sent = 0;
+      for (let c = 0; c < candidates.length; c++) {
+        const candidate = candidates[c];
+        const desired = inertialMovable * (momentumWeights[c] / momentumSum);
         const projectedDestination = Math.max(
           committed[candidate.j],
           war[candidate.j] + delta[candidate.j],
@@ -195,8 +229,6 @@ export function transportResource(
         delta[i] -= moved;
         delta[candidate.j] += moved;
         incoming[candidate.j] += moved / config.dt;
-        flow.x[i] += (moved / config.dt) * candidate.dx;
-        flow.y[i] += (moved / config.dt) * candidate.dy;
         sent += moved;
         if (sent >= reserve - EPS) break;
       }
