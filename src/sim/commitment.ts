@@ -205,31 +205,10 @@ export function computePairCommitment(
       }
       first.mass[i] = firstMass;
       second.mass[i] = secondMass;
-
-      const terrainDefense = grid.terrainDefense[i];
-      const firstHoldMass =
-        (secondMass * config.baseProbe * config.frontCommitmentSafety) /
-        (config.defenceAdvantage * terrainDefense + EPS);
-      const secondHoldMass =
-        (firstMass * config.baseProbe * config.frontCommitmentSafety) /
-        (config.defenceAdvantage * terrainDefense + EPS);
-      const firstShortage = Math.max(0, firstHoldMass - firstMass);
-      const secondShortage = Math.max(0, secondHoldMass - secondMass);
-      const firstOffensiveSurplus = Math.max(0, firstMass - firstHoldMass);
-      const secondOffensiveSurplus = Math.max(0, secondMass - secondHoldMass);
-      const firstSuperiority = firstOffensiveSurplus / (firstMass + secondMass + EPS);
-      const secondSuperiority = secondOffensiveSurplus / (firstMass + secondMass + EPS);
-
-      // Defensive demand remains the first priority. Once a sector can already
-      // hold, local surplus raises its demand again: spare force therefore keeps
-      // flowing to sectors where it can turn an existing advantage into advance
-      // instead of becoming inert in the rear. The superiority term creates a
-      // mild positive feedback so surplus tends to concentrate rather than being
-      // spread perfectly evenly over the whole front.
-      first.need[i] = 0.65 + 1.8 * first.instability[i] + 0.025 * secondMass +
-        0.018 * firstShortage + 0.85 * firstSuperiority;
-      second.need[i] = 0.65 + 1.8 * second.instability[i] + 0.025 * firstMass +
-        0.018 * secondShortage + 0.85 * secondSuperiority;
+      const firstShortage = Math.max(0, secondMass - firstMass);
+      const secondShortage = Math.max(0, firstMass - secondMass);
+      first.need[i] = 0.65 + 1.8 * first.instability[i] + 0.025 * secondMass + 0.018 * firstShortage;
+      second.need[i] = 0.65 + 1.8 * second.instability[i] + 0.025 * firstMass + 0.018 * secondShortage;
     }
   }
 }
