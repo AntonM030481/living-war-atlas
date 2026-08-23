@@ -42,7 +42,7 @@ export class FrontRenderer {
         const by = b.y + b.ny * sign * (0.24 + bw * 0.28);
         const width = (aw + bw) * 0.5;
         g.moveTo(ax, ay).lineTo(bx, by);
-        g.stroke({ color: dark, width: Math.max(0.18, width * 0.34), alpha: 1 });
+        g.stroke({ color: dark, width: Math.max(0.14, width * 0.30), alpha: 1 });
       }
     };
 
@@ -197,7 +197,7 @@ export class FrontRenderer {
   }
 
   private frontSideWidth(mass: number): number {
-    const strength = Math.max(0, Math.min(1, Math.sqrt(mass / 16)));
-    return 0.34 + strength * 2.35;
+    const strength = Math.max(0, Math.min(1, mass / 0.7));
+    return 0.24 + strength * 2.30;
   }
 }
