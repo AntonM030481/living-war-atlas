@@ -6,7 +6,6 @@ export const CFG = {
   snapshotEverySteps: 2,
   potentialEverySteps: 10,
   potentialDecay: 0.988,
-  resourceMoveFraction: 0.58,
   baseEdgeCapacityPerSecond: 7.0,
   resourceCellCapacity: 1,
   resourceFrontCellCapacity: 2,
