@@ -155,7 +155,10 @@ export function resolvePairCombat(
       second.stressDebug[i] = secondStress;
 
       const minMass = Math.min(firstMass, secondMass);
-      grid.addConsumption(x, y, minMass / (8 + minMass));
+      // Keep the old scale (intensity ~= 1 around mass 8) but do not saturate.
+      // Dense fronts therefore keep getting more expensive, with sublinear
+      // growth so concentration matters without making large battles explode.
+      grid.addConsumption(x, y, Math.sqrt(minMass / 8));
     }
   }
 }
