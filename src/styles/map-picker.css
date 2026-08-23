@@ -40,6 +40,14 @@
   color: #2c2923;
   cursor: pointer;
   font: inherit;
+  outline: none;
+}
+
+.map-picker-option:focus-visible,
+.map-picker-cancel:focus-visible,
+.map-picker-start:focus-visible {
+  outline: 2px solid #2f2b24;
+  outline-offset: 2px;
 }
 
 .map-picker-option {
