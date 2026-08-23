@@ -7,12 +7,12 @@ function fmt(value: number): string {
 const HELP: Record<string, string> = {
   cell: 'Discrete simulation cell coordinates.',
   control: 'Local control: +1 is fully Blue, -1 is fully Red, values near 0 are contested.',
-  war: 'War resource currently present in this cell for the shown side.',
-  committed: 'War resource committed locally and therefore unavailable for transport.',
-  reserve: 'Uncommitted war resource available for transport.',
-  flow: 'Current smoothed resource flow through this cell for the shown side.',
-  desired: 'Desired outgoing flow rate before route and destination limitations.',
-  incoming: 'Actually accepted incoming resource flow rate.',
+  force: 'Force currently present in this cell for the shown side.',
+  committed: 'Force committed locally and therefore unavailable for transport.',
+  reserve: 'Uncommitted force available for transport.',
+  flow: 'Current smoothed force flow through this cell for the shown side.',
+  desired: 'Desired outgoing force flow rate before route and destination limitations.',
+  incoming: 'Actually accepted incoming force flow rate.',
   access: 'How well this side can reach/supply this cell; 0 means inaccessible, 1 means full access.',
   potential: 'Local transport potential attracting this side toward front demand.',
   gradient: 'Local x/y gradient of transport potential.',
@@ -47,7 +47,7 @@ export class PointProbe {
     const contested = Math.abs(info.control) < 0.72;
     const sideRows = contested
       ? [
-          ['war', info.warBlue, info.warRed],
+          ['force', info.warBlue, info.warRed],
           ['committed', info.committedBlue, info.committedRed],
           ['reserve', info.reserveBlue, info.reserveRed],
           ['flow', info.flowBlue, info.flowRed],
@@ -60,7 +60,7 @@ export class PointProbe {
     const blue = info.control > 0;
     const sideName = blue ? 'Blue' : 'Red';
     const singleRows = [
-      ['war', blue ? info.warBlue : info.warRed],
+      ['force', blue ? info.warBlue : info.warRed],
       ['committed', blue ? info.committedBlue : info.committedRed],
       ['reserve', blue ? info.reserveBlue : info.reserveRed],
       ['flow', blue ? info.flowBlue : info.flowRed],
