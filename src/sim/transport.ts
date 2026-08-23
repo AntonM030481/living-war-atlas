@@ -24,6 +24,7 @@ export interface TransportConfig {
   baseEdgeCapacityPerSecond: number;
   resourceMoveFraction: number;
   resourceCellCapacity: number;
+  resourceFrontCellCapacity: number;
   resourceRearTargetUtilization: number;
   resourceFrontTargetUtilization: number;
   resourceTargetDensityExponent: number;
@@ -128,6 +129,10 @@ function targetUtilization(normalizedPotential: number, config: TransportConfig)
     (config.resourceFrontTargetUtilization - config.resourceRearTargetUtilization) * t;
 }
 
+function cellCapacity(index: number, grid: TransportGrid, config: TransportConfig): number {
+  return grid.isFront(index) ? config.resourceFrontCellCapacity : config.resourceCellCapacity;
+}
+
 export function transportResource(
   fields: Pick<SideFields, 'war' | 'committed' | 'potential' | 'delta' | 'incoming' | 'flow'>,
   grid: TransportGrid,
@@ -152,7 +157,8 @@ export function transportResource(
       const reserve = Math.max(0, war[i] - committed[i]);
       if (reserve <= 0.0001) continue;
 
-      const sourceTarget = config.resourceCellCapacity * targetUtilization(potential[i] * potentialScale, config);
+      const sourceCapacity = cellCapacity(i, grid, config);
+      const sourceTarget = sourceCapacity * targetUtilization(potential[i] * potentialScale, config);
       const sourceUtilization = war[i] / Math.max(sourceTarget, EPS);
       const sourceMoveFactor = sourceUtilization >= 1
         ? 1
@@ -172,10 +178,11 @@ export function transportResource(
         if (gradient <= 1e-5) continue;
 
         const projectedDestination = Math.max(committed[j], war[j] + delta[j]);
-        const destinationTarget = config.resourceCellCapacity *
+        const destinationCapacity = cellCapacity(j, grid, config);
+        const destinationTarget = destinationCapacity *
           targetUtilization(potential[j] * potentialScale, config);
         const targetDeficit = Math.max(0, destinationTarget - projectedDestination) /
-          Math.max(config.resourceCellCapacity, EPS);
+          Math.max(destinationCapacity, EPS);
         const deficitWeight = (1 - config.resourceDestinationDeficitBias) +
           config.resourceDestinationDeficitBias * Math.min(1, targetDeficit);
         const weight = gradient * deficitWeight;
@@ -199,7 +206,8 @@ export function transportResource(
           committed[candidate.j],
           war[candidate.j] + delta[candidate.j],
         );
-        const freeCellCapacity = Math.max(0, config.resourceCellCapacity - projectedDestination);
+        const destinationCapacity = cellCapacity(candidate.j, grid, config);
+        const freeCellCapacity = Math.max(0, destinationCapacity - projectedDestination);
         const moved = Math.min(desired, candidate.capacity, freeCellCapacity, reserve - sent);
         if (moved <= 0) continue;
         delta[i] -= moved;
