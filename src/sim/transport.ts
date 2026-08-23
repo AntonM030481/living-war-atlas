@@ -10,7 +10,7 @@ const FLOW_DIRS = [
 ] as const;
 const FRONT_DEMAND_SMOOTHING_PASSES = 4;
 const FRONT_DEMAND_SELF_WEIGHT = 1;
-const POTENTIAL_RELAXATION_PASSES = 80;
+const POTENTIAL_RELAXATION_PASSES = 6;
 const POTENTIAL_RELAXATION_OMEGA = 1.6;
 const POTENTIAL_RELAXATION_TOLERANCE = 1e-5;
 
@@ -237,6 +237,8 @@ export function smoothFrontDemand(
  *
  * potentialDecay is converted to the equivalent discrete reaction term so a
  * straight 1D corridor keeps approximately the same per-cell decay as before.
+ * The stored potential is reused between rebuilds, so only a few relaxation
+ * sweeps are needed each time and convergence happens incrementally.
  */
 export function rebuildPotential(
   fields: Pick<SideFields, 'need' | 'potential' | 'war'>,
