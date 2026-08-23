@@ -11,6 +11,11 @@ function smoothFalloff(distance: number, radius: number): number {
   return t * t * (3 - 2 * t);
 }
 
+function needSaturation(availableMass: number, holdMass: number): number {
+  const excessCoverage = Math.max(0, availableMass - holdMass) / Math.max(1, holdMass);
+  return 1 / (1 + 0.6 * excessCoverage);
+}
+
 export interface CommitmentConfig {
   baseProbe: number;
   frontCommitmentSafety: number;
@@ -207,8 +212,22 @@ export function computePairCommitment(
       second.mass[i] = secondMass;
       const firstShortage = Math.max(0, secondMass - firstMass);
       const secondShortage = Math.max(0, firstMass - secondMass);
-      first.need[i] = 0.65 + 1.8 * first.instability[i] + 0.025 * secondMass + 0.018 * firstShortage;
-      second.need[i] = 0.65 + 1.8 * second.instability[i] + 0.025 * firstMass + 0.018 * secondShortage;
+
+      // Every accessible front segment keeps a baseline attraction. That
+      // attraction fades only when the local force pool already exceeds what is
+      // needed to match the committed enemy mass. availableMass includes both
+      // committed force and force waiting behind it, so an already over-supplied
+      // sector stops monopolising transport without explicitly detecting or
+      // targeting "empty" sectors. Instability and real shortages remain urgent
+      // and are deliberately not saturated.
+      const firstBaseNeed = 0.65 + 0.025 * secondMass;
+      const secondBaseNeed = 0.65 + 0.025 * firstMass;
+      const firstSaturation = needSaturation(first.availableMass[i], secondMass);
+      const secondSaturation = needSaturation(second.availableMass[i], firstMass);
+      first.need[i] = firstBaseNeed * firstSaturation +
+        1.8 * first.instability[i] + 0.018 * firstShortage;
+      second.need[i] = secondBaseNeed * secondSaturation +
+        1.8 * second.instability[i] + 0.018 * secondShortage;
     }
   }
 }
