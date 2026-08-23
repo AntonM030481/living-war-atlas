@@ -5,6 +5,9 @@ const EPS = 1e-6;
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
 const FRONT_DEMAND_SMOOTHING_PASSES = 4;
 const FRONT_DEMAND_SELF_WEIGHT = 1;
+const POTENTIAL_RELAXATION_PASSES = 80;
+const POTENTIAL_RELAXATION_OMEGA = 1.6;
+const POTENTIAL_RELAXATION_TOLERANCE = 1e-5;
 
 export function smoothstep(edge0: number, edge1: number, value: number): number {
   const t = Math.max(0, Math.min(1, (value - edge0) / (edge1 - edge0)));
@@ -68,7 +71,7 @@ function freeCapacity(
   );
 }
 
-function frontEdgeTransmission(
+function edgeTransmission(
   index: number,
   neighbor: number,
   x: number,
@@ -77,8 +80,6 @@ function frontEdgeTransmission(
   dy: number,
   grid: TransportGrid,
 ): number {
-  if (!grid.isFront(neighbor)) return 0;
-
   const access = Math.min(grid.access(index), grid.access(neighbor));
   if (access <= 0.01) return 0;
 
@@ -91,7 +92,24 @@ function frontEdgeTransmission(
   const crossing = grid.edgeFactor(x, y, dx, dy);
   if (crossing <= 0) return 0;
 
-  return access * terrainCapacity * crossing;
+  const mobility = 0.72 + 0.28 * Math.min(
+    grid.terrainMobility[index],
+    grid.terrainMobility[neighbor],
+  );
+  return access * terrainCapacity * crossing * mobility;
+}
+
+function frontEdgeTransmission(
+  index: number,
+  neighbor: number,
+  x: number,
+  y: number,
+  dx: number,
+  dy: number,
+  grid: TransportGrid,
+): number {
+  if (!grid.isFront(neighbor)) return 0;
+  return edgeTransmission(index, neighbor, x, y, dx, dy, grid);
 }
 
 /**
@@ -143,6 +161,15 @@ export function smoothFrontDemand(
   return current;
 }
 
+/**
+ * Builds a smooth screened-diffusion potential with front demand as a fixed
+ * boundary condition. Unlike max propagation, every connected neighbouring
+ * front segment contributes to the field, so small demand changes deform the
+ * gradient continuously instead of switching whole regions between winners.
+ *
+ * potentialDecay is converted to the equivalent discrete reaction term so a
+ * straight 1D corridor keeps approximately the same per-cell decay as before.
+ */
 export function rebuildPotential(
   fields: Pick<SideFields, 'need' | 'potential' | 'war'>,
   grid: TransportGrid,
@@ -150,78 +177,68 @@ export function rebuildPotential(
 ): void {
   const { need, potential } = fields;
   const smoothedNeed = smoothFrontDemand(need, grid);
-  potential.fill(0);
-  const heapIndex: number[] = [];
-  const heapValue: number[] = [];
-
-  const push = (index: number, value: number): void => {
-    let node = heapIndex.length;
-    heapIndex.push(index);
-    heapValue.push(value);
-    while (node > 0) {
-      const parent = (node - 1) >> 1;
-      if (heapValue[parent] >= value) break;
-      heapIndex[node] = heapIndex[parent];
-      heapValue[node] = heapValue[parent];
-      node = parent;
-    }
-    heapIndex[node] = index;
-    heapValue[node] = value;
-  };
-
-  const pop = (): { index: number; value: number } | null => {
-    if (heapIndex.length === 0) return null;
-    const index = heapIndex[0];
-    const value = heapValue[0];
-    const lastIndex = heapIndex.pop()!;
-    const lastValue = heapValue.pop()!;
-    if (heapIndex.length > 0) {
-      let node = 0;
-      while (true) {
-        const left = node * 2 + 1;
-        const right = left + 1;
-        if (left >= heapIndex.length) break;
-        const child = right < heapIndex.length && heapValue[right] > heapValue[left] ? right : left;
-        if (heapValue[child] <= lastValue) break;
-        heapIndex[node] = heapIndex[child];
-        heapValue[node] = heapValue[child];
-        node = child;
-      }
-      heapIndex[node] = lastIndex;
-      heapValue[node] = lastValue;
-    }
-    return { index, value };
-  };
+  const decay = Math.max(EPS, Math.min(0.999999, config.potentialDecay));
+  const reaction = decay + 1 / decay - 2;
+  let maxFrontPotential = 0;
 
   for (let i = 0; i < potential.length; i++) {
-    if (grid.isFront(i) && grid.access(i) > 0.05) {
-      const value = 1 + smoothedNeed[i];
-      potential[i] = value;
-      push(i, value);
+    if (grid.isFront(i) && grid.access(i) > 0.05 && grid.terrainCapacity[i] > 0) {
+      potential[i] = 1 + smoothedNeed[i];
+      maxFrontPotential = Math.max(maxFrontPotential, potential[i]);
+    } else if (grid.access(i) <= 0.01 || grid.terrainCapacity[i] <= 0) {
+      potential[i] = 0;
+    } else if (!Number.isFinite(potential[i]) || potential[i] < 0) {
+      potential[i] = 0;
     }
   }
 
-  while (true) {
-    const entry = pop();
-    if (!entry) break;
-    if (entry.value < potential[entry.index] - 1e-7) continue;
-    const x = entry.index % grid.width;
-    const y = Math.floor(entry.index / grid.width);
+  if (maxFrontPotential <= EPS) {
+    potential.fill(0);
+    return;
+  }
 
-    for (const [dx, dy] of DIRS) {
-      const nx = x + dx;
-      const ny = y + dy;
-      if (nx < 0 || nx >= grid.width || ny < 0 || ny >= grid.height) continue;
-      const j = ny * grid.width + nx;
-      const access = grid.access(j);
-      if (access <= 0.01) continue;
-      const terrainTransmission = 0.72 + 0.28 * grid.terrainMobility[j];
-      const nextValue = entry.value * config.potentialDecay *
-        grid.edgeFactor(x, y, dx, dy) * access * terrainTransmission;
-      if (nextValue <= potential[j] + 1e-7) continue;
-      potential[j] = nextValue;
-      push(j, nextValue);
+  for (let pass = 0; pass < POTENTIAL_RELAXATION_PASSES; pass++) {
+    const reverse = (pass & 1) === 1;
+    let maxDelta = 0;
+
+    for (let step = 0; step < potential.length; step++) {
+      const i = reverse ? potential.length - 1 - step : step;
+      if (grid.isFront(i) && grid.access(i) > 0.05 && grid.terrainCapacity[i] > 0) {
+        potential[i] = 1 + smoothedNeed[i];
+        continue;
+      }
+      const access = grid.access(i);
+      if (access <= 0.01 || grid.terrainCapacity[i] <= 0) {
+        potential[i] = 0;
+        continue;
+      }
+
+      const x = i % grid.width;
+      const y = Math.floor(i / grid.width);
+      let weightedPotential = 0;
+      let transmissionSum = 0;
+
+      for (const [dx, dy] of DIRS) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || nx >= grid.width || ny < 0 || ny >= grid.height) continue;
+        const j = ny * grid.width + nx;
+        const transmission = edgeTransmission(i, j, x, y, dx, dy, grid);
+        if (transmission <= EPS) continue;
+        weightedPotential += potential[j] * transmission;
+        transmissionSum += transmission;
+      }
+
+      const target = transmissionSum > EPS
+        ? weightedPotential / (transmissionSum + reaction)
+        : 0;
+      const before = potential[i];
+      const relaxed = before + (target - before) * POTENTIAL_RELAXATION_OMEGA;
+      potential[i] = Math.max(0, Math.min(maxFrontPotential, relaxed));
+      maxDelta = Math.max(maxDelta, Math.abs(potential[i] - before));
     }
+
+    if (maxDelta < POTENTIAL_RELAXATION_TOLERANCE) break;
   }
 }
 
