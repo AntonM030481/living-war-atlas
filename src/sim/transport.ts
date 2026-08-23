@@ -123,6 +123,18 @@ function cellCapacity(index: number, grid: TransportGrid, config: TransportConfi
   return grid.isFront(index) ? config.resourceFrontCellCapacity : config.resourceCellCapacity;
 }
 
+function effectivePotential(
+  index: number,
+  projectedWar: number,
+  potential: Float32Array,
+  grid: TransportGrid,
+  config: TransportConfig,
+): number {
+  const capacity = cellCapacity(index, grid, config);
+  const utilization = Math.max(0, Math.min(1, projectedWar / Math.max(capacity, EPS)));
+  return potential[index] * (1 - config.resourceCongestionStrength * utilization);
+}
+
 export function transportResource(
   fields: Pick<SideFields, 'war' | 'committed' | 'potential' | 'delta' | 'incoming' | 'flow'>,
   grid: TransportGrid,
@@ -145,9 +157,10 @@ export function transportResource(
       const sourceCapacity = cellCapacity(i, grid, config);
       const utilization = Math.max(0, Math.min(1, war[i] / Math.max(sourceCapacity, EPS)));
       const moveFactor = 1 - config.resourceCongestionStrength * utilization;
+      const sourceEffectivePotential = effectivePotential(i, war[i], potential, grid, config);
 
-      let gradientSum = 0;
-      const candidates: Array<{ j: number; dx: number; dy: number; gradient: number; capacity: number }> = [];
+      let scoreSum = 0;
+      const candidates: Array<{ j: number; dx: number; dy: number; score: number; capacity: number }> = [];
       for (const [dx, dy] of DIRS) {
         const nx = x + dx;
         const ny = y + dy;
@@ -155,23 +168,32 @@ export function transportResource(
         const j = ny * grid.width + nx;
         const neighborAccess = grid.access(j);
         if (neighborAccess <= 0.01) continue;
-        const gradient = potential[j] - potential[i];
-        if (gradient <= 1e-5) continue;
+
+        const projectedDestination = Math.max(committed[j], war[j] + delta[j]);
+        const destinationEffectivePotential = effectivePotential(
+          j,
+          projectedDestination,
+          potential,
+          grid,
+          config,
+        );
+        const score = destinationEffectivePotential - sourceEffectivePotential;
+        if (score <= 1e-5) continue;
 
         const conductivity = Math.min(access, neighborAccess);
         const terrainCap = Math.min(grid.terrainCapacity[i], grid.terrainCapacity[j]);
         const crossing = grid.edgeFactor(x, y, dx, dy);
         const capacity = config.baseEdgeCapacityPerSecond * terrainCap * crossing * conductivity * config.dt;
         if (capacity <= 0) continue;
-        gradientSum += gradient;
-        candidates.push({ j, dx, dy, gradient, capacity });
+        scoreSum += score;
+        candidates.push({ j, dx, dy, score, capacity });
       }
 
-      if (gradientSum <= 0 || candidates.length === 0) continue;
+      if (scoreSum <= 0 || candidates.length === 0) continue;
       const movable = reserve * config.resourceMoveFraction * moveFactor;
       let sent = 0;
       for (const candidate of candidates) {
-        const desired = movable * (candidate.gradient / gradientSum);
+        const desired = movable * (candidate.score / scoreSum);
         const projectedDestination = Math.max(
           committed[candidate.j],
           war[candidate.j] + delta[candidate.j],
