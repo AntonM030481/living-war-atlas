@@ -20,6 +20,7 @@ export interface MapDefinition {
   cities: City[];
   forests: Array<{ x: number; y: number; r: number }>;
   riverX: (y: number) => number;
+  seedInitialResource?: boolean;
 }
 
 export interface SimulationSnapshot {
