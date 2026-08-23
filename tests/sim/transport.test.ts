@@ -133,6 +133,33 @@ describe('transport', () => {
     expect(side.war[2]).toBeGreaterThan(crowdedIncrease);
   });
 
+  it('fans out laterally when the direct route is saturated', () => {
+    const side = createSideFields(9);
+    // 3x3: source in the center, direct cell to the right is full.
+    side.war[4] = 6;
+    side.war[5] = config.resourceCellCapacity;
+    side.potential.set([
+      0.98, 0.99, 1.00,
+      0.99, 1.00, 1.02,
+      0.98, 0.99, 1.00,
+    ]);
+
+    const grid = {
+      width: 3,
+      height: 3,
+      terrainMobility: new Float32Array(9).fill(1),
+      terrainCapacity: new Float32Array(9).fill(1),
+      isFront: () => false,
+      access: () => 1,
+      edgeFactor: () => 1,
+    };
+
+    transportResource(side, grid, { ...config, baseEdgeCapacityPerSecond: 1000 });
+
+    expect(side.war[1] + side.war[7]).toBeGreaterThan(0);
+    expect(side.war[5]).toBe(config.resourceCellCapacity);
+  });
+
   it('changes flow direction gradually when the preferred route changes', () => {
     const side = createSideFields(4);
     side.war[0] = 6;
