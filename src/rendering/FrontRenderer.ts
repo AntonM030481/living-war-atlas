@@ -76,8 +76,8 @@ export class FrontRenderer {
     const g = this.probe;
     g.clear();
     if (selectedFrontIndex === null) return;
-    const x = selectedFrontIndex % snapshot.width;
-    const y = Math.floor(selectedFrontIndex / snapshot.width);
+    const x = selectedFrontIndex % snapshot.width + 0.5;
+    const y = Math.floor(selectedFrontIndex / snapshot.width) + 0.5;
     g.circle(x, y, 1.7).stroke({ color: INK, width: 0.22, alpha: 1 });
     g.circle(x, y, 1.15).stroke({ color: PAPER_LIGHT, width: 0.24, alpha: 0.95 });
     g.moveTo(x - 2.1, y).lineTo(x + 2.1, y);
@@ -111,11 +111,15 @@ export class FrontRenderer {
         const br = control[brIndex];
         const bl = control[blIndex];
         const crossings: Point[] = [];
+        const left = x + 0.5;
+        const top = y + 0.5;
+        const right = x + 1.5;
+        const bottom = y + 1.5;
 
-        if (this.crossesZero(tl, tr)) crossings.push(this.edgeCrossing(x, y, x + 1, y, tl, tr));
-        if (this.crossesZero(tr, br)) crossings.push(this.edgeCrossing(x + 1, y, x + 1, y + 1, tr, br));
-        if (this.crossesZero(br, bl)) crossings.push(this.edgeCrossing(x + 1, y + 1, x, y + 1, br, bl));
-        if (this.crossesZero(bl, tl)) crossings.push(this.edgeCrossing(x, y + 1, x, y, bl, tl));
+        if (this.crossesZero(tl, tr)) crossings.push(this.edgeCrossing(left, top, right, top, tl, tr));
+        if (this.crossesZero(tr, br)) crossings.push(this.edgeCrossing(right, top, right, bottom, tr, br));
+        if (this.crossesZero(br, bl)) crossings.push(this.edgeCrossing(right, bottom, left, bottom, br, bl));
+        if (this.crossesZero(bl, tl)) crossings.push(this.edgeCrossing(left, bottom, left, top, bl, tl));
 
         if (crossings.length === 2) {
           segments.push(this.makeFrontSegment(snapshot, crossings[0], crossings[1]));
@@ -163,8 +167,8 @@ export class FrontRenderer {
   }
 
   private controlNormal(snapshot: SimulationSnapshot, point: Point, fallback: Point): Point {
-    const x = Math.max(0, Math.min(snapshot.width - 1, Math.round(point.x)));
-    const y = Math.max(0, Math.min(snapshot.height - 1, Math.round(point.y)));
+    const x = Math.max(0, Math.min(snapshot.width - 1, Math.floor(point.x)));
+    const y = Math.max(0, Math.min(snapshot.height - 1, Math.floor(point.y)));
     const i = y * snapshot.width + x;
     const control = snapshot.control[i];
     const leftIndex = i - 1;
@@ -187,8 +191,8 @@ export class FrontRenderer {
   }
 
   private indexClamp(snapshot: SimulationSnapshot, x: number, y: number): number {
-    const ix = Math.max(0, Math.min(snapshot.width - 1, Math.round(x)));
-    const iy = Math.max(0, Math.min(snapshot.height - 1, Math.round(y)));
+    const ix = Math.max(0, Math.min(snapshot.width - 1, Math.floor(x)));
+    const iy = Math.max(0, Math.min(snapshot.height - 1, Math.floor(y)));
     return iy * snapshot.width + ix;
   }
 
