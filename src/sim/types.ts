@@ -1,6 +1,7 @@
 import type { Side, Speed } from './Config';
 
 export type MapId = 'theatre' | 'linear';
+export type TerrainType = 'open' | 'blocked';
 
 export interface City {
   id: string;
@@ -20,6 +21,7 @@ export interface MapDefinition {
   cities: City[];
   forests: Array<{ x: number; y: number; r: number }>;
   riverX: (y: number) => number;
+  terrainAt?: (x: number, y: number) => TerrainType;
   seedInitialResource?: boolean;
 }
 
@@ -55,6 +57,7 @@ export interface SimulationSnapshot {
   flowRedY: Float32Array;
   terrainDefense: Float32Array;
   terrainMobility: Float32Array;
+  terrainBlocked?: Uint8Array;
   cities: City[];
 }
 
