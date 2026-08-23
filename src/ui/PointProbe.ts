@@ -7,11 +7,11 @@ function fmt(value: number): string {
 const HELP: Record<string, string> = {
   cell: 'Discrete simulation cell coordinates.',
   control: 'Local control: +1 is fully Blue, -1 is fully Red, values near 0 are contested.',
-  'cell capacity': 'Maximum war resource this cell can effectively hold or pass.',
   war: 'War resource currently present in this cell for the shown side.',
   flow: 'Current resource flow through this cell for the shown side.',
   access: 'How well this side can reach/supply this cell; 0 means inaccessible, 1 means full access.',
-  'free cap': 'Unused cell capacity available to this side.',
+  potential: 'Local transport potential attracting this side toward front demand.',
+  gradient: 'Local x/y gradient of transport potential.',
   'terrain def/mob': 'Terrain defense multiplier / mobility multiplier at this cell.',
 };
 
@@ -46,7 +46,7 @@ export class PointProbe {
           ['war', info.warBlue, info.warRed],
           ['flow', info.flowBlue, info.flowRed],
           ['access', info.accessBlue, info.accessRed],
-          ['free cap', info.freeCapacityBlue, info.freeCapacityRed],
+          ['potential', info.potentialBlue, info.potentialRed],
         ] as const
       : null;
     const blue = info.control > 0;
@@ -55,14 +55,15 @@ export class PointProbe {
       ['war', blue ? info.warBlue : info.warRed],
       ['flow', blue ? info.flowBlue : info.flowRed],
       ['access', blue ? info.accessBlue : info.accessRed],
-      ['free cap', blue ? info.freeCapacityBlue : info.freeCapacityRed],
+      ['potential', blue ? info.potentialBlue : info.potentialRed],
     ] as const;
+    const gradientX = blue ? info.gradientBlueX : info.gradientRedX;
+    const gradientY = blue ? info.gradientBlueY : info.gradientRedY;
 
     this.content.className = '';
     this.content.innerHTML = `
       ${row('cell', `${info.cellX}, ${info.cellY}`)}
       ${row('control', fmt(info.control))}
-      ${row('cell capacity', fmt(info.cellCapacity))}
       ${contested ? `
         <div class="probe-split">
           <b></b><b>Blue</b><b>Red</b>
@@ -70,6 +71,7 @@ export class PointProbe {
             `<span title="${HELP[label]}">${label}</span><code title="${HELP[label]}">${fmt(blueValue)}</code><code title="${HELP[label]}">${fmt(redValue)}</code>`,
           ).join('')}
         </div>
+        ${row('gradient', `B ${fmt(info.gradientBlueX)}, ${fmt(info.gradientBlueY)} / R ${fmt(info.gradientRedX)}, ${fmt(info.gradientRedY)}`)}
       ` : `
         <div class="probe-split">
           <b></b><b>${sideName}</b><b></b>
@@ -77,6 +79,7 @@ export class PointProbe {
             `<span title="${HELP[label]}">${label}</span><code title="${HELP[label]}">${fmt(value)}</code><code></code>`,
           ).join('')}
         </div>
+        ${row('gradient', `${fmt(gradientX)}, ${fmt(gradientY)}`)}
       `}
       ${row('terrain def/mob', `${fmt(info.terrainDefense)} / ${fmt(info.terrainMobility)}`)}
     `;
