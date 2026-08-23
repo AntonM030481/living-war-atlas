@@ -46,7 +46,6 @@ export const CFG = {
   noiseAmplitude: 0.02,
   initialCityResourceSeconds: 12,
   initialFrontResource: 1,
-  warmupSeconds: 75,
 } as const;
 
 export const SPEEDS = [1, 2, 4, 8, 16] as const;
