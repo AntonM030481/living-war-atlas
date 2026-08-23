@@ -4,6 +4,17 @@ function fmt(value: number): string {
   return value.toFixed(Math.abs(value) >= 10 ? 1 : 3);
 }
 
+const HELP: Record<string, string> = {
+  cell: 'Discrete simulation cell coordinates.',
+  control: 'Local control: +1 is fully Blue, -1 is fully Red, values near 0 are contested.',
+  'cell capacity': 'Maximum war resource this cell can effectively hold or pass.',
+  war: 'War resource currently present in this cell for the shown side.',
+  flow: 'Current resource flow through this cell for the shown side.',
+  access: 'How well this side can reach/supply this cell; 0 means inaccessible, 1 means full access.',
+  'free cap': 'Unused cell capacity available to this side.',
+  'terrain def/mob': 'Terrain defense multiplier / mobility multiplier at this cell.',
+};
+
 export class PointProbe {
   readonly element: HTMLDetailsElement;
   private readonly content: HTMLDivElement;
@@ -27,7 +38,7 @@ export class PointProbe {
     }
 
     const row = (label: string, value: string) =>
-      `<div class="probe-row"><span>${label}</span><b>${value}</b></div>`;
+      `<div class="probe-row" title="${HELP[label]}"><span>${label}</span><b>${value}</b></div>`;
 
     const contested = Math.abs(info.control) < 0.72;
     const sideRows = contested
@@ -56,14 +67,14 @@ export class PointProbe {
         <div class="probe-split">
           <b></b><b>Blue</b><b>Red</b>
           ${sideRows!.map(([label, blueValue, redValue]) =>
-            `<span>${label}</span><code>${fmt(blueValue)}</code><code>${fmt(redValue)}</code>`,
+            `<span title="${HELP[label]}">${label}</span><code title="${HELP[label]}">${fmt(blueValue)}</code><code title="${HELP[label]}">${fmt(redValue)}</code>`,
           ).join('')}
         </div>
       ` : `
         <div class="probe-split">
           <b></b><b>${sideName}</b><b></b>
           ${singleRows.map(([label, value]) =>
-            `<span>${label}</span><code>${fmt(value)}</code><code></code>`,
+            `<span title="${HELP[label]}">${label}</span><code title="${HELP[label]}">${fmt(value)}</code><code></code>`,
           ).join('')}
         </div>
       `}
