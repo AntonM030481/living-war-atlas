@@ -26,6 +26,7 @@ export class Simulation {
   readonly terrainDefense: Float32Array;
   readonly terrainMobility: Float32Array;
   readonly terrainCapacity: Float32Array;
+  readonly terrainBlocked: Uint8Array;
   readonly riverCrossingX: Float32Array;
   readonly riverCrossingY: Float32Array;
 
@@ -52,6 +53,7 @@ export class Simulation {
     this.terrainDefense = new Float32Array(this.size);
     this.terrainMobility = new Float32Array(this.size);
     this.terrainCapacity = new Float32Array(this.size);
+    this.terrainBlocked = new Uint8Array(this.size);
     this.riverCrossingX = new Float32Array(this.size);
     this.riverCrossingY = new Float32Array(this.size);
     this.forcing = new Float32Array(this.size);
@@ -65,8 +67,6 @@ export class Simulation {
     if (this.map.seedInitialResource !== false) this.seedInitialResource();
   }
 
-  // Compatibility accessors while snapshots/rendering still expose the two
-  // current sides explicitly. New simulation code should use `sides`.
   get warBlue(): Float32Array { return this.side('blue').war; }
   get warRed(): Float32Array { return this.side('red').war; }
   get committedBlue(): Float32Array { return this.side('blue').committed; }
@@ -145,6 +145,7 @@ export class Simulation {
       flowRedY: red.flow.y.slice(),
       terrainDefense: this.terrainDefense.slice(),
       terrainMobility: this.terrainMobility.slice(),
+      terrainBlocked: this.terrainBlocked.slice(),
       cities: cloneCities(this.cities),
     };
   }
@@ -291,6 +292,10 @@ export class Simulation {
     return y * this.width + x;
   }
 
+  private isBlocked(index: number): boolean {
+    return this.terrainBlocked[index] !== 0;
+  }
+
   private initializeControl(): void {
     for (let y = 0; y < this.height; y++) {
       const frontX = this.map.initialFrontX(y);
@@ -311,6 +316,13 @@ export class Simulation {
       const riverX = this.map.riverX(y);
       for (let x = 0; x < this.width; x++) {
         const i = this.index(x, y);
+        if (this.map.terrainAt?.(x, y) === 'blocked') {
+          this.terrainBlocked[i] = 1;
+          this.terrainMobility[i] = 0;
+          this.terrainCapacity[i] = 0;
+          continue;
+        }
+
         const riverDistance = Math.abs(x - riverX);
         if (riverDistance < 1.15) {
           const strength = 1 - riverDistance / 1.15;
@@ -344,13 +356,15 @@ export class Simulation {
 
   private seedInitialResource(): void {
     for (const city of this.cities) {
-      this.side(city.owner).war[this.index(city.x, city.y)] +=
-        city.baseProduction * CFG.initialCityResourceSeconds;
+      const i = this.index(city.x, city.y);
+      if (this.isBlocked(i)) continue;
+      this.side(city.owner).war[i] += city.baseProduction * CFG.initialCityResourceSeconds;
     }
 
     const blue = this.side('blue');
     const red = this.side('red');
     for (let i = 0; i < this.size; i++) {
+      if (this.isBlocked(i)) continue;
       const control = this.control[i];
       const proximity = Math.max(0, 1 - Math.abs(control) / 0.82);
       if (proximity <= 0) continue;
@@ -360,26 +374,21 @@ export class Simulation {
   }
 
   private sideAccess(side: Side, index: number): number {
+    if (this.isBlocked(index)) return 0;
     return sideAccess(side, this.control[index]);
   }
 
   private isFront(index: number): boolean {
+    if (this.isBlocked(index)) return false;
     const control = this.control[index];
     const x = index % this.width;
     const y = Math.floor(index / this.width);
-    if (!this.isFrontEligible(x, y)) return false;
     if (Math.abs(control) <= CFG.frontBand) return true;
-    if (x > 0 && control * this.control[index - 1] <= 0) return true;
-    if (x + 1 < this.width && control * this.control[index + 1] <= 0) return true;
-    if (y > 0 && control * this.control[index - this.width] <= 0) return true;
-    if (y + 1 < this.height && control * this.control[index + this.width] <= 0) return true;
+    if (x > 0 && !this.isBlocked(index - 1) && control * this.control[index - 1] <= 0) return true;
+    if (x + 1 < this.width && !this.isBlocked(index + 1) && control * this.control[index + 1] <= 0) return true;
+    if (y > 0 && !this.isBlocked(index - this.width) && control * this.control[index - this.width] <= 0) return true;
+    if (y + 1 < this.height && !this.isBlocked(index + this.width) && control * this.control[index + this.width] <= 0) return true;
     return false;
-  }
-
-  private isFrontEligible(x: number, y: number): boolean {
-    const px = this.width > CFG.frontBoundaryPadding * 2 + 1 ? CFG.frontBoundaryPadding : 0;
-    const py = this.height > CFG.frontBoundaryPadding * 2 + 1 ? CFG.frontBoundaryPadding : 0;
-    return x >= px && y >= py && x < this.width - px && y < this.height - py;
   }
 
   private edgeFactor(x: number, y: number, dx: number, dy: number): number {
@@ -463,8 +472,10 @@ export class Simulation {
       for (let dx = -radius; dx <= radius; dx++) {
         const xx = x + dx;
         if (xx < 0 || xx >= this.width) continue;
+        const i = this.index(xx, yy);
+        if (this.isBlocked(i)) continue;
         const weight = 1 / (1 + Math.hypot(dx, dy));
-        this.frontConsumption[this.index(xx, yy)] += ratePerSecond * weight;
+        this.frontConsumption[i] += ratePerSecond * weight;
       }
     }
   }
@@ -474,14 +485,27 @@ export class Simulation {
       for (let x = 0; x < this.width; x++) {
         const i = this.index(x, y);
         const control = this.control[i];
-        const wl = x > 0 ? this.edgeFactor(x, y, -1, 0) : 0;
-        const wr = x + 1 < this.width ? this.edgeFactor(x, y, 1, 0) : 0;
-        const wu = y > 0 ? this.edgeFactor(x, y, 0, -1) : 0;
-        const wd = y + 1 < this.height ? this.edgeFactor(x, y, 0, 1) : 0;
-        const left = x > 0 ? this.control[i - 1] : control;
-        const right = x + 1 < this.width ? this.control[i + 1] : control;
-        const up = y > 0 ? this.control[i - this.width] : control;
-        const down = y + 1 < this.height ? this.control[i + this.width] : control;
+        if (this.isBlocked(i)) {
+          this.tmpControl[i] = control;
+          continue;
+        }
+
+        const leftIndex = i - 1;
+        const rightIndex = i + 1;
+        const upIndex = i - this.width;
+        const downIndex = i + this.width;
+        const hasLeft = x > 0 && !this.isBlocked(leftIndex);
+        const hasRight = x + 1 < this.width && !this.isBlocked(rightIndex);
+        const hasUp = y > 0 && !this.isBlocked(upIndex);
+        const hasDown = y + 1 < this.height && !this.isBlocked(downIndex);
+        const wl = hasLeft ? this.edgeFactor(x, y, -1, 0) : 0;
+        const wr = hasRight ? this.edgeFactor(x, y, 1, 0) : 0;
+        const wu = hasUp ? this.edgeFactor(x, y, 0, -1) : 0;
+        const wd = hasDown ? this.edgeFactor(x, y, 0, 1) : 0;
+        const left = hasLeft ? this.control[leftIndex] : control;
+        const right = hasRight ? this.control[rightIndex] : control;
+        const up = hasUp ? this.control[upIndex] : control;
+        const down = hasDown ? this.control[downIndex] : control;
         const weightSum = wl + wr + wu + wd + EPS;
         const lap = (wl * left + wr * right + wu * up + wd * down) - weightSum * control;
         const interfaceWeight = Math.max(0, 1 - control * control);
