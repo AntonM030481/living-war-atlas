@@ -8,7 +8,9 @@ const HELP: Record<string, string> = {
   cell: 'Discrete simulation cell coordinates.',
   control: 'Local control: +1 is fully Blue, -1 is fully Red, values near 0 are contested.',
   war: 'War resource currently present in this cell for the shown side.',
-  flow: 'Current resource flow through this cell for the shown side.',
+  flow: 'Current smoothed resource flow through this cell for the shown side.',
+  desired: 'Desired outgoing flow rate before route and destination limitations.',
+  incoming: 'Actually accepted incoming resource flow rate.',
   access: 'How well this side can reach/supply this cell; 0 means inaccessible, 1 means full access.',
   potential: 'Local transport potential attracting this side toward front demand.',
   gradient: 'Local x/y gradient of transport potential.',
@@ -45,6 +47,8 @@ export class PointProbe {
       ? [
           ['war', info.warBlue, info.warRed],
           ['flow', info.flowBlue, info.flowRed],
+          ['desired', info.desiredBlue, info.desiredRed],
+          ['incoming', info.incomingBlue, info.incomingRed],
           ['access', info.accessBlue, info.accessRed],
           ['potential', info.potentialBlue, info.potentialRed],
         ] as const
@@ -54,6 +58,8 @@ export class PointProbe {
     const singleRows = [
       ['war', blue ? info.warBlue : info.warRed],
       ['flow', blue ? info.flowBlue : info.flowRed],
+      ['desired', blue ? info.desiredBlue : info.desiredRed],
+      ['incoming', blue ? info.incomingBlue : info.incomingRed],
       ['access', blue ? info.accessBlue : info.accessRed],
       ['potential', blue ? info.potentialBlue : info.potentialRed],
     ] as const;
