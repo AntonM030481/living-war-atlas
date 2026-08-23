@@ -5,10 +5,10 @@ function fmt(value: number): string {
 }
 
 const HELP = {
-  city: 'City whose local resource state is being inspected.',
-  prod: 'Current city production contributing war resource.',
-  war: 'War resource in the city cell / total war resource in the local city area.',
-  flow: 'Resource flow through the city cell / total flow in the local city area.',
+  city: 'City whose local force state is being inspected.',
+  prod: 'Current city production contributing force.',
+  force: 'Force in the city cell / total force in the local city area.',
+  flow: 'Force flow through the city cell / total flow in the local city area.',
 };
 
 export class DiagnosticsPanel {
@@ -49,14 +49,14 @@ export class DiagnosticsPanel {
         <thead><tr>
           <th title="${HELP.city}">city</th>
           <th title="${HELP.prod}">prod</th>
-          <th title="${HELP.war}">war cell/local</th>
+          <th title="${HELP.force}">force cell/local</th>
           <th title="${HELP.flow}">flow cell/local</th>
         </tr></thead>
         <tbody>${rows.map((row) => `
-          <tr class="${row.weak ? 'weak' : ''}" title="${row.cityName}: production ${fmt(row.production)}, war ${fmt(row.cellWar)} / ${fmt(row.localWar)}, flow ${fmt(row.cellFlow)} / ${fmt(row.localFlow)}${row.weak ? '. Weak local supply/resource state.' : ''}">
+          <tr class="${row.weak ? 'weak' : ''}" title="${row.cityName}: production ${fmt(row.production)}, force ${fmt(row.cellWar)} / ${fmt(row.localWar)}, flow ${fmt(row.cellFlow)} / ${fmt(row.localFlow)}${row.weak ? '. Weak local supply/force state.' : ''}">
             <th>${row.cityName}</th>
             <td title="${HELP.prod}">${fmt(row.production)}</td>
-            <td title="${HELP.war}">${fmt(row.cellWar)} / ${fmt(row.localWar)}</td>
+            <td title="${HELP.force}">${fmt(row.cellWar)} / ${fmt(row.localWar)}</td>
             <td title="${HELP.flow}">${fmt(row.cellFlow)} / ${fmt(row.localFlow)}</td>
           </tr>
         `).join('')}</tbody>
