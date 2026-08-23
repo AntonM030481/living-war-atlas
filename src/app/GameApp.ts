@@ -60,7 +60,7 @@ export class GameApp {
     this.renderer.setDebug(true);
     this.renderer.setShowFlows(false);
 
-    this.overlays = new CityOverlays(this.map, this.renderer);
+    this.overlays = new CityOverlays(this.map, this.renderer, this.mapStage);
     this.createUi();
     this.attachResizeHandling();
     this.attachInput();
