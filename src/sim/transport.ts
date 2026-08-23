@@ -134,6 +134,12 @@ export function rebuildPotential(
   }
 }
 
+interface TransferProposal {
+  source: number;
+  destination: number;
+  amount: number;
+}
+
 export function transportResource(
   fields: Pick<SideFields, 'war' | 'committed' | 'potential' | 'delta' | 'incoming' | 'flow'>,
   grid: TransportGrid,
@@ -145,7 +151,10 @@ export function transportResource(
 
   const responseSeconds = Math.max(config.dt, config.resourceFlowResponseSeconds);
   const response = 1 - Math.exp(-config.dt / responseSeconds);
+  const proposals: TransferProposal[] = [];
+  const proposedIncoming = new Float32Array(war.length);
 
+  // Phase 1: build transfer proposals from the immutable state at the start of the tick.
   for (let y = 0; y < grid.height; y++) {
     for (let x = 0; x < grid.width; x++) {
       const i = y * grid.width + x;
@@ -159,14 +168,13 @@ export function transportResource(
       }
 
       const currentFlowMagnitude = Math.hypot(flow.x[i], flow.y[i]);
-      const localPotentialStep = Math.max(1e-5, potential[i] * (1 - config.potentialDecay));
+      const detourDrop = Math.max(1e-5, potential[i] * (1 - config.potentialDecay) * 1.25);
       let routeWeightSum = 0;
       const candidates: Array<{
         j: number;
         dx: number;
         dy: number;
         capacity: number;
-        freeCapacity: number;
         routeWeight: number;
       }> = [];
 
@@ -177,6 +185,9 @@ export function transportResource(
         const j = ny * grid.width + nx;
         const neighborAccess = grid.access(j);
         if (neighborAccess <= 0.01) continue;
+
+        const potentialDelta = potential[j] - potential[i];
+        if (potentialDelta < -detourDrop) continue;
 
         const conductivity = Math.min(access, neighborAccess);
         const terrainCap = Math.min(grid.terrainCapacity[i], grid.terrainCapacity[j]);
@@ -189,29 +200,23 @@ export function transportResource(
           conductivity * congestion * config.dt;
         if (capacity <= 0) continue;
 
-        const projectedDestination = Math.max(
-          committed[j],
-          war[j] + delta[j],
+        const freeCapacity = Math.max(
+          0,
+          cellCapacity(j, grid, config) - Math.max(committed[j], war[j]),
         );
-        const destinationCapacity = cellCapacity(j, grid, config);
-        const freeCapacity = Math.max(0, destinationCapacity - projectedDestination);
         if (freeCapacity <= EPS) continue;
 
-        const potentialDelta = potential[j] - potential[i];
-        const normalizedProgress = potentialDelta / localPotentialStep;
-        const progressWeight = Math.exp(Math.max(-6, Math.min(6, normalizedProgress * 1.4)));
-
+        const progressWeight = Math.max(0.05 * detourDrop, potentialDelta + detourDrop);
         let directionBias = 1;
         if (currentFlowMagnitude > EPS) {
           const alignment = (flow.x[i] * dx + flow.y[i] * dy) / currentFlowMagnitude;
-          directionBias = 1 + 0.30 * alignment;
+          directionBias = Math.max(0.05, 1 + alignment);
         }
-
         const routeWeight = progressWeight * capacity * freeCapacity * directionBias;
         if (routeWeight <= EPS) continue;
 
         routeWeightSum += routeWeight;
-        candidates.push({ j, dx, dy, capacity, freeCapacity, routeWeight });
+        candidates.push({ j, dx, dy, capacity, routeWeight });
       }
 
       if (routeWeightSum <= EPS || candidates.length === 0) {
@@ -220,8 +225,7 @@ export function transportResource(
         continue;
       }
 
-      const movable = reserve;
-      const desiredRate = movable / Math.max(config.dt, EPS);
+      const desiredRate = reserve / Math.max(config.dt, EPS);
       let targetFlowX = 0;
       let targetFlowY = 0;
       for (const candidate of candidates) {
@@ -233,31 +237,39 @@ export function transportResource(
       flow.x[i] += (targetFlowX - flow.x[i]) * response;
       flow.y[i] += (targetFlowY - flow.y[i]) * response;
 
-      const inertialMovable = Math.min(movable, Math.max(
+      const movable = Math.min(reserve, Math.max(
         Math.hypot(flow.x[i], flow.y[i]) * config.dt,
-        movable * response,
+        reserve * response,
       ));
-      let sent = 0;
-      let remainingWeight = routeWeightSum;
-      for (const candidate of candidates) {
-        if (remainingWeight <= EPS || sent >= reserve - EPS) break;
-        const desired = (inertialMovable - sent) * (candidate.routeWeight / remainingWeight);
-        remainingWeight -= candidate.routeWeight;
 
-        const projectedDestination = Math.max(
-          committed[candidate.j],
-          war[candidate.j] + delta[candidate.j],
-        );
-        const destinationCapacity = cellCapacity(candidate.j, grid, config);
-        const freeCellCapacity = Math.max(0, destinationCapacity - projectedDestination);
-        const moved = Math.min(desired, candidate.capacity, freeCellCapacity, reserve - sent);
-        if (moved <= 0) continue;
-        delta[i] -= moved;
-        delta[candidate.j] += moved;
-        incoming[candidate.j] += moved / config.dt;
-        sent += moved;
+      for (const candidate of candidates) {
+        const share = candidate.routeWeight / routeWeightSum;
+        const amount = Math.min(movable * share, candidate.capacity);
+        if (amount <= EPS) continue;
+        proposals.push({ source: i, destination: candidate.j, amount });
+        proposedIncoming[candidate.j] += amount;
       }
     }
+  }
+
+  // Phase 2: destinations accept all proposals simultaneously, scaled only by
+  // their free capacity. No source can benefit from array traversal order.
+  for (const proposal of proposals) {
+    const freeCapacity = Math.max(
+      0,
+      cellCapacity(proposal.destination, grid, config) -
+        Math.max(committed[proposal.destination], war[proposal.destination]),
+    );
+    const totalProposed = proposedIncoming[proposal.destination];
+    const destinationScale = totalProposed > EPS
+      ? Math.min(1, freeCapacity / totalProposed)
+      : 0;
+    const moved = proposal.amount * destinationScale;
+    if (moved <= EPS) continue;
+
+    delta[proposal.source] -= moved;
+    delta[proposal.destination] += moved;
+    incoming[proposal.destination] += moved / config.dt;
   }
 
   for (let i = 0; i < war.length; i++) {
