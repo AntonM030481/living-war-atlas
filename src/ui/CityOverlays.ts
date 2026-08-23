@@ -23,8 +23,8 @@ export class CityOverlays {
   ) {
     this.blueBadge.className = 'city-points-badge blue';
     this.redBadge.className = 'city-points-badge red';
-    this.blueBadge.innerHTML = '<span>Blue --/--</span><small>war --</small>';
-    this.redBadge.innerHTML = '<span>Red --/--</span><small>war --</small>';
+    this.blueBadge.innerHTML = '<span>Blue --/--</span><small>force --</small>';
+    this.redBadge.innerHTML = '<span>Red --/--</span><small>force --</small>';
     this.host.append(this.blueBadge, this.redBadge);
 
     for (const city of map.cities) {
@@ -50,8 +50,8 @@ export class CityOverlays {
     const mapLeft = rect.left - hostRect.left;
     const mapTop = rect.top - hostRect.top;
 
-    this.blueBadge.innerHTML = `<span>Blue ${formatPoints(stats.activeCityPointsBlue)}/${formatPoints(stats.controlledCityPointsBlue)}</span><small>war ${Math.round(stats.totalWarBlue)}</small>`;
-    this.redBadge.innerHTML = `<span>Red ${formatPoints(stats.activeCityPointsRed)}/${formatPoints(stats.controlledCityPointsRed)}</span><small>war ${Math.round(stats.totalWarRed)}</small>`;
+    this.blueBadge.innerHTML = `<span>Blue ${formatPoints(stats.activeCityPointsBlue)}/${formatPoints(stats.controlledCityPointsBlue)}</span><small>force ${Math.round(stats.totalWarBlue)}</small>`;
+    this.redBadge.innerHTML = `<span>Red ${formatPoints(stats.activeCityPointsRed)}/${formatPoints(stats.controlledCityPointsRed)}</span><small>force ${Math.round(stats.totalWarRed)}</small>`;
     this.blueBadge.style.left = `${mapLeft + 10}px`;
     this.blueBadge.style.top = `${mapTop + 10}px`;
     this.redBadge.style.left = `${mapLeft + rect.width - this.redBadge.offsetWidth - 10}px`;
