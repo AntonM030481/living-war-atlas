@@ -133,6 +133,10 @@ export class GameApp {
     this.diagnosticsEnabled = next;
     this.hud.setDiagnostics(next);
     this.diagnosticsPanel.setVisible(next);
+    if (next) {
+      this.hud.legend.open = false;
+      this.diagnosticsPanel.element.open = false;
+    }
     this.renderer.setShowFlows(next);
     this.renderDiagnostics();
   }
