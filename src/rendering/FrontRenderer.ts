@@ -1,5 +1,4 @@
 import { Graphics } from 'pixi.js';
-import { CFG } from '../sim/Config';
 import type { SimulationSnapshot } from '../sim/types';
 import type { Point } from './coordinates';
 
@@ -93,15 +92,24 @@ export class FrontRenderer {
   private frontSegments(snapshot: SimulationSnapshot): FrontSegment[] {
     const segments: FrontSegment[] = [];
     const { width, height, control } = snapshot;
-    const px = width > CFG.frontBoundaryPadding * 2 + 1 ? CFG.frontBoundaryPadding : 0;
-    const py = height > CFG.frontBoundaryPadding * 2 + 1 ? CFG.frontBoundaryPadding : 0;
 
-    for (let y = py; y < height - 1 - py; y++) {
-      for (let x = px; x < width - 1 - px; x++) {
-        const tl = control[y * width + x];
-        const tr = control[y * width + x + 1];
-        const br = control[(y + 1) * width + x + 1];
-        const bl = control[(y + 1) * width + x];
+    for (let y = 0; y < height - 1; y++) {
+      for (let x = 0; x < width - 1; x++) {
+        const tlIndex = y * width + x;
+        const trIndex = tlIndex + 1;
+        const blIndex = (y + 1) * width + x;
+        const brIndex = blIndex + 1;
+        if (
+          this.isBlocked(snapshot, tlIndex) ||
+          this.isBlocked(snapshot, trIndex) ||
+          this.isBlocked(snapshot, blIndex) ||
+          this.isBlocked(snapshot, brIndex)
+        ) continue;
+
+        const tl = control[tlIndex];
+        const tr = control[trIndex];
+        const br = control[brIndex];
+        const bl = control[blIndex];
         const crossings: Point[] = [];
 
         if (this.crossesZero(tl, tr)) crossings.push(this.edgeCrossing(x, y, x + 1, y, tl, tr));
@@ -119,6 +127,10 @@ export class FrontRenderer {
     }
 
     return segments;
+  }
+
+  private isBlocked(snapshot: SimulationSnapshot, index: number): boolean {
+    return snapshot.terrainBlocked?.[index] !== undefined && snapshot.terrainBlocked[index] !== 0;
   }
 
   private crossesZero(a: number, b: number): boolean {
@@ -154,10 +166,15 @@ export class FrontRenderer {
     const x = Math.max(0, Math.min(snapshot.width - 1, Math.round(point.x)));
     const y = Math.max(0, Math.min(snapshot.height - 1, Math.round(point.y)));
     const i = y * snapshot.width + x;
-    const left = x > 0 ? snapshot.control[i - 1] : snapshot.control[i];
-    const right = x + 1 < snapshot.width ? snapshot.control[i + 1] : snapshot.control[i];
-    const up = y > 0 ? snapshot.control[i - snapshot.width] : snapshot.control[i];
-    const down = y + 1 < snapshot.height ? snapshot.control[i + snapshot.width] : snapshot.control[i];
+    const control = snapshot.control[i];
+    const leftIndex = i - 1;
+    const rightIndex = i + 1;
+    const upIndex = i - snapshot.width;
+    const downIndex = i + snapshot.width;
+    const left = x > 0 && !this.isBlocked(snapshot, leftIndex) ? snapshot.control[leftIndex] : control;
+    const right = x + 1 < snapshot.width && !this.isBlocked(snapshot, rightIndex) ? snapshot.control[rightIndex] : control;
+    const up = y > 0 && !this.isBlocked(snapshot, upIndex) ? snapshot.control[upIndex] : control;
+    const down = y + 1 < snapshot.height && !this.isBlocked(snapshot, downIndex) ? snapshot.control[downIndex] : control;
     const gx = right - left;
     const gy = down - up;
     const gl = Math.hypot(gx, gy);
