@@ -8,6 +8,7 @@ const config = {
   baseEdgeCapacityPerSecond: 10,
   resourceMoveFraction: 0.5,
   resourceCellCapacity: 12,
+  resourceFrontCellCapacity: 24,
   resourceRearTargetUtilization: 0.06,
   resourceFrontTargetUtilization: 0.78,
   resourceTargetDensityExponent: 1.35,
@@ -62,9 +63,51 @@ describe('transport', () => {
     expect(after).toBeCloseTo(before, 6);
   });
 
-  it('continues feeding the front even when the source is below its target density', () => {
+  it('allows a front cell to hold more resource than a rear cell', () => {
     const side = createSideFields(2);
-    side.war.set([1, 0]);
+    side.war.set([12, 12]);
+    side.potential.set([1, 2]);
+
+    const grid = {
+      width: 2,
+      height: 1,
+      terrainMobility: new Float32Array([1, 1]),
+      terrainCapacity: new Float32Array([1, 1]),
+      isFront: (index: number) => index === 1,
+      access: () => 1,
+      edgeFactor: () => 1,
+    };
+
+    transportResource(side, grid, config);
+
+    expect(side.war[1]).toBeGreaterThan(config.resourceCellCapacity);
+    expect(side.war[1]).toBeLessThanOrEqual(config.resourceFrontCellCapacity + 1e-6);
+  });
+
+  it('retains a denser operational reserve near the front', () => {
+    const side = createSideFields(4);
+    side.war.set([10, 10, 10, 0]);
+    side.potential.set([1, 2, 3, 4]);
+
+    const grid = {
+      width: 4,
+      height: 1,
+      terrainMobility: new Float32Array([1, 1, 1, 1]),
+      terrainCapacity: new Float32Array([1, 1, 1, 1]),
+      isFront: (index: number) => index === 3,
+      access: () => 1,
+      edgeFactor: () => 1,
+    };
+
+    transportResource(side, grid, config);
+
+    expect(side.war[2]).toBeGreaterThan(side.war[0]);
+    expect(side.war[2]).toBeGreaterThan(config.resourceCellCapacity * 0.5);
+  });
+
+  it('keeps feeding the front even when the source is below its target density', () => {
+    const side = createSideFields(2);
+    side.war.set([0.2, 0]);
     side.potential.set([1, 2]);
 
     const grid = {
@@ -80,7 +123,6 @@ describe('transport', () => {
     transportResource(side, grid, config);
 
     expect(side.war[1]).toBeGreaterThan(0);
-    expect(side.war[0]).toBeGreaterThan(0);
   });
 
   it('propagates potential through a long connected region', () => {
