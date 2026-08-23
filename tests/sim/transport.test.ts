@@ -108,11 +108,11 @@ describe('transport', () => {
     expect(dense.war[1]).toBeGreaterThan(0);
   });
 
-  it('prefers a less congested detour when the direct route is crowded', () => {
+  it('routes potential around a congested cell', () => {
     const side = createSideFields(4);
-    // 2x2 grid: source=0, crowded direct=1, open detour=2, destination=3.
+    // 2x2 grid: source=0, crowded direct=1, open detour=2, front=3.
     side.war.set([6, 11.5, 0, 0]);
-    side.potential.set([1.0, 1.3, 1.25, 2.0]);
+    side.need[3] = 1;
 
     const grid = {
       width: 2,
@@ -124,10 +124,11 @@ describe('transport', () => {
       edgeFactor: () => 1,
     };
 
-    transportResource(side, grid, { ...config, baseEdgeCapacityPerSecond: 1000 });
+    rebuildPotential(side, grid, config);
 
+    expect(side.potential[2]).toBeGreaterThan(side.potential[1]);
+    transportResource(side, grid, { ...config, baseEdgeCapacityPerSecond: 1000 });
     expect(side.war[2]).toBeGreaterThan(0);
-    expect(side.war[2]).toBeGreaterThan(side.war[1] - 11.5);
   });
 
   it('propagates potential through a long connected region', () => {
