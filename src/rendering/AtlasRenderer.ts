@@ -77,12 +77,12 @@ export class AtlasRenderer {
   }
 
   mapScreenRect(): { left: number; top: number; width: number; height: number } {
-    const canvasRect = this.app.canvas.getBoundingClientRect();
+    const transform = this.transform();
     return {
-      left: canvasRect.left + this.world.x,
-      top: canvasRect.top + this.world.y,
-      width: this.map.width * this.world.scale.x,
-      height: this.map.height * this.world.scale.y,
+      left: transform.canvasRect.left + transform.worldX * transform.canvasScaleX,
+      top: transform.canvasRect.top + transform.worldY * transform.canvasScaleY,
+      width: this.map.width * transform.scaleX * transform.canvasScaleX,
+      height: this.map.height * transform.scaleY * transform.canvasScaleY,
     };
   }
 
@@ -138,12 +138,15 @@ export class AtlasRenderer {
   }
 
   private transform(): ViewTransform {
+    const canvasRect = this.app.canvas.getBoundingClientRect();
     return {
-      canvasRect: this.app.canvas.getBoundingClientRect(),
+      canvasRect,
       worldX: this.world.x,
       worldY: this.world.y,
       scaleX: this.world.scale.x,
       scaleY: this.world.scale.y,
+      canvasScaleX: canvasRect.width / this.app.screen.width,
+      canvasScaleY: canvasRect.height / this.app.screen.height,
     };
   }
 
