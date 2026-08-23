@@ -24,6 +24,40 @@
   height: 100%;
 }
 
+.point-probe-marker {
+  position: absolute;
+  z-index: 6;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border: 2px solid #2f2b24;
+  border-radius: 50%;
+  background: #fff7dc;
+  box-shadow: 0 0 0 1px rgba(255, 247, 220, .8);
+  pointer-events: none;
+}
+
+.point-probe-marker::before,
+.point-probe-marker::after {
+  content: '';
+  position: absolute;
+  background: #2f2b24;
+}
+
+.point-probe-marker::before {
+  left: 4px;
+  top: -5px;
+  width: 2px;
+  height: 18px;
+}
+
+.point-probe-marker::after {
+  left: -5px;
+  top: 4px;
+  width: 18px;
+  height: 2px;
+}
+
 .side-panel {
   position: relative;
   z-index: 10;
