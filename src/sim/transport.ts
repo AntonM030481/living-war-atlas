@@ -167,8 +167,8 @@ export function transportResource(
   const proposals: TransferProposal[] = [];
   const proposedIncoming = new Float32Array(war.length);
 
-  // Phase 1: choose direction from strategic potential/terrain only. Local
-  // occupancy limits throughput, but does not attract flow into emptier lanes.
+  // Phase 1: choose direction from strategic potential/terrain only. Flow is a
+  // smoothed diagnostic of that choice and does not affect routing or throughput.
   for (let y = 0; y < grid.height; y++) {
     for (let x = 0; x < grid.width; x++) {
       const i = y * grid.width + x;
@@ -181,7 +181,6 @@ export function transportResource(
         continue;
       }
 
-      const currentFlowMagnitude = Math.hypot(flow.x[i], flow.y[i]);
       const detourDrop = Math.max(1e-5, potential[i] * (1 - config.potentialDecay) * 1.25);
       let routeWeightSum = 0;
       const candidates: Array<{
@@ -218,12 +217,7 @@ export function transportResource(
         if (capacity <= 0) continue;
 
         const progressWeight = Math.max(0.05 * detourDrop, potentialDelta + detourDrop);
-        let directionBias = 1;
-        if (currentFlowMagnitude > EPS) {
-          const alignment = (flow.x[i] * dx + flow.y[i] * dy) / currentFlowMagnitude;
-          directionBias = Math.max(0.05, 1 + alignment);
-        }
-        const routeWeight = progressWeight * routeTransmission * directionBias;
+        const routeWeight = progressWeight * routeTransmission;
         if (routeWeight <= EPS) continue;
 
         routeWeightSum += routeWeight;
@@ -248,14 +242,12 @@ export function transportResource(
       flow.x[i] += (targetFlowX - flow.x[i]) * response;
       flow.y[i] += (targetFlowY - flow.y[i]) * response;
 
-      const movable = Math.min(reserve, Math.max(
-        Math.hypot(flow.x[i], flow.y[i]) * config.dt,
-        reserve * response,
-      ));
-
+      // Every unit of uncommitted resource may attempt to move this tick.
+      // Actual movement is constrained only by route share, edge throughput,
+      // and destination capacity in phase 2.
       for (const candidate of candidates) {
         const share = candidate.routeWeight / routeWeightSum;
-        const amount = Math.min(movable * share, candidate.capacity);
+        const amount = Math.min(reserve * share, candidate.capacity);
         if (amount <= EPS) continue;
         proposals.push({ source: i, destination: candidate.j, amount });
         proposedIncoming[candidate.j] += amount;
