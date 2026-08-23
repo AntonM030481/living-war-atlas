@@ -1,4 +1,4 @@
-import type { Side } from './Config';
+import { RESOURCE_EPS, type Side } from './Config';
 import type { SideFields } from './sides';
 
 const EPS = 1e-6;
@@ -341,7 +341,18 @@ export function transportResource(
       const reserve = Math.max(0, war[i] - committed[i]);
       const access = grid.access(i);
 
-      if (reserve <= 0.0001 || access <= 0.01) {
+      if (reserve <= RESOURCE_EPS) {
+        if (committed[i] <= RESOURCE_EPS) {
+          war[i] = 0;
+          committed[i] = 0;
+        } else {
+          war[i] = committed[i];
+        }
+        flow.x[i] += (0 - flow.x[i]) * response;
+        flow.y[i] += (0 - flow.y[i]) * response;
+        continue;
+      }
+      if (access <= 0.01) {
         flow.x[i] += (0 - flow.x[i]) * response;
         flow.y[i] += (0 - flow.y[i]) * response;
         continue;
@@ -453,6 +464,13 @@ export function transportResource(
   }
 
   for (let i = 0; i < war.length; i++) {
-    war[i] = Math.max(committed[i], war[i] + delta[i]);
+    const nextWar = Math.max(committed[i], war[i] + delta[i]);
+    if (nextWar <= RESOURCE_EPS) {
+      war[i] = 0;
+      committed[i] = 0;
+    } else {
+      war[i] = nextWar;
+      if (committed[i] <= RESOURCE_EPS) committed[i] = 0;
+    }
   }
 }
