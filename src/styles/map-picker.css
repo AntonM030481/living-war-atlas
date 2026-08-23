@@ -32,7 +32,8 @@
 }
 
 .map-picker-option,
-.map-picker-cancel {
+.map-picker-cancel,
+.map-picker-start {
   border: 1px solid rgba(64, 52, 32, .36);
   border-radius: 2px;
   background: #fff7dc;
@@ -52,7 +53,7 @@
 
 .map-picker-option.selected {
   border-color: #2f2b24;
-  box-shadow: inset 0 0 0 1px #2f2b24;
+  box-shadow: inset 0 0 0 2px #2f2b24;
 }
 
 .map-picker-option strong {
@@ -65,14 +66,27 @@
   opacity: .78;
 }
 
-.map-picker-cancel {
+.map-picker-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.map-picker-cancel,
+.map-picker-start {
   min-height: 36px;
-  padding: 6px 12px;
-  justify-self: end;
+  padding: 6px 16px;
+}
+
+.map-picker-start {
+  background: #2f2b24;
+  color: #fff7dc;
+  font-weight: 700;
 }
 
 .map-picker-option:hover,
-.map-picker-cancel:hover {
+.map-picker-cancel:hover,
+.map-picker-start:hover {
   filter: brightness(.97);
 }
 
