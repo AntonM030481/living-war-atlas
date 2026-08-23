@@ -19,11 +19,11 @@ export class Hud {
   private readonly historyBackButton: HTMLButtonElement;
   private readonly historyForwardButton: HTMLButtonElement;
 
-  constructor(initialSpeed: Speed, handlers: HudHandlers) {
+  constructor(title: string, initialSpeed: Speed, handlers: HudHandlers) {
     this.element = document.createElement('div');
     this.element.className = 'hud';
     this.element.innerHTML = `
-      <strong>Living War Atlas</strong>
+      <strong>${title}</strong>
       <span id="status">warming up…</span>
       <span id="history-status">history --/--</span>
       <div class="speed-row">
