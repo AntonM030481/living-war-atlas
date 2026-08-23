@@ -38,6 +38,8 @@ export interface SimulationSnapshot {
   committedRed: Float32Array;
   instabilityBlue: Float32Array;
   instabilityRed: Float32Array;
+  potentialBlue: Float32Array;
+  potentialRed: Float32Array;
   frontMassBlue: Float32Array;
   frontMassRed: Float32Array;
   incomingBlue: Float32Array;
