@@ -3,22 +3,6 @@ import type { SimulationSnapshot } from '../sim/types';
 import { sideAccess } from '../sim/transport';
 import type { PointDebugInfo } from './types';
 
-function isFrontCell(snapshot: SimulationSnapshot, index: number): boolean {
-  const x = index % snapshot.width;
-  const y = Math.floor(index / snapshot.width);
-  const px = snapshot.width > CFG.frontBoundaryPadding * 2 + 1 ? CFG.frontBoundaryPadding : 0;
-  const py = snapshot.height > CFG.frontBoundaryPadding * 2 + 1 ? CFG.frontBoundaryPadding : 0;
-  if (x < px || y < py || x >= snapshot.width - px || y >= snapshot.height - py) return false;
-
-  const control = snapshot.control[index];
-  if (Math.abs(control) <= CFG.frontBand) return true;
-  if (x > 0 && control * snapshot.control[index - 1] <= 0) return true;
-  if (x + 1 < snapshot.width && control * snapshot.control[index + 1] <= 0) return true;
-  if (y > 0 && control * snapshot.control[index - snapshot.width] <= 0) return true;
-  if (y + 1 < snapshot.height && control * snapshot.control[index + snapshot.width] <= 0) return true;
-  return false;
-}
-
 export function inspectPoint(snapshot: SimulationSnapshot, x: number, y: number): PointDebugInfo | null {
   if (x < 0 || y < 0 || x >= snapshot.width || y >= snapshot.height) return null;
 
@@ -32,9 +16,7 @@ export function inspectPoint(snapshot: SimulationSnapshot, x: number, y: number)
   const committedRed = snapshot.committedRed[index];
   const reserveBlue = Math.max(0, warBlue - committedBlue);
   const reserveRed = Math.max(0, warRed - committedRed);
-  const capacity = isFrontCell(snapshot, index)
-    ? CFG.resourceFrontCellCapacity
-    : CFG.resourceCellCapacity;
+  const capacity = CFG.resourceCellCapacity;
 
   return {
     x,

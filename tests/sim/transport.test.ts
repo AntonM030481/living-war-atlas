@@ -7,7 +7,6 @@ const config = {
   potentialDecay: 0.99,
   baseEdgeCapacityPerSecond: 10,
   resourceCellCapacity: 12,
-  resourceFrontCellCapacity: 24,
   resourceCongestionStrength: 0.70,
   resourceFlowResponseSeconds: 3.0,
 };
@@ -59,9 +58,9 @@ describe('transport', () => {
     expect(after).toBeCloseTo(before, 6);
   });
 
-  it('allows a front cell to hold more resource than a rear cell', () => {
+  it('uses the same capacity on front and rear cells', () => {
     const side = createSideFields(2);
-    side.war.set([12, 12]);
+    side.war.set([12, 11.8]);
     side.potential.set([1, 2]);
 
     const grid = {
@@ -76,8 +75,7 @@ describe('transport', () => {
 
     transportResource(side, grid, config);
 
-    expect(side.war[1]).toBeGreaterThan(config.resourceCellCapacity);
-    expect(side.war[1]).toBeLessThanOrEqual(config.resourceFrontCellCapacity + 1e-6);
+    expect(side.war[1]).toBeLessThanOrEqual(config.resourceCellCapacity + 1e-6);
   });
 
   it('reduces edge throughput from a denser source cell', () => {

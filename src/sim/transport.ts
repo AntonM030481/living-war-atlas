@@ -33,7 +33,6 @@ export interface TransportConfig {
   potentialDecay: number;
   baseEdgeCapacityPerSecond: number;
   resourceCellCapacity: number;
-  resourceFrontCellCapacity: number;
   resourceCongestionStrength: number;
   resourceFlowResponseSeconds: number;
 }
@@ -48,8 +47,8 @@ export interface TransportGrid {
   edgeFactor: (x: number, y: number, dx: number, dy: number) => number;
 }
 
-function cellCapacity(index: number, grid: TransportGrid, config: TransportConfig): number {
-  return grid.isFront(index) ? config.resourceFrontCellCapacity : config.resourceCellCapacity;
+function cellCapacity(config: TransportConfig): number {
+  return config.resourceCellCapacity;
 }
 
 function congestionTransmission(
@@ -58,7 +57,7 @@ function congestionTransmission(
   grid: TransportGrid,
   config: TransportConfig,
 ): number {
-  const capacity = cellCapacity(index, grid, config);
+  const capacity = cellCapacity(config);
   const utilization = Math.max(0, Math.min(1, war[index] / Math.max(capacity, EPS)));
   return 1 - config.resourceCongestionStrength * utilization;
 }
@@ -72,7 +71,7 @@ function freeCapacity(
 ): number {
   return Math.max(
     0,
-    cellCapacity(index, grid, config) - Math.max(committed[index], war[index]),
+    cellCapacity(config) - Math.max(committed[index], war[index]),
   );
 }
 
