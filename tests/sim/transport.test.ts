@@ -108,6 +108,28 @@ describe('transport', () => {
     expect(dense.war[1]).toBeGreaterThan(0);
   });
 
+  it('prefers a less congested detour when the direct route is crowded', () => {
+    const side = createSideFields(4);
+    // 2x2 grid: source=0, crowded direct=1, open detour=2, destination=3.
+    side.war.set([6, 11.5, 0, 0]);
+    side.potential.set([1.0, 1.3, 1.25, 2.0]);
+
+    const grid = {
+      width: 2,
+      height: 2,
+      terrainMobility: new Float32Array([1, 1, 1, 1]),
+      terrainCapacity: new Float32Array([1, 1, 1, 1]),
+      isFront: (index: number) => index === 3,
+      access: () => 1,
+      edgeFactor: () => 1,
+    };
+
+    transportResource(side, grid, { ...config, baseEdgeCapacityPerSecond: 1000 });
+
+    expect(side.war[2]).toBeGreaterThan(0);
+    expect(side.war[2]).toBeGreaterThan(side.war[1] - 11.5);
+  });
+
   it('propagates potential through a long connected region', () => {
     const width = 20;
     const side = createSideFields(width);
