@@ -148,7 +148,7 @@ describe('Simulation', () => {
     };
 
     const sim = new Simulation(map, 12345);
-    sim.runWarmup(75);
+    for (let i = 0; i < 75 / CFG.dt; i++) sim.tick();
     const initialFront = frontPosition1D(sim, width);
 
     const blue = sim.cities.find((c) => c.id === 'b');
