@@ -22,7 +22,6 @@ export interface TransportConfig {
   dt: number;
   potentialDecay: number;
   baseEdgeCapacityPerSecond: number;
-  resourceMoveFraction: number;
   resourceCellCapacity: number;
   resourceFrontCellCapacity: number;
   resourceCongestionStrength: number;
@@ -59,7 +58,7 @@ export function rebuildPotential(
   grid: TransportGrid,
   config: TransportConfig,
 ): void {
-  const { need, potential, war } = fields;
+  const { need, potential } = fields;
   potential.fill(0);
   const heapIndex: number[] = [];
   const heapValue: number[] = [];
@@ -126,9 +125,8 @@ export function rebuildPotential(
       const access = grid.access(j);
       if (access <= 0.01) continue;
       const terrainTransmission = 0.72 + 0.28 * grid.terrainMobility[j];
-      const trafficTransmission = congestionTransmission(j, war, grid, config);
       const nextValue = entry.value * config.potentialDecay *
-        grid.edgeFactor(x, y, dx, dy) * access * terrainTransmission * trafficTransmission;
+        grid.edgeFactor(x, y, dx, dy) * access * terrainTransmission;
       if (nextValue <= potential[j] + 1e-7) continue;
       potential[j] = nextValue;
       push(j, nextValue);
@@ -160,10 +158,6 @@ export function transportResource(
         continue;
       }
 
-      const sourceCapacity = cellCapacity(i, grid, config);
-      const utilization = Math.max(0, Math.min(1, war[i] / Math.max(sourceCapacity, EPS)));
-      const moveFactor = 1 - config.resourceCongestionStrength * utilization;
-
       let gradientSum = 0;
       const candidates: Array<{ j: number; dx: number; dy: number; gradient: number; capacity: number }> = [];
       for (const [dx, dy] of DIRS) {
@@ -179,7 +173,12 @@ export function transportResource(
         const conductivity = Math.min(access, neighborAccess);
         const terrainCap = Math.min(grid.terrainCapacity[i], grid.terrainCapacity[j]);
         const crossing = grid.edgeFactor(x, y, dx, dy);
-        const capacity = config.baseEdgeCapacityPerSecond * terrainCap * crossing * conductivity * config.dt;
+        const congestion = Math.min(
+          congestionTransmission(i, war, grid, config),
+          congestionTransmission(j, war, grid, config),
+        );
+        const capacity = config.baseEdgeCapacityPerSecond * terrainCap * crossing *
+          conductivity * congestion * config.dt;
         if (capacity <= 0) continue;
         gradientSum += gradient;
         candidates.push({ j, dx, dy, gradient, capacity });
@@ -191,7 +190,7 @@ export function transportResource(
         continue;
       }
 
-      const movable = reserve * config.resourceMoveFraction * moveFactor;
+      const movable = reserve;
       const desiredRate = movable / Math.max(config.dt, EPS);
       let targetFlowX = 0;
       let targetFlowY = 0;
