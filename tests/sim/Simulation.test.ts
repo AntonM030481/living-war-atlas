@@ -234,7 +234,7 @@ describe('Simulation', () => {
     expect(internals.isFront(41)).toBe(true);
   });
 
-  it('does not create frontline cells on the impassable map boundary', () => {
+  it('does not create frontline cells on blocked terrain', () => {
     const width = 12;
     const height = 8;
     const map = {
@@ -244,6 +244,8 @@ describe('Simulation', () => {
       riverX: () => 100,
       forests: [],
       cities: [],
+      terrainAt: (x: number, y: number) =>
+        x === 0 || y === 0 || x === width - 1 || y === height - 1 ? 'blocked' as const : 'open' as const,
     };
     const sim = new Simulation(map, 1);
     const internals = sim as unknown as { isFront(i: number): boolean };
@@ -261,10 +263,14 @@ describe('Simulation', () => {
     sim.control[4 * width + 6] = -1;
 
     for (let x = 0; x < width; x++) {
+      expect(sim.terrainBlocked[x]).toBe(1);
+      expect(sim.terrainBlocked[(height - 1) * width + x]).toBe(1);
       expect(internals.isFront(x)).toBe(false);
       expect(internals.isFront((height - 1) * width + x)).toBe(false);
     }
     for (let y = 0; y < height; y++) {
+      expect(sim.terrainBlocked[y * width]).toBe(1);
+      expect(sim.terrainBlocked[y * width + width - 1]).toBe(1);
       expect(internals.isFront(y * width)).toBe(false);
       expect(internals.isFront(y * width + width - 1)).toBe(false);
     }
