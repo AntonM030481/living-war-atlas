@@ -3,6 +3,8 @@ import type { SideFields } from './sides';
 
 const EPS = 1e-6;
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
+const FRONT_DEMAND_SMOOTHING_PASSES = 4;
+const FRONT_DEMAND_SELF_WEIGHT = 1;
 
 export function smoothstep(edge0: number, edge1: number, value: number): number {
   const t = Math.max(0, Math.min(1, (value - edge0) / (edge1 - edge0)));
@@ -66,12 +68,88 @@ function freeCapacity(
   );
 }
 
+function frontEdgeTransmission(
+  index: number,
+  neighbor: number,
+  x: number,
+  y: number,
+  dx: number,
+  dy: number,
+  grid: TransportGrid,
+): number {
+  if (!grid.isFront(neighbor)) return 0;
+
+  const access = Math.min(grid.access(index), grid.access(neighbor));
+  if (access <= 0.01) return 0;
+
+  const terrainCapacity = Math.min(
+    grid.terrainCapacity[index],
+    grid.terrainCapacity[neighbor],
+  );
+  if (terrainCapacity <= 0) return 0;
+
+  const crossing = grid.edgeFactor(x, y, dx, dy);
+  if (crossing <= 0) return 0;
+
+  return access * terrainCapacity * crossing;
+}
+
+/**
+ * Smooth front demand only through edges that the transport graph itself can
+ * traverse. This keeps demand on separate sides of an impassable barrier from
+ * bleeding into each other while still allowing terrain/crossing penalties to
+ * weaken the smoothing connection.
+ */
+export function smoothFrontDemand(
+  need: Float32Array,
+  grid: TransportGrid,
+  passes = FRONT_DEMAND_SMOOTHING_PASSES,
+): Float32Array {
+  let current = new Float32Array(need.length);
+  for (let i = 0; i < need.length; i++) {
+    if (grid.isFront(i) && grid.access(i) > 0.01) current[i] = need[i];
+  }
+
+  for (let pass = 0; pass < passes; pass++) {
+    const next = new Float32Array(need.length);
+
+    for (let y = 0; y < grid.height; y++) {
+      for (let x = 0; x < grid.width; x++) {
+        const i = y * grid.width + x;
+        if (!grid.isFront(i) || grid.access(i) <= 0.01) continue;
+
+        let weightedDemand = current[i] * FRONT_DEMAND_SELF_WEIGHT;
+        let weightSum = FRONT_DEMAND_SELF_WEIGHT;
+
+        for (const [dx, dy] of DIRS) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || nx >= grid.width || ny < 0 || ny >= grid.height) continue;
+          const j = ny * grid.width + nx;
+          const transmission = frontEdgeTransmission(i, j, x, y, dx, dy, grid);
+          if (transmission <= EPS) continue;
+
+          weightedDemand += current[j] * transmission;
+          weightSum += transmission;
+        }
+
+        next[i] = weightedDemand / weightSum;
+      }
+    }
+
+    current = next;
+  }
+
+  return current;
+}
+
 export function rebuildPotential(
   fields: Pick<SideFields, 'need' | 'potential' | 'war'>,
   grid: TransportGrid,
   config: TransportConfig,
 ): void {
   const { need, potential } = fields;
+  const smoothedNeed = smoothFrontDemand(need, grid);
   potential.fill(0);
   const heapIndex: number[] = [];
   const heapValue: number[] = [];
@@ -117,7 +195,7 @@ export function rebuildPotential(
 
   for (let i = 0; i < potential.length; i++) {
     if (grid.isFront(i) && grid.access(i) > 0.05) {
-      const value = 1 + need[i];
+      const value = 1 + smoothedNeed[i];
       potential[i] = value;
       push(i, value);
     }
