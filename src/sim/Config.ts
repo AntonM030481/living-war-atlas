@@ -9,6 +9,7 @@ export const CFG = {
   resourceMoveFraction: 0.58,
   baseEdgeCapacityPerSecond: 7.0,
   resourceCellCapacity: 1,
+  resourceFrontCellCapacity: 2,
   resourceRearTargetUtilization: 0.06,
   resourceFrontTargetUtilization: 0.78,
   resourceTargetDensityExponent: 1.35,
