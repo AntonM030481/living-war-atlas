@@ -1,18 +1,22 @@
 import { CFG } from '../sim/Config';
 import type { MapDefinition } from '../sim/types';
+import { blockedPerimeter } from './terrain';
 
 const S = CFG.spatialScale;
 const sc = (value: number): number => value * S;
+const width = CFG.width;
+const height = sc(12);
 
 // A deliberately narrow, obstacle-free theatre for fast checks of resource
 // transport and front behaviour. The small height makes it close to 1D while
 // still exercising the normal 2D simulation and renderer.
 export const linearMap: MapDefinition = {
-  width: CFG.width,
-  height: sc(12),
-  initialFrontX: () => CFG.width * 0.5,
+  width,
+  height,
+  initialFrontX: () => width * 0.5,
   riverX: () => -sc(100),
   forests: [],
+  terrainAt: blockedPerimeter(width, height),
   seedInitialResource: false,
   cities: [
     { id: 'b1', name: 'Blue', x: sc(20), y: sc(6), baseProduction: 6, owner: 'blue', integration: 1 },
