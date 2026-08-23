@@ -53,6 +53,44 @@ function congestionTransmission(
   return 1 - config.resourceCongestionStrength * utilization;
 }
 
+function freeCapacity(
+  index: number,
+  war: Float32Array,
+  committed: Float32Array,
+  grid: TransportGrid,
+  config: TransportConfig,
+): number {
+  return Math.max(
+    0,
+    cellCapacity(index, grid, config) - Math.max(committed[index], war[index]),
+  );
+}
+
+function localAvailableCapacity(
+  index: number,
+  war: Float32Array,
+  committed: Float32Array,
+  grid: TransportGrid,
+  config: TransportConfig,
+): number {
+  const x = index % grid.width;
+  const y = Math.floor(index / grid.width);
+  let total = freeCapacity(index, war, committed, grid, config);
+  let count = 1;
+
+  for (const [dx, dy] of DIRS) {
+    const nx = x + dx;
+    const ny = y + dy;
+    if (nx < 0 || nx >= grid.width || ny < 0 || ny >= grid.height) continue;
+    const j = ny * grid.width + nx;
+    if (grid.access(j) <= 0.01) continue;
+    total += freeCapacity(j, war, committed, grid, config);
+    count += 1;
+  }
+
+  return total / count;
+}
+
 export function rebuildPotential(
   fields: Pick<SideFields, 'need' | 'potential' | 'war'>,
   grid: TransportGrid,
@@ -200,11 +238,11 @@ export function transportResource(
           conductivity * congestion * config.dt;
         if (capacity <= 0) continue;
 
-        const freeCapacity = Math.max(
-          0,
-          cellCapacity(j, grid, config) - Math.max(committed[j], war[j]),
-        );
-        if (freeCapacity <= EPS) continue;
+        const destinationFreeCapacity = freeCapacity(j, war, committed, grid, config);
+        if (destinationFreeCapacity <= EPS) continue;
+
+        const neighborhoodCapacity = localAvailableCapacity(j, war, committed, grid, config);
+        if (neighborhoodCapacity <= EPS) continue;
 
         const progressWeight = Math.max(0.05 * detourDrop, potentialDelta + detourDrop);
         let directionBias = 1;
@@ -212,7 +250,8 @@ export function transportResource(
           const alignment = (flow.x[i] * dx + flow.y[i] * dy) / currentFlowMagnitude;
           directionBias = Math.max(0.05, 1 + alignment);
         }
-        const routeWeight = progressWeight * capacity * freeCapacity * directionBias;
+        const routeWeight = progressWeight * capacity * destinationFreeCapacity *
+          neighborhoodCapacity * directionBias;
         if (routeWeight <= EPS) continue;
 
         routeWeightSum += routeWeight;
@@ -255,14 +294,16 @@ export function transportResource(
   // Phase 2: destinations accept all proposals simultaneously, scaled only by
   // their free capacity. No source can benefit from array traversal order.
   for (const proposal of proposals) {
-    const freeCapacity = Math.max(
-      0,
-      cellCapacity(proposal.destination, grid, config) -
-        Math.max(committed[proposal.destination], war[proposal.destination]),
+    const destinationFreeCapacity = freeCapacity(
+      proposal.destination,
+      war,
+      committed,
+      grid,
+      config,
     );
     const totalProposed = proposedIncoming[proposal.destination];
     const destinationScale = totalProposed > EPS
-      ? Math.min(1, freeCapacity / totalProposed)
+      ? Math.min(1, destinationFreeCapacity / totalProposed)
       : 0;
     const moved = proposal.amount * destinationScale;
     if (moved <= EPS) continue;
