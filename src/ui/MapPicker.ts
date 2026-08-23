@@ -53,8 +53,8 @@ export function chooseMap(currentMapId: MapId, allowCancel: boolean): Promise<Ma
     });
     dialog.querySelector<HTMLButtonElement>('.map-picker-start')!
       .addEventListener('click', () => finish(selectedMapId));
-    dialog.querySelector<HTMLButtonElement>('.map-picker-cancel')?
-      .addEventListener('click', () => finish(null));
+    dialog.querySelector<HTMLButtonElement>('.map-picker-cancel')
+      ?.addEventListener('click', () => finish(null));
     dialog.addEventListener('cancel', (event) => {
       if (!allowCancel) {
         event.preventDefault();
