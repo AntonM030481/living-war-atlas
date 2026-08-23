@@ -1,18 +1,21 @@
 import { CFG } from '../sim/Config';
 import type { MapDefinition } from '../sim/types';
+import { blockedPerimeter } from './terrain';
 
 const S = CFG.spatialScale;
 const sc = (value: number): number => value * S;
+const width = CFG.width;
+const height = CFG.height;
 
 // One deliberately asymmetric theatre: a northern salient, a central river
 // crossing and a southern constriction. It is meant to expose different kinds
 // of front behaviour on the same screen rather than look procedurally neutral.
 export const testMap: MapDefinition = {
-  width: CFG.width,
-  height: CFG.height,
+  width,
+  height,
   initialFrontX: (y) => {
     const yy = y / S;
-    const base = CFG.width * 0.50;
+    const base = width * 0.50;
     const northernSalient = sc(6.5) * Math.exp(-(((yy - 17) / 8.5) ** 2));
     const centralDent = sc(-5.0) * Math.exp(-(((yy - 41) / 7.0) ** 2));
     const southernSalient = sc(4.0) * Math.exp(-(((yy - 64) / 8.0) ** 2));
@@ -22,7 +25,7 @@ export const testMap: MapDefinition = {
   riverX: (y) => {
     const yy = y / S;
     return (
-      CFG.width * 0.535
+      width * 0.535
       + sc(3.6) * Math.sin(yy / 10.5 + 0.25)
       + sc(1.7) * Math.sin(yy / 4.9 + 1.35)
       - sc(3.4) * Math.exp(-(((yy - 42) / 7.5) ** 2))
@@ -36,6 +39,7 @@ export const testMap: MapDefinition = {
     { x: sc(76), y: sc(28), r: sc(7) },
     { x: sc(90), y: sc(65), r: sc(7) },
   ],
+  terrainAt: blockedPerimeter(width, height),
   cities: [
     { id: 'b1', name: 'Arden',  x: sc(14), y: sc(14), baseProduction: 4, owner: 'blue', integration: 1 },
     { id: 'b2', name: 'Mirov',  x: sc(34), y: sc(36), baseProduction: 4, owner: 'blue', integration: 1 },
