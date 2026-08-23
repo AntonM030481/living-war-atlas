@@ -6,7 +6,6 @@ const config = {
   dt: 0.1,
   potentialDecay: 0.99,
   baseEdgeCapacityPerSecond: 10,
-  resourceMoveFraction: 0.5,
   resourceCellCapacity: 12,
   resourceFrontCellCapacity: 24,
   resourceCongestionStrength: 0.70,
@@ -81,7 +80,7 @@ describe('transport', () => {
     expect(side.war[1]).toBeLessThanOrEqual(config.resourceFrontCellCapacity + 1e-6);
   });
 
-  it('moves a smaller fraction of resource from a denser source cell', () => {
+  it('reduces edge throughput from a denser source cell', () => {
     const grid = {
       width: 2,
       height: 1,
@@ -91,25 +90,25 @@ describe('transport', () => {
       access: () => 1,
       edgeFactor: () => 1,
     };
-    const unconstrained = { ...config, baseEdgeCapacityPerSecond: 1000 };
+    const constrained = { ...config, baseEdgeCapacityPerSecond: 1 };
 
     const sparse = createSideFields(2);
     sparse.war[0] = 3;
     sparse.potential.set([1, 2]);
-    transportResource(sparse, grid, unconstrained);
+    transportResource(sparse, grid, constrained);
     const sparseMovedFraction = sparse.war[1] / 3;
 
     const dense = createSideFields(2);
     dense.war[0] = 12;
     dense.potential.set([1, 2]);
-    transportResource(dense, grid, unconstrained);
+    transportResource(dense, grid, constrained);
     const denseMovedFraction = dense.war[1] / 12;
 
     expect(denseMovedFraction).toBeLessThan(sparseMovedFraction);
     expect(dense.war[1]).toBeGreaterThan(0);
   });
 
-  it('routes potential around a congested cell', () => {
+  it('keeps congestion out of potential and applies it to edge capacity', () => {
     const side = createSideFields(4);
     // 2x2 grid: source=0, crowded direct=1, open detour=2, front=3.
     side.war.set([6, 11.5, 0, 0]);
@@ -127,9 +126,11 @@ describe('transport', () => {
 
     rebuildPotential(side, grid, config);
 
-    expect(side.potential[2]).toBeGreaterThan(side.potential[1]);
-    transportResource(side, grid, { ...config, baseEdgeCapacityPerSecond: 1000 });
-    expect(side.war[2]).toBeGreaterThan(0);
+    expect(side.potential[2]).toBeCloseTo(side.potential[1], 6);
+    const crowdedBefore = side.war[1];
+    transportResource(side, grid, { ...config, baseEdgeCapacityPerSecond: 0.4 });
+    const crowdedIncrease = side.war[1] - crowdedBefore;
+    expect(side.war[2]).toBeGreaterThan(crowdedIncrease);
   });
 
   it('changes flow direction gradually when the preferred route changes', () => {
