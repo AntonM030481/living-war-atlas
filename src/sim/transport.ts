@@ -159,7 +159,7 @@ export function transportResource(
       }
 
       const currentFlowMagnitude = Math.hypot(flow.x[i], flow.y[i]);
-      const detourDrop = Math.max(1e-5, potential[i] * (1 - config.potentialDecay) * 1.25);
+      const localPotentialStep = Math.max(1e-5, potential[i] * (1 - config.potentialDecay));
       let routeWeightSum = 0;
       const candidates: Array<{
         j: number;
@@ -177,9 +177,6 @@ export function transportResource(
         const j = ny * grid.width + nx;
         const neighborAccess = grid.access(j);
         if (neighborAccess <= 0.01) continue;
-
-        const potentialDelta = potential[j] - potential[i];
-        if (potentialDelta < -detourDrop) continue;
 
         const conductivity = Math.min(access, neighborAccess);
         const terrainCap = Math.min(grid.terrainCapacity[i], grid.terrainCapacity[j]);
@@ -200,12 +197,16 @@ export function transportResource(
         const freeCapacity = Math.max(0, destinationCapacity - projectedDestination);
         if (freeCapacity <= EPS) continue;
 
-        const progressWeight = Math.max(0.05 * detourDrop, potentialDelta + detourDrop);
+        const potentialDelta = potential[j] - potential[i];
+        const normalizedProgress = potentialDelta / localPotentialStep;
+        const progressWeight = Math.exp(Math.max(-6, Math.min(6, normalizedProgress * 1.4)));
+
         let directionBias = 1;
         if (currentFlowMagnitude > EPS) {
           const alignment = (flow.x[i] * dx + flow.y[i] * dy) / currentFlowMagnitude;
-          directionBias = Math.max(0.05, 1 + alignment);
+          directionBias = 1 + 0.30 * alignment;
         }
+
         const routeWeight = progressWeight * capacity * freeCapacity * directionBias;
         if (routeWeight <= EPS) continue;
 
