@@ -7,6 +7,7 @@ const PAPER_LIGHT = 0xf6efd7;
 const INK = 0x2f2b24;
 const RIVER = 0x4fa6bd;
 const GRID = 0x8b7a59;
+const BLOCKED = 0x68655f;
 
 export class TerrainRenderer {
   constructor(
@@ -65,6 +66,15 @@ export class TerrainRenderer {
       g.moveTo(this.map.riverX(y), y).lineTo(this.map.riverX(y + 0.5), y + 0.5);
     }
     g.stroke({ color: RIVER, width: 0.46, alpha: 0.82 });
+
+    if (this.map.terrainAt) {
+      for (let y = 0; y < this.map.height; y++) {
+        for (let x = 0; x < this.map.width; x++) {
+          if (this.map.terrainAt(x, y) !== 'blocked') continue;
+          g.rect(x, y, 1, 1).fill({ color: BLOCKED, alpha: 0.88 });
+        }
+      }
+    }
   }
 
   private drawGrid(): void {
