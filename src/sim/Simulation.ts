@@ -62,7 +62,7 @@ export class Simulation {
 
     this.initializeTerrain();
     this.initializeControl();
-    this.seedInitialResource();
+    if (this.map.seedInitialResource !== false) this.seedInitialResource();
   }
 
   // Compatibility accessors while snapshots/rendering still expose the two
@@ -87,11 +87,6 @@ export class Simulation {
 
   flipCityOwner(cityId: string): void {
     flipCityOwner(this.cities, cityId);
-  }
-
-  runWarmup(seconds = CFG.warmupSeconds): void {
-    const steps = Math.ceil(seconds / CFG.dt);
-    for (let i = 0; i < steps; i++) this.tick();
   }
 
   tick(): void {
