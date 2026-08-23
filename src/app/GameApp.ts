@@ -26,6 +26,7 @@ export class GameApp {
   private input!: InputController;
   private readonly mapStage = document.createElement('div');
   private readonly sidePanel = document.createElement('div');
+  private readonly pointMarker = document.createElement('div');
 
   private currentSeed = 20260816;
   private speed: Speed = 4;
@@ -49,9 +50,12 @@ export class GameApp {
   async start(): Promise<void> {
     this.mapStage.className = 'map-stage';
     this.sidePanel.className = 'side-panel';
+    this.pointMarker.className = 'point-probe-marker';
+    this.pointMarker.hidden = true;
     this.root.append(this.mapStage, this.sidePanel);
 
     await this.initPixi();
+    this.mapStage.append(this.pointMarker);
     this.renderer = new AtlasRenderer(this.pixi, this.map);
     this.renderer.setDebug(true);
     this.renderer.setShowFlows(false);
@@ -104,6 +108,7 @@ export class GameApp {
       this.pixi.renderer.resize(Math.max(1, Math.round(width)), Math.max(1, Math.round(height)));
       this.renderer.resize();
       if (this.latestSnapshot) this.overlays.update(this.latestSnapshot);
+      this.updatePointMarker();
     };
     new ResizeObserver(resize).observe(this.mapStage);
     window.addEventListener('resize', resize);
@@ -113,6 +118,7 @@ export class GameApp {
   private attachInput(): void {
     this.input = new InputController(this.pixi.canvas, {
       onPrimaryClick: (event) => this.handlePrimaryClick(event),
+      onPrimaryDrag: (event) => this.handlePrimaryDrag(event),
       onSecondaryClick: (event, force) => this.handleSecondaryCityClick(event, force),
       onPauseToggle: () => this.setPaused(!this.paused),
       onDiagnosticsToggle: () => this.setDiagnostics(!this.diagnosticsEnabled),
@@ -145,6 +151,7 @@ export class GameApp {
     }
     this.renderer.setShowFlows(next);
     this.renderDiagnostics();
+    this.updatePointMarker();
   }
 
   private renderDiagnostics(): void {
@@ -190,9 +197,7 @@ export class GameApp {
     if (Date.now() < this.suppressNextPrimaryClickUntil || event.ctrlKey || event.button !== 0) return;
 
     if (this.diagnosticsEnabled && this.latestSnapshot) {
-      const point = this.clientToMapPoint(event.clientX, event.clientY);
-      this.selectedPoint = point ? inspectPoint(this.latestSnapshot, point.x, point.y) : null;
-      this.pointProbe.render(this.selectedPoint);
+      this.setPointProbeAtClient(event.clientX, event.clientY);
     }
 
     const cityId = this.renderer.cityIdAtClientPoint(event.clientX, event.clientY);
@@ -203,6 +208,32 @@ export class GameApp {
     if (!this.diagnosticsEnabled || !this.latestSnapshot) return;
     this.selectedProbe = this.renderer.inspectFrontAtClientPoint(this.latestSnapshot, event.clientX, event.clientY);
     this.probe.render(this.selectedProbe);
+  }
+
+  private handlePrimaryDrag(event: PointerEvent): void {
+    if (!this.diagnosticsEnabled || !this.latestSnapshot || event.ctrlKey) return;
+    this.setPointProbeAtClient(event.clientX, event.clientY);
+  }
+
+  private setPointProbeAtClient(clientX: number, clientY: number): void {
+    if (!this.latestSnapshot) return;
+    const point = this.clientToMapPoint(clientX, clientY);
+    if (!point) return;
+    this.selectedPoint = inspectPoint(this.latestSnapshot, point.x, point.y);
+    this.pointProbe.render(this.selectedPoint);
+    this.updatePointMarker();
+  }
+
+  private updatePointMarker(): void {
+    if (!this.diagnosticsEnabled || !this.selectedPoint) {
+      this.pointMarker.hidden = true;
+      return;
+    }
+    const mapRect = this.renderer.mapScreenRect();
+    const stageRect = this.mapStage.getBoundingClientRect();
+    this.pointMarker.style.left = `${mapRect.left - stageRect.left + (this.selectedPoint.x / this.map.width) * mapRect.width}px`;
+    this.pointMarker.style.top = `${mapRect.top - stageRect.top + (this.selectedPoint.y / this.map.height) * mapRect.height}px`;
+    this.pointMarker.hidden = false;
   }
 
   private clientToMapPoint(clientX: number, clientY: number): { x: number; y: number } | null {
@@ -248,6 +279,7 @@ export class GameApp {
     if (this.selectedPoint) {
       this.selectedPoint = inspectPoint(message.snapshot, this.selectedPoint.x, this.selectedPoint.y);
       this.pointProbe.render(this.selectedPoint);
+      this.updatePointMarker();
     }
 
     if (this.selectedProbe) {
