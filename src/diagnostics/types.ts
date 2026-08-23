@@ -48,6 +48,8 @@ export interface PointDebugInfo extends Point {
   reserveRed: number;
   incomingBlue: number;
   incomingRed: number;
+  desiredBlue: number;
+  desiredRed: number;
   flowBlue: number;
   flowRed: number;
   accessBlue: number;
