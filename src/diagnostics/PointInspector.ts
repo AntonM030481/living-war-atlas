@@ -1,3 +1,4 @@
+import { CFG } from '../sim/Config';
 import type { SimulationSnapshot } from '../sim/types';
 import { sideAccess } from '../sim/transport';
 import type { PointDebugInfo } from './types';
@@ -40,6 +41,8 @@ export function inspectPoint(snapshot: SimulationSnapshot, x: number, y: number)
   const warRed = snapshot.warRed[index];
   const committedBlue = snapshot.committedBlue[index];
   const committedRed = snapshot.committedRed[index];
+  const reserveBlue = Math.max(0, warBlue - committedBlue);
+  const reserveRed = Math.max(0, warRed - committedRed);
 
   return {
     x,
@@ -52,10 +55,12 @@ export function inspectPoint(snapshot: SimulationSnapshot, x: number, y: number)
     warRed,
     committedBlue,
     committedRed,
-    reserveBlue: Math.max(0, warBlue - committedBlue),
-    reserveRed: Math.max(0, warRed - committedRed),
+    reserveBlue,
+    reserveRed,
     incomingBlue: snapshot.incomingBlue[index],
     incomingRed: snapshot.incomingRed[index],
+    desiredBlue: reserveBlue / Math.max(CFG.dt, 1e-6),
+    desiredRed: reserveRed / Math.max(CFG.dt, 1e-6),
     flowBlue: Math.hypot(snapshot.flowBlueX[index], snapshot.flowBlueY[index]),
     flowRed: Math.hypot(snapshot.flowRedX[index], snapshot.flowRedY[index]),
     accessBlue: sideAccess('blue', control),
