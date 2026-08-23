@@ -8,7 +8,7 @@ export const CFG = {
   potentialDecay: 0.988,
   baseEdgeCapacityPerSecond: 7.0,
   resourceCellCapacity: 1,
-  resourceFrontCellCapacity: 2,
+  resourceFrontCellCapacity: 1,
   resourceCongestionStrength: 0.30,
   resourceFlowResponseSeconds: 3.0,
   frontCommitmentSafety: 1.60,
