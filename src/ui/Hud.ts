@@ -36,7 +36,7 @@ export class Hud {
       </div>
       <div class="action-row">
         <button id="reset" title="Start a new game with a new seed">New game</button>
-        <button id="debug" title="Show city resource diagnostics">Diag</button>
+        <button id="debug" title="Show city force diagnostics">Diag</button>
       </div>
     `;
 
@@ -95,8 +95,8 @@ export class Hud {
   setDiagnostics(enabled: boolean): void {
     this.debugButton.textContent = enabled ? 'Diag on' : 'Diag';
     this.debugButton.title = enabled
-      ? 'Hide flow arrows and city resource diagnostics'
-      : 'Show flow arrows and city resource diagnostics';
+      ? 'Hide flow arrows and city force diagnostics'
+      : 'Show flow arrows and city force diagnostics';
     this.debugButton.classList.toggle('active', enabled);
   }
 
