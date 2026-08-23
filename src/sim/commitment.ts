@@ -6,6 +6,11 @@ function clamp(value: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, value));
 }
 
+function smoothFalloff(distance: number, radius: number): number {
+  const t = clamp(1 - distance / Math.max(radius, EPS), 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
 export interface CommitmentConfig {
   baseProbe: number;
   frontCommitmentSafety: number;
@@ -95,6 +100,12 @@ export function computePairCommitment(
     side.need.fill(0);
   }
 
+  const size = grid.width * grid.height;
+  const firstTargetWeighted = new Float32Array(size);
+  const secondTargetWeighted = new Float32Array(size);
+  const firstTargetWeight = new Float32Array(size);
+  const secondTargetWeight = new Float32Array(size);
+
   const radius = grid.radius;
   for (let y = 0; y < grid.height; y++) {
     for (let x = 0; x < grid.width; x++) {
@@ -133,21 +144,41 @@ export function computePairCommitment(
         config,
       );
 
+      // Spread each front target as a smooth radial field instead of assigning
+      // the strongest nearby target wholesale. The denominator deliberately
+      // uses the unattenuated spatial weight: with one source this reduces to
+      // target * falloff, while overlapping front segments blend continuously.
       for (let dy = -radius; dy <= radius; dy++) {
         const yy = y + dy;
         if (yy < 0 || yy >= grid.height) continue;
         for (let dx = -radius; dx <= radius; dx++) {
           const xx = x + dx;
           if (xx < 0 || xx >= grid.width) continue;
+          const distance = Math.hypot(dx, dy);
+          if (distance > radius) continue;
           const j = yy * grid.width + xx;
+          const weight = 1 / (1 + distance);
+          const falloff = smoothFalloff(distance, radius);
+
           if (firstTarget > 0 && grid.firstAccess(j) > 0.01) {
-            first.commitmentTarget[j] = Math.max(first.commitmentTarget[j], firstTarget);
+            firstTargetWeighted[j] += firstTarget * falloff * weight;
+            firstTargetWeight[j] += weight;
           }
           if (secondTarget > 0 && grid.secondAccess(j) > 0.01) {
-            second.commitmentTarget[j] = Math.max(second.commitmentTarget[j], secondTarget);
+            secondTargetWeighted[j] += secondTarget * falloff * weight;
+            secondTargetWeight[j] += weight;
           }
         }
       }
+    }
+  }
+
+  for (let i = 0; i < size; i++) {
+    if (firstTargetWeight[i] > EPS) {
+      first.commitmentTarget[i] = firstTargetWeighted[i] / firstTargetWeight[i];
+    }
+    if (secondTargetWeight[i] > EPS) {
+      second.commitmentTarget[i] = secondTargetWeighted[i] / secondTargetWeight[i];
     }
   }
 
