@@ -3,6 +3,11 @@ import type { SideFields } from './sides';
 
 const EPS = 1e-6;
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
+const SQRT2 = Math.SQRT2;
+const FLOW_DIRS = [
+  [1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1],
+  [1, 1, SQRT2], [1, -1, SQRT2], [-1, 1, SQRT2], [-1, -1, SQRT2],
+] as const;
 const FRONT_DEMAND_SMOOTHING_PASSES = 4;
 const FRONT_DEMAND_SELF_WEIGHT = 1;
 const POTENTIAL_RELAXATION_PASSES = 80;
@@ -110,6 +115,70 @@ function frontEdgeTransmission(
 ): number {
   if (!grid.isFront(neighbor)) return 0;
   return edgeTransmission(index, neighbor, x, y, dx, dy, grid);
+}
+
+function flowDirectionTransmission(
+  index: number,
+  x: number,
+  y: number,
+  dx: number,
+  dy: number,
+  grid: TransportGrid,
+): number {
+  const nx = x + dx;
+  const ny = y + dy;
+  if (nx < 0 || nx >= grid.width || ny < 0 || ny >= grid.height) return 0;
+  const destination = ny * grid.width + nx;
+
+  if (dx === 0 || dy === 0) {
+    return edgeTransmission(index, destination, x, y, dx, dy, grid);
+  }
+
+  // A diagonal is only available when both orthogonal two-edge paths are
+  // traversable, so diagonal flow cannot cut across an impassable corner.
+  const xMid = y * grid.width + (x + dx);
+  const yMid = (y + dy) * grid.width + x;
+  const pathX = Math.min(
+    edgeTransmission(index, xMid, x, y, dx, 0, grid),
+    edgeTransmission(xMid, destination, x + dx, y, 0, dy, grid),
+  );
+  const pathY = Math.min(
+    edgeTransmission(index, yMid, x, y, 0, dy, grid),
+    edgeTransmission(yMid, destination, x, y + dy, dx, 0, grid),
+  );
+  return Math.min(pathX, pathY);
+}
+
+function gradientComponent(
+  potential: Float32Array,
+  index: number,
+  x: number,
+  y: number,
+  dx: number,
+  dy: number,
+  grid: TransportGrid,
+): number {
+  const px = x + dx;
+  const py = y + dy;
+  const mx = x - dx;
+  const my = y - dy;
+
+  let plus: number | null = null;
+  let minus: number | null = null;
+
+  if (px >= 0 && px < grid.width && py >= 0 && py < grid.height) {
+    const j = py * grid.width + px;
+    if (edgeTransmission(index, j, x, y, dx, dy, grid) > EPS) plus = potential[j];
+  }
+  if (mx >= 0 && mx < grid.width && my >= 0 && my < grid.height) {
+    const j = my * grid.width + mx;
+    if (edgeTransmission(index, j, x, y, -dx, -dy, grid) > EPS) minus = potential[j];
+  }
+
+  if (plus !== null && minus !== null) return (plus - minus) * 0.5;
+  if (plus !== null) return plus - potential[index];
+  if (minus !== null) return potential[index] - minus;
+  return 0;
 }
 
 /**
@@ -262,9 +331,9 @@ export function transportResource(
   const proposals: TransferProposal[] = [];
   const proposedIncoming = new Float32Array(war.length);
 
-  // Phase 1: move reserve only uphill in the smooth strategic potential. The
-  // potential itself bends around obstacles, so transport no longer needs the
-  // old downhill detour allowance that caused resource to diffuse backwards.
+  // Phase 1: derive one continuous local gradient, then project that direction
+  // onto traversable grid edges. Diagonals reduce grid anisotropy but pay their
+  // geometric sqrt(2) distance cost and cannot cut impassable corners.
   for (let y = 0; y < grid.height; y++) {
     for (let x = 0; x < grid.width; x++) {
       const i = y * grid.width + x;
@@ -277,45 +346,56 @@ export function transportResource(
         continue;
       }
 
+      const gradientX = gradientComponent(potential, i, x, y, 1, 0, grid);
+      const gradientY = gradientComponent(potential, i, x, y, 0, 1, grid);
+      const gradientMagnitude = Math.hypot(gradientX, gradientY);
+      if (gradientMagnitude <= EPS) {
+        flow.x[i] += (0 - flow.x[i]) * response;
+        flow.y[i] += (0 - flow.y[i]) * response;
+        continue;
+      }
+      const directionX = gradientX / gradientMagnitude;
+      const directionY = gradientY / gradientMagnitude;
+
       let routeWeightSum = 0;
       const candidates: Array<{
         j: number;
         dx: number;
         dy: number;
+        distance: number;
         capacity: number;
         routeWeight: number;
       }> = [];
 
-      for (const [dx, dy] of DIRS) {
+      for (const [dx, dy, distance] of FLOW_DIRS) {
         const nx = x + dx;
         const ny = y + dy;
         if (nx < 0 || nx >= grid.width || ny < 0 || ny >= grid.height) continue;
         const j = ny * grid.width + nx;
-        const neighborAccess = grid.access(j);
-        if (neighborAccess <= 0.01) continue;
 
-        const potentialDelta = potential[j] - potential[i];
-        if (potentialDelta <= EPS) continue;
+        // Project the continuous direction onto this edge's unit vector.
+        const projection = (directionX * dx + directionY * dy) / distance;
+        if (projection <= EPS) continue;
 
-        const conductivity = Math.min(access, neighborAccess);
-        const terrainCap = Math.min(grid.terrainCapacity[i], grid.terrainCapacity[j]);
-        const crossing = grid.edgeFactor(x, y, dx, dy);
-        const routeTransmission = terrainCap * crossing * conductivity;
-        if (routeTransmission <= 0) continue;
+        const routeTransmission = flowDirectionTransmission(i, x, y, dx, dy, grid);
+        if (routeTransmission <= EPS) continue;
 
         const congestion = Math.min(
           congestionTransmission(i, war, grid, config),
           congestionTransmission(j, war, grid, config),
         );
+        // A diagonal edge spans sqrt(2) cells, so both throughput and routing
+        // preference are reduced by the geometric distance factor.
+        const distanceFactor = 1 / distance;
         const capacity = config.baseEdgeCapacityPerSecond * routeTransmission *
-          congestion * config.dt;
-        if (capacity <= 0) continue;
+          congestion * config.dt * distanceFactor;
+        if (capacity <= EPS) continue;
 
-        const routeWeight = potentialDelta * routeTransmission;
+        const routeWeight = projection * routeTransmission * distanceFactor;
         if (routeWeight <= EPS) continue;
 
         routeWeightSum += routeWeight;
-        candidates.push({ j, dx, dy, capacity, routeWeight });
+        candidates.push({ j, dx, dy, distance, capacity, routeWeight });
       }
 
       if (routeWeightSum <= EPS || candidates.length === 0) {
@@ -329,8 +409,8 @@ export function transportResource(
       let targetFlowY = 0;
       for (const candidate of candidates) {
         const share = candidate.routeWeight / routeWeightSum;
-        targetFlowX += desiredRate * share * candidate.dx;
-        targetFlowY += desiredRate * share * candidate.dy;
+        targetFlowX += desiredRate * share * candidate.dx / candidate.distance;
+        targetFlowY += desiredRate * share * candidate.dy / candidate.distance;
       }
 
       flow.x[i] += (targetFlowX - flow.x[i]) * response;
