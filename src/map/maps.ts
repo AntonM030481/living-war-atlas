@@ -1,0 +1,39 @@
+import type { MapDefinition, MapId } from '../sim/types';
+import { linearMap } from './linearMap';
+import { testMap } from './testMap';
+
+export interface MapOption {
+  id: MapId;
+  name: string;
+  description: string;
+  map: MapDefinition;
+}
+
+export const MAP_OPTIONS: readonly MapOption[] = [
+  {
+    id: 'theatre',
+    name: 'Theatre',
+    description: 'Full test theatre with 10 cities, river and forests.',
+    map: testMap,
+  },
+  {
+    id: 'linear',
+    name: 'Linear test',
+    description: 'Fast 256×24 map with 2 cities and no obstacles.',
+    map: linearMap,
+  },
+];
+
+export function isMapId(value: string): value is MapId {
+  return MAP_OPTIONS.some((option) => option.id === value);
+}
+
+export function getMapOption(id: MapId): MapOption {
+  const option = MAP_OPTIONS.find((candidate) => candidate.id === id);
+  if (!option) throw new Error(`Unknown map: ${id}`);
+  return option;
+}
+
+export function getMapDefinition(id: MapId): MapDefinition {
+  return getMapOption(id).map;
+}

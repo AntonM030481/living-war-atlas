@@ -1,6 +1,6 @@
 import { Application } from 'pixi.js';
 import { SPEEDS, type Speed } from '../sim/Config';
-import type { HistoryInfo, MapDefinition, SimulationSnapshot, WorkerOutMessage } from '../sim/types';
+import type { HistoryInfo, MapDefinition, MapId, SimulationSnapshot, WorkerOutMessage } from '../sim/types';
 import { AtlasRenderer } from '../rendering/AtlasRenderer';
 import { buildCityDiagnostics } from '../diagnostics/CityDiagnostics';
 import { inspectPoint } from '../diagnostics/PointInspector';
@@ -38,7 +38,12 @@ export class GameApp {
   private lastCityFlipAt = 0;
   private lastCityFlipId: string | null = null;
 
-  constructor(private readonly root: HTMLDivElement, private readonly map: MapDefinition) {}
+  constructor(
+    private readonly root: HTMLDivElement,
+    private readonly mapId: MapId,
+    private readonly map: MapDefinition,
+    private readonly chooseNewMap: (currentMapId: MapId) => Promise<MapId | null>,
+  ) {}
 
   async start(): Promise<void> {
     this.mapStage.className = 'map-stage';
@@ -55,7 +60,7 @@ export class GameApp {
     this.attachResizeHandling();
     this.attachInput();
     this.simulation.onMessage((message) => this.handleWorkerMessage(message));
-    this.simulation.start(this.currentSeed);
+    this.simulation.start(this.mapId, this.currentSeed);
     this.simulation.setSpeed(this.speed);
   }
 
@@ -77,7 +82,7 @@ export class GameApp {
       onSpeed: (speed) => this.setSpeed(speed),
       onPauseToggle: () => this.setPaused(!this.paused),
       onHistoryStep: (delta) => this.stepHistory(delta),
-      onReset: () => this.reset(),
+      onReset: () => void this.reset(),
       onDiagnosticsToggle: () => this.setDiagnostics(!this.diagnosticsEnabled),
     });
     this.pointProbe = new PointProbe();
@@ -160,14 +165,23 @@ export class GameApp {
     this.setSpeed(SPEEDS[nextIndex]);
   }
 
-  private reset(): void {
+  private async reset(): Promise<void> {
     this.setPaused(true);
-    const confirmed = window.confirm('Start a new game? This clears the current rewind history.');
-    if (confirmed) {
-      this.currentSeed = (this.currentSeed + 104729) >>> 0;
-      this.hud.setStatus(`seed ${this.currentSeed} · starting…`);
-      this.simulation.reset(this.currentSeed);
+    const nextMapId = await this.chooseNewMap(this.mapId);
+    if (!nextMapId) {
+      this.setPaused(false);
+      return;
     }
+
+    if (nextMapId !== this.mapId) {
+      sessionStorage.setItem('living-war-atlas:new-game-map', nextMapId);
+      window.location.reload();
+      return;
+    }
+
+    this.currentSeed = (this.currentSeed + 104729) >>> 0;
+    this.hud.setStatus(`seed ${this.currentSeed} · starting…`);
+    this.simulation.reset(this.mapId, this.currentSeed);
     this.setPaused(false);
   }
 

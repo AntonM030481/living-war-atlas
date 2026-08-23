@@ -1,5 +1,7 @@
 import type { Side, Speed } from './Config';
 
+export type MapId = 'theatre' | 'linear';
+
 export interface City {
   id: string;
   name: string;
@@ -102,15 +104,15 @@ export interface HistoryInfo {
 }
 
 export type WorkerInMessage =
-  | { type: 'start'; seed: number }
+  | { type: 'start'; seed: number; mapId: MapId }
   | { type: 'speed'; speed: Speed }
-  | { type: 'reset'; seed: number }
+  | { type: 'reset'; seed: number; mapId: MapId }
   | { type: 'toggleCity'; cityId: string }
   | { type: 'flipCityOwner'; cityId: string }
   | { type: 'pause'; paused: boolean }
   | { type: 'historyStep'; delta: -1 | 1 };
 
 export type WorkerOutMessage =
-  | { type: 'ready'; seed: number }
+  | { type: 'ready'; seed: number; mapId: MapId }
   | { type: 'snapshot'; snapshot: SimulationSnapshot; history: HistoryInfo }
   | { type: 'stats'; fps: number };

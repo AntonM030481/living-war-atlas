@@ -3,8 +3,8 @@
 import type { Speed } from '../sim/Config';
 import { forceCityEnclave } from '../sim/DebugActions';
 import { Simulation } from '../sim/Simulation';
-import type { WorkerInMessage, WorkerOutMessage } from '../sim/types';
-import { testMap } from '../map/testMap';
+import type { MapDefinition, MapId, SimulationState, WorkerInMessage, WorkerOutMessage } from '../sim/types';
+import { getMapDefinition } from '../map/maps';
 import { HistoryManager } from './HistoryManager';
 import { HistoryStorage } from './HistoryStorage';
 
@@ -12,6 +12,7 @@ let sim: Simulation | null = null;
 let speed: Speed = 1;
 let paused = false;
 let seed = 1;
+let mapId: MapId = 'theatre';
 let timer: ReturnType<typeof setInterval> | null = null;
 let launchToken = 0;
 
@@ -31,21 +32,30 @@ function saveHistoryCheckpoint(force = false): void {
   history.checkpoint(sim.saveState(), seed, force);
 }
 
-async function createSimulation(nextSeed: number, loadSavedState: boolean): Promise<void> {
+function isStateCompatible(state: SimulationState, map: MapDefinition): boolean {
+  return state.width === map.width
+    && state.height === map.height
+    && state.cities.length === map.cities.length
+    && state.cities.every((city, index) => city.id === map.cities[index]?.id);
+}
+
+async function createSimulation(nextMapId: MapId, nextSeed: number, loadSavedState: boolean): Promise<void> {
   const token = ++launchToken;
   const fallbackSeed = nextSeed >>> 0 || 1;
+  const map = getMapDefinition(nextMapId);
+  mapId = nextMapId;
 
   if (loadSavedState) {
     try {
       const persisted = await history.load();
       if (token !== launchToken) return;
       const savedState = history.currentState();
-      if (persisted && savedState) {
+      if (persisted && savedState && isStateCompatible(savedState, map)) {
         seed = persisted.seed >>> 0 || fallbackSeed;
-        sim = new Simulation(testMap, seed);
+        sim = new Simulation(map, seed);
         sim.restoreState(savedState);
         if (persisted.nextHistoryTime <= sim.gameTime) history.scheduleNext(sim.gameTime);
-        post({ type: 'ready', seed });
+        post({ type: 'ready', seed, mapId });
         postSnapshot();
         return;
       }
@@ -57,10 +67,10 @@ async function createSimulation(nextSeed: number, loadSavedState: boolean): Prom
 
   if (token !== launchToken) return;
   seed = fallbackSeed;
-  sim = new Simulation(testMap, seed);
+  sim = new Simulation(map, seed);
   history.reset(sim.gameTime);
   saveHistoryCheckpoint(true);
-  post({ type: 'ready', seed });
+  post({ type: 'ready', seed, mapId });
   postSnapshot();
 }
 
@@ -80,14 +90,14 @@ self.onmessage = (event: MessageEvent<WorkerInMessage>) => {
   const message = event.data;
   switch (message.type) {
     case 'start':
-      void createSimulation(message.seed, true);
+      void createSimulation(message.mapId, message.seed, true);
       ensureLoop();
       break;
     case 'speed':
       speed = message.speed;
       break;
     case 'reset':
-      void createSimulation(message.seed, false);
+      void createSimulation(message.mapId, message.seed, false);
       break;
     case 'toggleCity':
       sim?.toggleCityEnabled(message.cityId);

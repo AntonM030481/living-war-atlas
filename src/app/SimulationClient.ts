@@ -1,5 +1,5 @@
 import type { Speed } from '../sim/Config';
-import type { WorkerInMessage, WorkerOutMessage } from '../sim/types';
+import type { MapId, WorkerInMessage, WorkerOutMessage } from '../sim/types';
 
 export class SimulationClient {
   private readonly worker = new Worker(new URL('../worker/simulation.worker.ts', import.meta.url), { type: 'module' });
@@ -8,8 +8,8 @@ export class SimulationClient {
     this.worker.onmessage = (event: MessageEvent<WorkerOutMessage>) => handler(event.data);
   }
 
-  start(seed: number): void {
-    this.send({ type: 'start', seed });
+  start(mapId: MapId, seed: number): void {
+    this.send({ type: 'start', mapId, seed });
   }
 
   setSpeed(speed: Speed): void {
@@ -20,8 +20,8 @@ export class SimulationClient {
     this.send({ type: 'pause', paused });
   }
 
-  reset(seed: number): void {
-    this.send({ type: 'reset', seed });
+  reset(mapId: MapId, seed: number): void {
+    this.send({ type: 'reset', mapId, seed });
   }
 
   toggleCity(cityId: string): void {
