@@ -1,3 +1,5 @@
+export const RESOURCE_EPS = 1e-4;
+
 export const CFG = {
   spatialScale: 2,
   width: 256,
