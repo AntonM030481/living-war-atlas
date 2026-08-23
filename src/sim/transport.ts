@@ -25,11 +25,7 @@ export interface TransportConfig {
   resourceMoveFraction: number;
   resourceCellCapacity: number;
   resourceFrontCellCapacity: number;
-  resourceRearTargetUtilization: number;
-  resourceFrontTargetUtilization: number;
-  resourceTargetDensityExponent: number;
-  resourceDestinationDeficitBias: number;
-  resourceBelowTargetMoveFactor: number;
+  resourceCongestionStrength: number;
 }
 
 export interface TransportGrid {
@@ -123,12 +119,6 @@ export function rebuildPotential(
   }
 }
 
-function targetUtilization(normalizedPotential: number, config: TransportConfig): number {
-  const t = Math.pow(Math.max(0, Math.min(1, normalizedPotential)), config.resourceTargetDensityExponent);
-  return config.resourceRearTargetUtilization +
-    (config.resourceFrontTargetUtilization - config.resourceRearTargetUtilization) * t;
-}
-
 function cellCapacity(index: number, grid: TransportGrid, config: TransportConfig): number {
   return grid.isFront(index) ? config.resourceFrontCellCapacity : config.resourceCellCapacity;
 }
@@ -144,29 +134,20 @@ export function transportResource(
   flow.x.fill(0);
   flow.y.fill(0);
 
-  let maxPotential = 0;
-  for (let i = 0; i < potential.length; i++) maxPotential = Math.max(maxPotential, potential[i]);
-  const potentialScale = maxPotential > EPS ? 1 / maxPotential : 0;
-
   for (let y = 0; y < grid.height; y++) {
     for (let x = 0; x < grid.width; x++) {
       const i = y * grid.width + x;
+      const reserve = Math.max(0, war[i] - committed[i]);
+      if (reserve <= 0.0001) continue;
       const access = grid.access(i);
       if (access <= 0.01) continue;
 
-      const reserve = Math.max(0, war[i] - committed[i]);
-      if (reserve <= 0.0001) continue;
-
       const sourceCapacity = cellCapacity(i, grid, config);
-      const sourceTarget = sourceCapacity * targetUtilization(potential[i] * potentialScale, config);
-      const sourceUtilization = war[i] / Math.max(sourceTarget, EPS);
-      const sourceMoveFactor = sourceUtilization >= 1
-        ? 1
-        : config.resourceBelowTargetMoveFactor +
-          (1 - config.resourceBelowTargetMoveFactor) * sourceUtilization;
+      const utilization = Math.max(0, Math.min(1, war[i] / Math.max(sourceCapacity, EPS)));
+      const moveFactor = 1 - config.resourceCongestionStrength * utilization;
 
-      let weightSum = 0;
-      const candidates: Array<{ j: number; dx: number; dy: number; weight: number; capacity: number }> = [];
+      let gradientSum = 0;
+      const candidates: Array<{ j: number; dx: number; dy: number; gradient: number; capacity: number }> = [];
       for (const [dx, dy] of DIRS) {
         const nx = x + dx;
         const ny = y + dy;
@@ -177,31 +158,20 @@ export function transportResource(
         const gradient = potential[j] - potential[i];
         if (gradient <= 1e-5) continue;
 
-        const projectedDestination = Math.max(committed[j], war[j] + delta[j]);
-        const destinationCapacity = cellCapacity(j, grid, config);
-        const destinationTarget = destinationCapacity *
-          targetUtilization(potential[j] * potentialScale, config);
-        const targetDeficit = Math.max(0, destinationTarget - projectedDestination) /
-          Math.max(destinationCapacity, EPS);
-        const deficitWeight = (1 - config.resourceDestinationDeficitBias) +
-          config.resourceDestinationDeficitBias * Math.min(1, targetDeficit);
-        const weight = gradient * deficitWeight;
-        if (weight <= 0) continue;
-
         const conductivity = Math.min(access, neighborAccess);
         const terrainCap = Math.min(grid.terrainCapacity[i], grid.terrainCapacity[j]);
         const crossing = grid.edgeFactor(x, y, dx, dy);
         const capacity = config.baseEdgeCapacityPerSecond * terrainCap * crossing * conductivity * config.dt;
         if (capacity <= 0) continue;
-        weightSum += weight;
-        candidates.push({ j, dx, dy, weight, capacity });
+        gradientSum += gradient;
+        candidates.push({ j, dx, dy, gradient, capacity });
       }
 
-      if (weightSum <= 0 || candidates.length === 0) continue;
-      const movable = reserve * config.resourceMoveFraction * sourceMoveFactor;
+      if (gradientSum <= 0 || candidates.length === 0) continue;
+      const movable = reserve * config.resourceMoveFraction * moveFactor;
       let sent = 0;
       for (const candidate of candidates) {
-        const desired = movable * (candidate.weight / weightSum);
+        const desired = movable * (candidate.gradient / gradientSum);
         const projectedDestination = Math.max(
           committed[candidate.j],
           war[candidate.j] + delta[candidate.j],
