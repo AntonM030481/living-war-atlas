@@ -126,6 +126,8 @@ export class Simulation {
       committedRed: red.committed.slice(),
       instabilityBlue: blue.instability.slice(),
       instabilityRed: red.instability.slice(),
+      potentialBlue: blue.potential.slice(),
+      potentialRed: red.potential.slice(),
       frontMassBlue: blue.mass.slice(),
       frontMassRed: red.mass.slice(),
       incomingBlue: blue.incoming.slice(),
