@@ -262,8 +262,9 @@ export function transportResource(
   const proposals: TransferProposal[] = [];
   const proposedIncoming = new Float32Array(war.length);
 
-  // Phase 1: choose direction from strategic potential/terrain only. Flow is a
-  // smoothed diagnostic of that choice and does not affect routing or throughput.
+  // Phase 1: move reserve only uphill in the smooth strategic potential. The
+  // potential itself bends around obstacles, so transport no longer needs the
+  // old downhill detour allowance that caused resource to diffuse backwards.
   for (let y = 0; y < grid.height; y++) {
     for (let x = 0; x < grid.width; x++) {
       const i = y * grid.width + x;
@@ -276,7 +277,6 @@ export function transportResource(
         continue;
       }
 
-      const detourDrop = Math.max(1e-5, potential[i] * (1 - config.potentialDecay) * 1.25);
       let routeWeightSum = 0;
       const candidates: Array<{
         j: number;
@@ -295,7 +295,7 @@ export function transportResource(
         if (neighborAccess <= 0.01) continue;
 
         const potentialDelta = potential[j] - potential[i];
-        if (potentialDelta < -detourDrop) continue;
+        if (potentialDelta <= EPS) continue;
 
         const conductivity = Math.min(access, neighborAccess);
         const terrainCap = Math.min(grid.terrainCapacity[i], grid.terrainCapacity[j]);
@@ -311,8 +311,7 @@ export function transportResource(
           congestion * config.dt;
         if (capacity <= 0) continue;
 
-        const progressWeight = Math.max(0.05 * detourDrop, potentialDelta + detourDrop);
-        const routeWeight = progressWeight * routeTransmission;
+        const routeWeight = potentialDelta * routeTransmission;
         if (routeWeight <= EPS) continue;
 
         routeWeightSum += routeWeight;
