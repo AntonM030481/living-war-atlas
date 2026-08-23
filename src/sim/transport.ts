@@ -158,8 +158,18 @@ export function transportResource(
         continue;
       }
 
-      let gradientSum = 0;
-      const candidates: Array<{ j: number; dx: number; dy: number; gradient: number; capacity: number }> = [];
+      const currentFlowMagnitude = Math.hypot(flow.x[i], flow.y[i]);
+      const detourDrop = Math.max(1e-5, potential[i] * (1 - config.potentialDecay) * 1.25);
+      let routeWeightSum = 0;
+      const candidates: Array<{
+        j: number;
+        dx: number;
+        dy: number;
+        capacity: number;
+        freeCapacity: number;
+        routeWeight: number;
+      }> = [];
+
       for (const [dx, dy] of DIRS) {
         const nx = x + dx;
         const ny = y + dy;
@@ -167,8 +177,9 @@ export function transportResource(
         const j = ny * grid.width + nx;
         const neighborAccess = grid.access(j);
         if (neighborAccess <= 0.01) continue;
-        const gradient = potential[j] - potential[i];
-        if (gradient <= 1e-5) continue;
+
+        const potentialDelta = potential[j] - potential[i];
+        if (potentialDelta < -detourDrop) continue;
 
         const conductivity = Math.min(access, neighborAccess);
         const terrainCap = Math.min(grid.terrainCapacity[i], grid.terrainCapacity[j]);
@@ -180,11 +191,29 @@ export function transportResource(
         const capacity = config.baseEdgeCapacityPerSecond * terrainCap * crossing *
           conductivity * congestion * config.dt;
         if (capacity <= 0) continue;
-        gradientSum += gradient;
-        candidates.push({ j, dx, dy, gradient, capacity });
+
+        const projectedDestination = Math.max(
+          committed[j],
+          war[j] + delta[j],
+        );
+        const destinationCapacity = cellCapacity(j, grid, config);
+        const freeCapacity = Math.max(0, destinationCapacity - projectedDestination);
+        if (freeCapacity <= EPS) continue;
+
+        const progressWeight = Math.max(0.05 * detourDrop, potentialDelta + detourDrop);
+        let directionBias = 1;
+        if (currentFlowMagnitude > EPS) {
+          const alignment = (flow.x[i] * dx + flow.y[i] * dy) / currentFlowMagnitude;
+          directionBias = Math.max(0.05, 1 + alignment);
+        }
+        const routeWeight = progressWeight * capacity * freeCapacity * directionBias;
+        if (routeWeight <= EPS) continue;
+
+        routeWeightSum += routeWeight;
+        candidates.push({ j, dx, dy, capacity, freeCapacity, routeWeight });
       }
 
-      if (gradientSum <= 0 || candidates.length === 0) {
+      if (routeWeightSum <= EPS || candidates.length === 0) {
         flow.x[i] += (0 - flow.x[i]) * response;
         flow.y[i] += (0 - flow.y[i]) * response;
         continue;
@@ -195,7 +224,7 @@ export function transportResource(
       let targetFlowX = 0;
       let targetFlowY = 0;
       for (const candidate of candidates) {
-        const share = candidate.gradient / gradientSum;
+        const share = candidate.routeWeight / routeWeightSum;
         targetFlowX += desiredRate * share * candidate.dx;
         targetFlowY += desiredRate * share * candidate.dy;
       }
@@ -203,20 +232,17 @@ export function transportResource(
       flow.x[i] += (targetFlowX - flow.x[i]) * response;
       flow.y[i] += (targetFlowY - flow.y[i]) * response;
 
-      let momentumSum = 0;
-      const momentumWeights: number[] = [];
-      for (const candidate of candidates) {
-        const weight = Math.max(0, flow.x[i] * candidate.dx + flow.y[i] * candidate.dy);
-        momentumWeights.push(weight);
-        momentumSum += weight;
-      }
-      if (momentumSum <= EPS) continue;
-
-      const inertialMovable = Math.min(movable, Math.hypot(flow.x[i], flow.y[i]) * config.dt);
+      const inertialMovable = Math.min(movable, Math.max(
+        Math.hypot(flow.x[i], flow.y[i]) * config.dt,
+        movable * response,
+      ));
       let sent = 0;
-      for (let c = 0; c < candidates.length; c++) {
-        const candidate = candidates[c];
-        const desired = inertialMovable * (momentumWeights[c] / momentumSum);
+      let remainingWeight = routeWeightSum;
+      for (const candidate of candidates) {
+        if (remainingWeight <= EPS || sent >= reserve - EPS) break;
+        const desired = (inertialMovable - sent) * (candidate.routeWeight / remainingWeight);
+        remainingWeight -= candidate.routeWeight;
+
         const projectedDestination = Math.max(
           committed[candidate.j],
           war[candidate.j] + delta[candidate.j],
@@ -229,7 +255,6 @@ export function transportResource(
         delta[candidate.j] += moved;
         incoming[candidate.j] += moved / config.dt;
         sent += moved;
-        if (sent >= reserve - EPS) break;
       }
     }
   }
