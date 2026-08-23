@@ -5,6 +5,7 @@ import { AtlasRenderer } from '../rendering/AtlasRenderer';
 import { buildCityDiagnostics } from '../diagnostics/CityDiagnostics';
 import { inspectPoint } from '../diagnostics/PointInspector';
 import type { FrontDebugInfo, PointDebugInfo } from '../diagnostics/types';
+import { getMapOption } from '../map/maps';
 import { CityOverlays } from '../ui/CityOverlays';
 import { DiagnosticsPanel } from '../ui/DiagnosticsPanel';
 import { FrontProbe } from '../ui/FrontProbe';
@@ -78,7 +79,7 @@ export class GameApp {
   }
 
   private createUi(): void {
-    this.hud = new Hud(this.speed, {
+    this.hud = new Hud(getMapOption(this.mapId).name, this.speed, {
       onSpeed: (speed) => this.setSpeed(speed),
       onPauseToggle: () => this.setPaused(!this.paused),
       onHistoryStep: (delta) => this.stepHistory(delta),
