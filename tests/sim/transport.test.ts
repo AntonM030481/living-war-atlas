@@ -10,6 +10,7 @@ const config = {
   resourceCellCapacity: 12,
   resourceFrontCellCapacity: 24,
   resourceCongestionStrength: 0.70,
+  resourceFlowResponseSeconds: 3.0,
 };
 
 describe('transport', () => {
@@ -129,6 +130,28 @@ describe('transport', () => {
     expect(side.potential[2]).toBeGreaterThan(side.potential[1]);
     transportResource(side, grid, { ...config, baseEdgeCapacityPerSecond: 1000 });
     expect(side.war[2]).toBeGreaterThan(0);
+  });
+
+  it('changes flow direction gradually when the preferred route changes', () => {
+    const side = createSideFields(4);
+    side.war[0] = 6;
+    side.flow.x[0] = 1;
+    side.potential.set([1, 0, 2, 0]);
+
+    const grid = {
+      width: 2,
+      height: 2,
+      terrainMobility: new Float32Array([1, 1, 1, 1]),
+      terrainCapacity: new Float32Array([1, 1, 1, 1]),
+      isFront: () => false,
+      access: () => 1,
+      edgeFactor: () => 1,
+    };
+
+    transportResource(side, grid, { ...config, baseEdgeCapacityPerSecond: 1000 });
+
+    expect(side.flow.x[0]).toBeGreaterThan(0);
+    expect(side.flow.y[0]).toBeGreaterThan(0);
   });
 
   it('propagates potential through a long connected region', () => {
