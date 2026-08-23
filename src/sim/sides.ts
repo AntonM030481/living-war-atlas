@@ -13,6 +13,7 @@ export interface SideFields {
   commitmentTarget: Float32Array;
   availableMass: Float32Array;
   incoming: Float32Array;
+  outgoing: Float32Array;
   delta: Float32Array;
   drain: Float32Array;
   advanceDebug: Float32Array;
@@ -37,6 +38,7 @@ export function createSideFields(size: number): SideFields {
     commitmentTarget: new Float32Array(size),
     availableMass: new Float32Array(size),
     incoming: new Float32Array(size),
+    outgoing: new Float32Array(size),
     delta: new Float32Array(size),
     drain: new Float32Array(size),
     advanceDebug: new Float32Array(size),
