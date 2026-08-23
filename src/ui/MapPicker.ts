@@ -38,7 +38,9 @@ export function chooseMap(currentMapId: MapId, allowCancel: boolean): Promise<Ma
       resolve(mapId);
     };
 
-    const optionButtons = [...dialog.querySelectorAll<HTMLButtonElement>('[data-map-id]')];
+    const optionButtons = Array.from(
+      dialog.querySelectorAll<HTMLButtonElement>('[data-map-id]'),
+    );
     const selectMap = (mapId: MapId) => {
       selectedMapId = mapId;
       optionButtons.forEach((button) => {
