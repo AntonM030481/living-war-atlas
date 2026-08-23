@@ -52,11 +52,12 @@ export interface PointDebugInfo extends Point {
   flowRed: number;
   accessBlue: number;
   accessRed: number;
-  cellCapacity: number;
-  freeCapacityBlue: number;
-  freeCapacityRed: number;
-  utilizationBlue: number;
-  utilizationRed: number;
+  potentialBlue: number;
+  potentialRed: number;
+  gradientBlueX: number;
+  gradientBlueY: number;
+  gradientRedX: number;
+  gradientRedY: number;
   instabilityBlue: number;
   instabilityRed: number;
   terrainDefense: number;
