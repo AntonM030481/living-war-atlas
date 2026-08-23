@@ -66,31 +66,6 @@ function freeCapacity(
   );
 }
 
-function localAvailableCapacity(
-  index: number,
-  war: Float32Array,
-  committed: Float32Array,
-  grid: TransportGrid,
-  config: TransportConfig,
-): number {
-  const x = index % grid.width;
-  const y = Math.floor(index / grid.width);
-  let total = freeCapacity(index, war, committed, grid, config);
-  let count = 1;
-
-  for (const [dx, dy] of DIRS) {
-    const nx = x + dx;
-    const ny = y + dy;
-    if (nx < 0 || nx >= grid.width || ny < 0 || ny >= grid.height) continue;
-    const j = ny * grid.width + nx;
-    if (grid.access(j) <= 0.01) continue;
-    total += freeCapacity(j, war, committed, grid, config);
-    count += 1;
-  }
-
-  return total / count;
-}
-
 export function rebuildPotential(
   fields: Pick<SideFields, 'need' | 'potential' | 'war'>,
   grid: TransportGrid,
@@ -192,7 +167,8 @@ export function transportResource(
   const proposals: TransferProposal[] = [];
   const proposedIncoming = new Float32Array(war.length);
 
-  // Phase 1: build transfer proposals from the immutable state at the start of the tick.
+  // Phase 1: choose direction from strategic potential/terrain only. Local
+  // occupancy limits throughput, but does not attract flow into emptier lanes.
   for (let y = 0; y < grid.height; y++) {
     for (let x = 0; x < grid.width; x++) {
       const i = y * grid.width + x;
@@ -230,19 +206,16 @@ export function transportResource(
         const conductivity = Math.min(access, neighborAccess);
         const terrainCap = Math.min(grid.terrainCapacity[i], grid.terrainCapacity[j]);
         const crossing = grid.edgeFactor(x, y, dx, dy);
+        const routeTransmission = terrainCap * crossing * conductivity;
+        if (routeTransmission <= 0) continue;
+
         const congestion = Math.min(
           congestionTransmission(i, war, grid, config),
           congestionTransmission(j, war, grid, config),
         );
-        const capacity = config.baseEdgeCapacityPerSecond * terrainCap * crossing *
-          conductivity * congestion * config.dt;
+        const capacity = config.baseEdgeCapacityPerSecond * routeTransmission *
+          congestion * config.dt;
         if (capacity <= 0) continue;
-
-        const destinationFreeCapacity = freeCapacity(j, war, committed, grid, config);
-        if (destinationFreeCapacity <= EPS) continue;
-
-        const neighborhoodCapacity = localAvailableCapacity(j, war, committed, grid, config);
-        if (neighborhoodCapacity <= EPS) continue;
 
         const progressWeight = Math.max(0.05 * detourDrop, potentialDelta + detourDrop);
         let directionBias = 1;
@@ -250,8 +223,7 @@ export function transportResource(
           const alignment = (flow.x[i] * dx + flow.y[i] * dy) / currentFlowMagnitude;
           directionBias = Math.max(0.05, 1 + alignment);
         }
-        const routeWeight = progressWeight * capacity * destinationFreeCapacity *
-          neighborhoodCapacity * directionBias;
+        const routeWeight = progressWeight * routeTransmission * directionBias;
         if (routeWeight <= EPS) continue;
 
         routeWeightSum += routeWeight;
@@ -291,8 +263,8 @@ export function transportResource(
     }
   }
 
-  // Phase 2: destinations accept all proposals simultaneously, scaled only by
-  // their free capacity. No source can benefit from array traversal order.
+  // Phase 2: destinations accept proposals simultaneously. Cell free capacity
+  // constrains accepted mass here, rather than feeding back into route choice.
   for (const proposal of proposals) {
     const destinationFreeCapacity = freeCapacity(
       proposal.destination,
