@@ -8,16 +8,16 @@ const HELP: Record<string, string> = {
   'x,y': 'World coordinates of the inspected front point.',
   radius: 'Sampling radius.',
   'avg control': 'Average local control; +1 is Blue, -1 is Red.',
-  'avg war': 'Average war resource near the front.',
+  'avg force': 'Average force near the front.',
   'avg mass': 'Average committed front mass.',
-  'avg incoming': 'Average incoming resource.',
-  'avg drain': 'Average resource drain from combat and pressure.',
+  'avg incoming': 'Average incoming force.',
+  'avg drain': 'Average force drain from combat and pressure.',
   'advance raw': 'Unclamped advance tendency.',
   'stress raw': 'Raw instability/stress.',
   'avg instab': 'Average accumulated front instability.',
-  'avg flow': 'Average resource flow.',
-  'sum war': 'Total war resource.',
-  'sum drain': 'Total resource drain.',
+  'avg flow': 'Average force flow.',
+  'sum force': 'Total force.',
+  'sum drain': 'Total force drain.',
   'avg raw force': 'Net front movement force before clamping.',
   'avg clamped force': 'Net front movement force after clamping.',
   'avg pressure': 'Local pressure driving front movement.',
@@ -47,7 +47,7 @@ export class FrontProbe {
     }
 
     const splitRows = [
-      ['avg war', info.warBlue, info.warRed],
+      ['avg force', info.warBlue, info.warRed],
       ['avg mass', info.frontMassBlue, info.frontMassRed],
       ['avg incoming', info.incomingBlue, info.incomingRed],
       ['avg drain', info.drainBlue, info.drainRed],
@@ -55,7 +55,7 @@ export class FrontProbe {
       ['stress raw', info.stressBlue, info.stressRed],
       ['avg instab', info.instabilityBlue, info.instabilityRed],
       ['avg flow', info.flowBlue, info.flowRed],
-      ['sum war', info.localWarBlue, info.localWarRed],
+      ['sum force', info.localWarBlue, info.localWarRed],
       ['sum drain', info.localDrainBlue, info.localDrainRed],
     ] as const;
 
