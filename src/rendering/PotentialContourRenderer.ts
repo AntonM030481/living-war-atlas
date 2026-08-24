@@ -5,6 +5,10 @@ const BLUE_DARK = 0x164f91;
 const RED_DARK = 0xb12620;
 const CONTOUR_LEVELS = 10;
 const MIN_LEVEL_FRACTION = 0.08;
+const GRADIENT_STRIDE = 8;
+const GRADIENT_ARROW_LENGTH = 2.2;
+const GRADIENT_ARROW_HEAD = 0.55;
+const GRADIENT_MIN_MAGNITUDE = 1e-4;
 
 interface Point {
   x: number;
@@ -19,8 +23,7 @@ export class PotentialContourRenderer {
   }
 
   draw(snapshot: SimulationSnapshot): void {
-    const g = this.graphics;
-    g.clear();
+    this.graphics.clear();
     this.drawSide(snapshot, snapshot.potentialBlue, BLUE_DARK);
     this.drawSide(snapshot, snapshot.potentialRed, RED_DARK);
   }
@@ -57,7 +60,6 @@ export class PotentialContourRenderer {
           const v11 = potential[i11];
           const v01 = potential[i01];
 
-          // One invalid value must not poison the whole Graphics path with NaNs.
           if (![v00, v10, v11, v01].every(Number.isFinite)) continue;
 
           const minValue = Math.min(v00, v10, v11, v01);
@@ -97,6 +99,64 @@ export class PotentialContourRenderer {
         g.stroke({ color, width: 0.14 + relative * 0.08, alpha: 0.30 + relative * 0.24 });
       }
     }
+
+    this.drawGradientArrows(snapshot, potential, maxPotential, color);
+  }
+
+  private drawGradientArrows(
+    snapshot: SimulationSnapshot,
+    potential: Float32Array,
+    maxPotential: number,
+    color: number,
+  ): void {
+    const g = this.graphics;
+    let arrowCount = 0;
+
+    for (let y = GRADIENT_STRIDE; y < snapshot.height - GRADIENT_STRIDE; y += GRADIENT_STRIDE) {
+      for (let x = GRADIENT_STRIDE; x < snapshot.width - GRADIENT_STRIDE; x += GRADIENT_STRIDE) {
+        const i = y * snapshot.width + x;
+        const center = potential[i];
+        if (!Number.isFinite(center) || center <= maxPotential * 0.01) continue;
+
+        const left = potential[i - 1];
+        const right = potential[i + 1];
+        const up = potential[i - snapshot.width];
+        const down = potential[i + snapshot.width];
+        if (![left, right, up, down].every(Number.isFinite)) continue;
+
+        const gradientX = (right - left) * 0.5;
+        const gradientY = (down - up) * 0.5;
+        const magnitude = Math.hypot(gradientX, gradientY);
+        if (magnitude <= GRADIENT_MIN_MAGNITUDE) continue;
+
+        const directionX = gradientX / magnitude;
+        const directionY = gradientY / magnitude;
+        const halfLength = GRADIENT_ARROW_LENGTH * 0.5;
+        const startX = x - directionX * halfLength;
+        const startY = y - directionY * halfLength;
+        const tipX = x + directionX * halfLength;
+        const tipY = y + directionY * halfLength;
+
+        g.moveTo(startX, startY).lineTo(tipX, tipY);
+
+        const angle = Math.atan2(directionY, directionX);
+        const leftAngle = angle + Math.PI * 0.82;
+        const rightAngle = angle - Math.PI * 0.82;
+        g.moveTo(tipX, tipY)
+          .lineTo(
+            tipX + Math.cos(leftAngle) * GRADIENT_ARROW_HEAD,
+            tipY + Math.sin(leftAngle) * GRADIENT_ARROW_HEAD,
+          );
+        g.moveTo(tipX, tipY)
+          .lineTo(
+            tipX + Math.cos(rightAngle) * GRADIENT_ARROW_HEAD,
+            tipY + Math.sin(rightAngle) * GRADIENT_ARROW_HEAD,
+          );
+        arrowCount += 1;
+      }
+    }
+
+    if (arrowCount > 0) g.stroke({ color, width: 0.22, alpha: 0.62 });
   }
 
   private addCrossing(
