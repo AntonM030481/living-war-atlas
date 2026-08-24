@@ -12,14 +12,14 @@ export interface MapOption {
 export const MAP_OPTIONS: readonly MapOption[] = [
   {
     id: 'theatre',
-    name: 'Theatre',
-    description: 'Full test theatre with 10 cities, river and forests.',
+    name: 'Full playground map',
+    description: '256x160 map with 10 cities, river and forests.',
     map: testMap,
   },
   {
     id: 'linear',
-    name: 'Linear test',
-    description: 'Fast 256×24 map with 2 cities and no obstacles.',
+    name: 'Linear test map',
+    description: '256x24 map with 2 cities and no obstacles.',
     map: linearMap,
   },
 ];
