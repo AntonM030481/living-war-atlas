@@ -13,6 +13,7 @@ const FRONT_DEMAND_SELF_WEIGHT = 1;
 const POTENTIAL_RELAXATION_PASSES = 6;
 const POTENTIAL_RELAXATION_OMEGA = 1.0;
 const POTENTIAL_RELAXATION_TOLERANCE = 1e-5;
+const POTENTIAL_REPAIR_RADIUS = 8;
 const potentialStatusByField = new WeakMap<Float32Array, Uint8Array>();
 
 export function smoothstep(edge0: number, edge1: number, value: number): number {
@@ -238,10 +239,10 @@ function potentialStatus(index: number, grid: TransportGrid): number {
 }
 
 /**
- * Re-seed cells whose potential-domain role changed since the previous rebuild.
- * Changed interior cells are invalidated, then filled outward from unchanged
- * cells and the current front. This handles several newly-accessible layers in
- * one pass without globally converging the whole field.
+ * Re-seed the moving-front neighbourhood instead of trusting stale warm-start
+ * values there. The repair halo removes the old peak's spatial footprint, then
+ * the whole invalidated region is filled outward from the current front and
+ * unchanged valid cells before the normal relaxation sweeps continue.
  */
 function repairPotentialTransitions(
   potential: Float32Array,
@@ -252,13 +253,37 @@ function repairPotentialTransitions(
 ): void {
   const pending = new Uint8Array(potential.length);
   const valid = new Uint8Array(potential.length);
+  const invalidate = new Uint8Array(potential.length);
+
+  // Any cell whose domain role changed invalidates an eight-cell halo around it.
+  // Front cells themselves remain fixed boundary values; only interior cells are
+  // re-seeded. A square halo is deliberately simple and cheap on this grid size.
+  for (let i = 0; i < potential.length; i++) {
+    if (currentStatus[i] === previousStatus[i]) continue;
+    const cx = i % grid.width;
+    const cy = Math.floor(i / grid.width);
+    for (let dy = -POTENTIAL_REPAIR_RADIUS; dy <= POTENTIAL_REPAIR_RADIUS; dy++) {
+      const y = cy + dy;
+      if (y < 0 || y >= grid.height) continue;
+      for (let dx = -POTENTIAL_REPAIR_RADIUS; dx <= POTENTIAL_REPAIR_RADIUS; dx++) {
+        const x = cx + dx;
+        if (x < 0 || x >= grid.width) continue;
+        const j = y * grid.width + x;
+        if (currentStatus[j] === 1) invalidate[j] = 1;
+      }
+    }
+  }
 
   for (let i = 0; i < potential.length; i++) {
     if (currentStatus[i] === 0) {
       potential[i] = 0;
       continue;
     }
-    if (currentStatus[i] === 2 || currentStatus[i] === previousStatus[i]) {
+    if (currentStatus[i] === 2) {
+      valid[i] = 1;
+      continue;
+    }
+    if (!invalidate[i]) {
       valid[i] = 1;
       continue;
     }
@@ -293,7 +318,7 @@ function repairPotentialTransitions(
       : null;
   };
 
-  // Seed the wave only from cells that were already valid before this repair.
+  // Seed the wave from the current front and unchanged field around the halo.
   const seeds: number[] = [];
   for (let i = 0; i < potential.length; i++) {
     if (!pending[i]) continue;
@@ -309,7 +334,7 @@ function repairPotentialTransitions(
     queue[tail++] = i;
   }
 
-  // Propagate through any number of adjacent changed layers.
+  // Propagate through any number of adjacent invalidated layers.
   while (head < tail) {
     const source = queue[head++];
     const sx = source % grid.width;
