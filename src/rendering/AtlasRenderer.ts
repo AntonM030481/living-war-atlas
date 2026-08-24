@@ -5,6 +5,7 @@ import { FrontInspector } from '../diagnostics/FrontInspector';
 import type { FrontDebugInfo } from '../diagnostics/types';
 import { FlowRenderer } from './FlowRenderer';
 import { FrontRenderer } from './FrontRenderer';
+import { PotentialContourRenderer } from './PotentialContourRenderer';
 import { TerrainRenderer } from './TerrainRenderer';
 import { clientToWorld, worldToScreen, type Point, type ViewTransform } from './coordinates';
 
@@ -20,6 +21,7 @@ export class AtlasRenderer {
   private readonly historicalBorder = new Graphics();
   private readonly territory = new Graphics();
   private readonly resourceDensity = new Graphics();
+  private readonly potentialContours = new Graphics();
   private readonly flows = new Graphics();
   private readonly front = new Graphics();
   private readonly instability = new Graphics();
@@ -27,6 +29,7 @@ export class AtlasRenderer {
 
   private readonly terrainRenderer: TerrainRenderer;
   private readonly flowRenderer: FlowRenderer;
+  private readonly potentialContourRenderer: PotentialContourRenderer;
   private readonly frontRenderer: FrontRenderer;
   private readonly frontInspector: FrontInspector;
 
@@ -39,6 +42,7 @@ export class AtlasRenderer {
   ) {
     this.terrainRenderer = new TerrainRenderer(this.terrain, this.grid, this.historicalBorder, map);
     this.flowRenderer = new FlowRenderer(this.flows);
+    this.potentialContourRenderer = new PotentialContourRenderer(this.potentialContours);
     this.frontRenderer = new FrontRenderer(this.front, this.probe);
     this.frontInspector = new FrontInspector(this.frontRenderer, () => this.mapScale());
 
@@ -48,6 +52,7 @@ export class AtlasRenderer {
       this.historicalBorder,
       this.territory,
       this.resourceDensity,
+      this.potentialContours,
       this.flows,
       this.front,
       this.instability,
@@ -63,6 +68,8 @@ export class AtlasRenderer {
     this.debug = value;
     this.instability.visible = value;
     this.resourceDensity.visible = value;
+    this.potentialContours.visible = value;
+    if (!value) this.potentialContourRenderer.clear();
   }
 
   setShowFlows(value: boolean): void {
@@ -125,8 +132,13 @@ export class AtlasRenderer {
 
   render(snapshot: SimulationSnapshot): void {
     this.territory.clear();
-    if (this.debug) this.drawResourceDensity(snapshot);
-    else this.resourceDensity.clear();
+    if (this.debug) {
+      this.drawResourceDensity(snapshot);
+      this.potentialContourRenderer.draw(snapshot);
+    } else {
+      this.resourceDensity.clear();
+      this.potentialContourRenderer.clear();
+    }
 
     if (this.showFlows) this.flowRenderer.draw(snapshot);
     else this.flowRenderer.clear();
