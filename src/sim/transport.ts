@@ -11,8 +11,9 @@ const FLOW_DIRS = [
 const FRONT_DEMAND_SMOOTHING_PASSES = 4;
 const FRONT_DEMAND_SELF_WEIGHT = 1;
 const POTENTIAL_RELAXATION_PASSES = 6;
-const POTENTIAL_RELAXATION_OMEGA = 1.6;
+const POTENTIAL_RELAXATION_OMEGA = 1.0;
 const POTENTIAL_RELAXATION_TOLERANCE = 1e-5;
+const potentialStatusByField = new WeakMap<Float32Array, Uint8Array>();
 
 export function smoothstep(edge0: number, edge1: number, value: number): number {
   const t = Math.max(0, Math.min(1, (value - edge0) / (edge1 - edge0)));
@@ -229,6 +230,106 @@ export function smoothFrontDemand(
   return current;
 }
 
+function potentialStatus(index: number, grid: TransportGrid): number {
+  const access = grid.access(index);
+  if (access <= 0.01 || grid.terrainCapacity[index] <= 0) return 0;
+  if (grid.isFront(index) && access > 0.05) return 2;
+  return 1;
+}
+
+/**
+ * Re-seed cells whose potential-domain role changed since the previous rebuild.
+ * Changed interior cells are invalidated, then filled outward from unchanged
+ * cells and the current front. This handles several newly-accessible layers in
+ * one pass without globally converging the whole field.
+ */
+function repairPotentialTransitions(
+  potential: Float32Array,
+  currentStatus: Uint8Array,
+  previousStatus: Uint8Array,
+  grid: TransportGrid,
+  reaction: number,
+): void {
+  const pending = new Uint8Array(potential.length);
+  const valid = new Uint8Array(potential.length);
+
+  for (let i = 0; i < potential.length; i++) {
+    if (currentStatus[i] === 0) {
+      potential[i] = 0;
+      continue;
+    }
+    if (currentStatus[i] === 2 || currentStatus[i] === previousStatus[i]) {
+      valid[i] = 1;
+      continue;
+    }
+    pending[i] = 1;
+    potential[i] = 0;
+  }
+
+  const queue = new Int32Array(potential.length);
+  let head = 0;
+  let tail = 0;
+
+  const repairedValue = (i: number): number | null => {
+    const x = i % grid.width;
+    const y = Math.floor(i / grid.width);
+    let weightedPotential = 0;
+    let transmissionSum = 0;
+
+    for (const [dx, dy] of DIRS) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || nx >= grid.width || ny < 0 || ny >= grid.height) continue;
+      const j = ny * grid.width + nx;
+      if (!valid[j]) continue;
+      const transmission = edgeTransmission(i, j, x, y, dx, dy, grid);
+      if (transmission <= EPS) continue;
+      weightedPotential += potential[j] * transmission;
+      transmissionSum += transmission;
+    }
+
+    return transmissionSum > EPS
+      ? weightedPotential / (transmissionSum + reaction)
+      : null;
+  };
+
+  // Seed the wave only from cells that were already valid before this repair.
+  const seeds: number[] = [];
+  for (let i = 0; i < potential.length; i++) {
+    if (!pending[i]) continue;
+    const value = repairedValue(i);
+    if (value === null) continue;
+    seeds.push(i, value);
+  }
+  for (let k = 0; k < seeds.length; k += 2) {
+    const i = seeds[k];
+    potential[i] = seeds[k + 1];
+    pending[i] = 0;
+    valid[i] = 1;
+    queue[tail++] = i;
+  }
+
+  // Propagate through any number of adjacent changed layers.
+  while (head < tail) {
+    const source = queue[head++];
+    const sx = source % grid.width;
+    const sy = Math.floor(source / grid.width);
+    for (const [dx, dy] of DIRS) {
+      const nx = sx + dx;
+      const ny = sy + dy;
+      if (nx < 0 || nx >= grid.width || ny < 0 || ny >= grid.height) continue;
+      const i = ny * grid.width + nx;
+      if (!pending[i]) continue;
+      const value = repairedValue(i);
+      if (value === null) continue;
+      potential[i] = value;
+      pending[i] = 0;
+      valid[i] = 1;
+      queue[tail++] = i;
+    }
+  }
+}
+
 /**
  * Builds a smooth screened-diffusion potential with front demand as a fixed
  * boundary condition. Unlike max propagation, every connected neighbouring
@@ -249,13 +350,17 @@ export function rebuildPotential(
   const smoothedNeed = smoothFrontDemand(need, grid);
   const decay = Math.max(EPS, Math.min(0.999999, config.potentialDecay));
   const reaction = decay + 1 / decay - 2;
+  const previousStatus = potentialStatusByField.get(potential);
+  const currentStatus = new Uint8Array(potential.length);
   let maxFrontPotential = 0;
 
   for (let i = 0; i < potential.length; i++) {
-    if (grid.isFront(i) && grid.access(i) > 0.05 && grid.terrainCapacity[i] > 0) {
+    const status = potentialStatus(i, grid);
+    currentStatus[i] = status;
+    if (status === 2) {
       potential[i] = 1 + smoothedNeed[i];
       maxFrontPotential = Math.max(maxFrontPotential, potential[i]);
-    } else if (grid.access(i) <= 0.01 || grid.terrainCapacity[i] <= 0) {
+    } else if (status === 0) {
       potential[i] = 0;
     } else if (!Number.isFinite(potential[i]) || potential[i] < 0) {
       potential[i] = 0;
@@ -264,8 +369,14 @@ export function rebuildPotential(
 
   if (maxFrontPotential <= EPS) {
     potential.fill(0);
+    potentialStatusByField.set(potential, currentStatus);
     return;
   }
+
+  if (previousStatus && previousStatus.length === currentStatus.length) {
+    repairPotentialTransitions(potential, currentStatus, previousStatus, grid, reaction);
+  }
+  potentialStatusByField.set(potential, currentStatus);
 
   for (let pass = 0; pass < POTENTIAL_RELAXATION_PASSES; pass++) {
     const reverse = (pass & 1) === 1;
@@ -273,12 +384,11 @@ export function rebuildPotential(
 
     for (let step = 0; step < potential.length; step++) {
       const i = reverse ? potential.length - 1 - step : step;
-      if (grid.isFront(i) && grid.access(i) > 0.05 && grid.terrainCapacity[i] > 0) {
+      if (currentStatus[i] === 2) {
         potential[i] = 1 + smoothedNeed[i];
         continue;
       }
-      const access = grid.access(i);
-      if (access <= 0.01 || grid.terrainCapacity[i] <= 0) {
+      if (currentStatus[i] === 0) {
         potential[i] = 0;
         continue;
       }
