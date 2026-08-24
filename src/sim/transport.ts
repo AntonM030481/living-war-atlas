@@ -385,6 +385,11 @@ export function transportResource(
         if (nx < 0 || nx >= grid.width || ny < 0 || ny >= grid.height) continue;
         const j = ny * grid.width + nx;
 
+        // Never move downhill in the actual discrete potential. The continuous
+        // gradient is only used to distribute flow among genuinely uphill edges.
+        const potentialGain = potential[j] - potential[i];
+        if (!Number.isFinite(potentialGain) || potentialGain <= EPS) continue;
+
         // Project the continuous direction onto this edge's unit vector.
         const projection = (directionX * dx + directionY * dy) / distance;
         if (projection <= EPS) continue;
