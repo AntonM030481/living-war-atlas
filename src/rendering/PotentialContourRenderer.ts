@@ -112,8 +112,8 @@ export class PotentialContourRenderer {
     const g = this.graphics;
     let arrowCount = 0;
 
-    for (let y = GRADIENT_STRIDE; y < snapshot.height - GRADIENT_STRIDE; y += GRADIENT_STRIDE) {
-      for (let x = GRADIENT_STRIDE; x < snapshot.width - GRADIENT_STRIDE; x += GRADIENT_STRIDE) {
+    for (let y = GRADIENT_STRIDE; y <= snapshot.height - GRADIENT_STRIDE; y += GRADIENT_STRIDE) {
+      for (let x = GRADIENT_STRIDE; x <= snapshot.width - GRADIENT_STRIDE; x += GRADIENT_STRIDE) {
         const i = y * snapshot.width + x;
         const center = potential[i];
         if (!Number.isFinite(center) || center <= maxPotential * 0.01) continue;
