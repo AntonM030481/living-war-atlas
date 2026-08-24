@@ -32,7 +32,8 @@ export class PotentialContourRenderer {
   ): void {
     let maxPotential = 0;
     for (let i = 0; i < potential.length; i++) {
-      if (Number.isFinite(potential[i])) maxPotential = Math.max(maxPotential, potential[i]);
+      const value = potential[i];
+      if (Number.isFinite(value)) maxPotential = Math.max(maxPotential, value);
     }
     if (maxPotential <= 1e-6) return;
 
@@ -42,6 +43,8 @@ export class PotentialContourRenderer {
 
     for (let levelIndex = 0; levelIndex < CONTOUR_LEVELS; levelIndex++) {
       const level = firstLevel + levelStep * (levelIndex + 0.5);
+      let segmentCount = 0;
+
       for (let y = 0; y < snapshot.height - 1; y++) {
         for (let x = 0; x < snapshot.width - 1; x++) {
           const i00 = y * snapshot.width + x;
@@ -52,6 +55,10 @@ export class PotentialContourRenderer {
           const v10 = potential[i10];
           const v11 = potential[i11];
           const v01 = potential[i01];
+
+          // One invalid value must not poison the whole Graphics path with NaNs.
+          if (![v00, v10, v11, v01].every(Number.isFinite)) continue;
+
           const minValue = Math.min(v00, v10, v11, v01);
           const maxValue = Math.max(v00, v10, v11, v01);
           if (level < minValue || level > maxValue || maxValue - minValue <= 1e-8) continue;
@@ -65,6 +72,7 @@ export class PotentialContourRenderer {
           if (crossings.length === 2) {
             g.moveTo(crossings[0].x, crossings[0].y)
               .lineTo(crossings[1].x, crossings[1].y);
+            segmentCount += 1;
           } else if (crossings.length === 4) {
             const center = (v00 + v10 + v11 + v01) * 0.25;
             if (center >= level) {
@@ -78,11 +86,15 @@ export class PotentialContourRenderer {
               g.moveTo(crossings[1].x, crossings[1].y)
                 .lineTo(crossings[2].x, crossings[2].y);
             }
+            segmentCount += 2;
           }
         }
       }
-      const relative = (levelIndex + 1) / CONTOUR_LEVELS;
-      g.stroke({ color, width: 0.10 + relative * 0.06, alpha: 0.22 + relative * 0.18 });
+
+      if (segmentCount > 0) {
+        const relative = (levelIndex + 1) / CONTOUR_LEVELS;
+        g.stroke({ color, width: 0.14 + relative * 0.08, alpha: 0.30 + relative * 0.24 });
+      }
     }
   }
 
@@ -96,11 +108,16 @@ export class PotentialContourRenderer {
     v1: number,
     level: number,
   ): void {
+    if (!Number.isFinite(v0) || !Number.isFinite(v1)) return;
+    const delta = v1 - v0;
+    if (Math.abs(delta) <= 1e-8) return;
+
     const d0 = v0 - level;
     const d1 = v1 - level;
-    if ((d0 < 0 && d1 < 0) || (d0 > 0 && d1 > 0) || Math.abs(v1 - v0) <= 1e-8) return;
-    if (d0 === 0 && d1 === 0) return;
-    const t = Math.max(0, Math.min(1, (level - v0) / (v1 - v0)));
+    if ((d0 < 0 && d1 < 0) || (d0 > 0 && d1 > 0)) return;
+
+    const t = (level - v0) / delta;
+    if (!Number.isFinite(t) || t < 0 || t > 1) return;
     points.push({ x: x0 + (x1 - x0) * t, y: y0 + (y1 - y0) * t });
   }
 }
