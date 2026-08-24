@@ -30,6 +30,7 @@ export class PotentialContourRenderer {
     potential: Float32Array,
     color: number,
   ): void {
+    const g = this.graphics;
     let maxPotential = 0;
     for (let i = 0; i < potential.length; i++) {
       const value = potential[i];
