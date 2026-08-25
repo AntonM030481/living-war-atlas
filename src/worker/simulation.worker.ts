@@ -131,7 +131,7 @@ self.onmessage = (event: MessageEvent<WorkerInMessage>) => {
   const message = event.data;
   switch (message.type) {
     case 'start':
-      void createSimulation(message.mapId, message.seed, true);
+      void createSimulation(message.mapId, message.seed, message.loadSavedState);
       ensureLoop();
       break;
     case 'speed':
