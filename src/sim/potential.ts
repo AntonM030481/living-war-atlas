@@ -1,11 +1,20 @@
 import type { SideFields } from './sides';
 import { applyApproximatePotential } from './potentialApproximation';
+import type {
+  ApproximatePotentialResult,
+  FinePotentialContext,
+} from './potentialApproximation/types';
 import {
   edgeTransmission,
   TRANSPORT_EPS as EPS,
   type TransportConfig,
   type TransportGrid,
 } from './transportGrid';
+
+export type {
+  ApproximatePotentialResult,
+  FinePotentialContext,
+} from './potentialApproximation/types';
 
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
 const FRONT_DEMAND_SMOOTHING_PASSES = 4;
@@ -75,17 +84,6 @@ function potentialStatus(index: number, grid: TransportGrid): number {
 function reactionForDecay(decay: number): number {
   const safeDecay = Math.max(EPS, Math.min(0.999999, decay));
   return safeDecay + 1 / safeDecay - 2;
-}
-
-export interface ApproximatePotentialResult {
-  smoothedNeed: Float32Array;
-  currentStatus: Uint8Array;
-  reaction: number;
-  maxFrontPotential: number;
-}
-
-export interface FinePotentialContext extends ApproximatePotentialResult {
-  previousStatus?: Uint8Array;
 }
 
 function prepareFinePotential(
