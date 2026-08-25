@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
 import type { Side, Speed } from '../sim/Config';
-import { clearPotential, winnerFromControl } from '../sim/completion';
+import { clearPotential, winnerFromState } from '../sim/completion';
 import { forceCityEnclave } from '../sim/DebugActions';
 import { Simulation } from '../sim/Simulation';
 import type { MapDefinition, MapId, SimulationState, WorkerInMessage, WorkerOutMessage } from '../sim/types';
@@ -25,7 +25,7 @@ function post(message: WorkerOutMessage): void {
 
 function currentWinner() {
   if (!sim) return null;
-  return winnerFromControl(sim.control, sim.terrainBlocked);
+  return winnerFromState(sim.control, sim.terrainBlocked, sim.cities, sim.sides);
 }
 
 function postSnapshot(): void {
