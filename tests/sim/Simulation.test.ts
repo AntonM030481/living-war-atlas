@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { testMap } from '../../src/map/testMap';
 import { applyFrontConsumption } from '../../src/sim/combat';
-import { CFG } from '../../src/sim/Config';
+import { CFG, ticks } from '../../src/sim/Config';
 import { Simulation } from '../../src/sim/Simulation';
 
 function total(a: Float32Array): number {
@@ -162,14 +162,14 @@ describe('Simulation', () => {
     };
 
     const sim = new Simulation(map, 12345);
-    for (let i = 0; i < 75 / CFG.dt; i++) sim.tick();
+    for (let i = 0; i < ticks(75); i++) sim.tick();
     const initialFront = frontPosition1D(sim, width);
 
     const blue = sim.cities.find((c) => c.id === 'b');
     if (!blue) throw new Error('Blue city missing');
     blue.baseProduction = 0;
 
-    for (let i = 0; i < 400 / 0.1; i++) sim.tick();
+    for (let i = 0; i < ticks(400); i++) sim.tick();
 
     expect(frontPosition1D(sim, width)).toBeLessThan(initialFront - 1.5);
   });
