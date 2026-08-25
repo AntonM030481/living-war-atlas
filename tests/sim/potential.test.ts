@@ -55,21 +55,66 @@ describe('potential solver stages', () => {
     expect(Array.from(staged.potential)).toEqual(Array.from(full.potential));
   });
 
-  it('coarse approximation discards stale global potential after the front moves', () => {
-    const width = 20;
-    let frontIndex = 18;
+  it('dijkstra approximation immediately fills distant connected cells', () => {
+    const width = 256;
+    const frontIndex = 2;
     const side = createSideFields(width);
     const transportGrid = grid(width, 1, (index) => index === frontIndex);
 
     side.need[frontIndex] = 1;
-    buildApproximatePotential(side, transportGrid, config);
+    buildApproximatePotential(side, transportGrid, {
+      ...config,
+      potentialApproximation: 'dijkstra',
+    });
+
+    expect(side.potential[width - 1]).toBeGreaterThan(0);
+    expect(side.potential[frontIndex]).toBeGreaterThan(side.potential[width - 1]);
+  });
+
+  it('dijkstra approximation discards stale global potential after the front moves', () => {
+    const width = 256;
+    let frontIndex = 2;
+    const side = createSideFields(width);
+    const transportGrid = grid(width, 1, (index) => index === frontIndex);
+    const dijkstraConfig = {
+      ...config,
+      potentialApproximation: 'dijkstra' as const,
+    };
+
+    side.need[frontIndex] = 1;
+    buildApproximatePotential(side, transportGrid, dijkstraConfig);
+
+    side.potential.fill(7);
+    side.need.fill(0);
+    frontIndex = width - 3;
+    side.need[frontIndex] = 1;
+
+    buildApproximatePotential(side, transportGrid, dijkstraConfig);
+
+    expect(side.potential[2]).toBeGreaterThan(0);
+    expect(side.potential[2]).toBeLessThan(side.potential[frontIndex]);
+    expect(side.potential[2]).not.toBe(7);
+  });
+
+  it('keeps coarse approximation available as a strategy', () => {
+    const width = 20;
+    let frontIndex = 18;
+    const side = createSideFields(width);
+    const transportGrid = grid(width, 1, (index) => index === frontIndex);
+    const coarseConfig = {
+      ...config,
+      potentialApproximation: 'coarse' as const,
+    };
+
+    side.need[frontIndex] = 1;
+    buildApproximatePotential(side, transportGrid, coarseConfig);
 
     side.potential.fill(7);
     side.need.fill(0);
     frontIndex = 2;
     side.need[frontIndex] = 1;
 
-    buildApproximatePotential(side, transportGrid, config);
+    buildApproximatePotential(side, transportGrid, coarseConfig);
 
     expect(side.potential[18]).toBeLessThan(side.potential[frontIndex]);
     expect(side.potential[18]).not.toBe(7);
