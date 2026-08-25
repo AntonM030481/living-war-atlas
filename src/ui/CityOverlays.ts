@@ -28,7 +28,7 @@ export class CityOverlays {
     this.host.append(this.blueBadge, this.redBadge);
 
     for (const city of map.cities) {
-      const title = `${city.name}: ${city.baseProduction} production points. Left click: production on/off. Right click: switch side.`;
+      const title = `${city.name}: ${city.baseProduction} production points. Left click: production on/off. Right click: switch side and enable full production.`;
       const power = document.createElement('div');
       power.className = `city-power-label ${city.owner}`;
       power.textContent = `${city.baseProduction}`;
@@ -68,7 +68,7 @@ export class CityOverlays {
       const control = snapshot.control[city.y * snapshot.width + city.x];
       const ownerControl = city.owner === 'blue' ? control : -control;
       const contested = ownerControl < 0.72;
-      const title = `${city.name}: ${city.baseProduction} production points. Left click: production on/off. Right click: switch side.`;
+      const title = `${city.name}: ${city.baseProduction} production points. Left click: production on/off. Right click: switch side and enable full production.`;
 
       power.hidden = contested;
       name.hidden = contested;
