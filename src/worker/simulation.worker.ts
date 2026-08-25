@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-import type { Speed } from '../sim/Config';
+import type { Side, Speed } from '../sim/Config';
 import { clearPotential, winnerFromControl } from '../sim/completion';
 import { forceCityEnclave } from '../sim/DebugActions';
 import { Simulation } from '../sim/Simulation';
@@ -54,6 +54,25 @@ function finishIfDecided(): boolean {
   return true;
 }
 
+function seededIndex(value: number, count: number): number {
+  let x = value >>> 0;
+  x ^= x << 13;
+  x ^= x >>> 17;
+  x ^= x << 5;
+  return (x >>> 0) % count;
+}
+
+function seedInitialEnclaves(simulation: Simulation, map: MapDefinition, simulationSeed: number): void {
+  const sides: readonly Side[] = ['blue', 'red'];
+  for (let sideIndex = 0; sideIndex < sides.length; sideIndex++) {
+    const side = sides[sideIndex];
+    const candidates = map.cities.filter((city) => city.owner === side && city.baseProduction === 2);
+    if (candidates.length === 0) continue;
+    const index = seededIndex(simulationSeed ^ Math.imul(0x9e3779b9, sideIndex + 1), candidates.length);
+    forceCityEnclave(simulation, candidates[index].id);
+  }
+}
+
 async function createSimulation(nextMapId: MapId, nextSeed: number, loadSavedState: boolean): Promise<void> {
   const token = ++launchToken;
   const fallbackSeed = nextSeed >>> 0 || 1;
@@ -87,6 +106,7 @@ async function createSimulation(nextMapId: MapId, nextSeed: number, loadSavedSta
   if (token !== launchToken) return;
   seed = fallbackSeed;
   sim = new Simulation(map, seed);
+  if (nextMapId === 'theatre') seedInitialEnclaves(sim, map, seed);
   paused = false;
   history.reset(sim.gameTime);
   saveHistoryCheckpoint(true);
