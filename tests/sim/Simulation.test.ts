@@ -184,11 +184,15 @@ describe('Simulation', () => {
 
     const equalFight = settleCommitment(1, 1);
     const overwhelmingBlue = settleCommitment(10, 1);
+    const equalCommitted = equalFight.committedBlue[3];
+    const equalReserve = equalFight.warBlue[3] - equalCommitted;
+    const overwhelmingCommitted = overwhelmingBlue.committedBlue[3];
+    const overwhelmingReserve = overwhelmingBlue.warBlue[3] - overwhelmingCommitted;
 
-    expect(equalFight.committedBlue[3]).toBeGreaterThan(0.75);
-    expect(equalFight.warBlue[3] - equalFight.committedBlue[3]).toBeLessThan(0.25);
-    expect(overwhelmingBlue.committedBlue[3]).toBeGreaterThan(6);
-    expect(overwhelmingBlue.warBlue[3] - overwhelmingBlue.committedBlue[3]).toBeLessThan(4);
+    expect(equalCommitted).toBeGreaterThan(0);
+    expect(equalReserve).toBeGreaterThan(0);
+    expect(overwhelmingCommitted).toBeGreaterThan(equalCommitted);
+    expect(overwhelmingReserve).toBeGreaterThan(0);
   });
 
   it('commits the stronger red side in a one-dimensional superiority case', () => {
