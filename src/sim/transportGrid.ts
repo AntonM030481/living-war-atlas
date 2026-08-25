@@ -1,6 +1,6 @@
 const EPS = 1e-6;
 
-export type PotentialApproximation = 'previous' | 'coarse';
+export type PotentialApproximation = 'previous' | 'coarse' | 'dijkstra';
 
 export interface TransportConfig {
   dt: number;
