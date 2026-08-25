@@ -8,7 +8,7 @@ export const CFG = {
   snapshotEverySteps: 2,
   potentialEverySteps: 10,
   potentialDecay: 0.988,
-  potentialApproximation: 'dijkstra',
+  potentialApproximation: 'coarse-dijkstra',
   potentialCoarseScale: 2,
   potentialCoarsePasses: 24,
   potentialFinePasses: 6,
