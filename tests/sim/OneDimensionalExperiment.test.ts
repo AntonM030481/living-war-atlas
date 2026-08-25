@@ -29,6 +29,10 @@ const C = {
   unopposedSpeed: 0.70,
 };
 
+function ticks(seconds: number): number {
+  return Math.round(seconds / C.dt);
+}
+
 class OneDimensionalFront {
   readonly blue = new Float32Array(C.width);
   readonly red = new Float32Array(C.width);
@@ -149,10 +153,10 @@ function clamp(value: number, min: number, max: number): number {
 
 function run(seconds: number, sim: OneDimensionalFront): Sample[] {
   const samples: Sample[] = [];
-  const steps = Math.round(seconds / C.dt);
+  const steps = ticks(seconds);
   for (let step = 0; step < steps; step++) {
     sim.tick();
-    if (step % Math.round(10 / C.dt) === 0) samples.push(sim.sample());
+    if (step % ticks(10) === 0) samples.push(sim.sample());
   }
   return samples;
 }
