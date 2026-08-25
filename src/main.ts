@@ -31,7 +31,6 @@ async function savedMapId(): Promise<MapId | null> {
 }
 
 const pendingMapId = sessionStorage.getItem('living-war-atlas:new-game-map');
-if (pendingMapId) sessionStorage.removeItem('living-war-atlas:new-game-map');
 
 let initialMapId: MapId;
 if (pendingMapId && isMapId(pendingMapId)) {
