@@ -1,6 +1,11 @@
 import { SPEEDS, type Speed } from '../sim/Config';
 import type { HistoryInfo } from '../sim/types';
 
+function isIOS(): boolean {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
 export interface HudHandlers {
   onSpeed(speed: Speed): void;
   onPauseToggle(): void;
@@ -58,6 +63,10 @@ export class Hud {
     this.element.querySelector<HTMLButtonElement>('#reset')!.addEventListener('click', handlers.onReset);
     this.debugButton.addEventListener('click', handlers.onDiagnosticsToggle);
 
+    const cityControls = isIOS()
+      ? 'City short press: production on/off<br>City long press: switch side'
+      : 'City left click: production on/off<br>City right click: switch side';
+
     this.legend = document.createElement('details');
     this.legend.className = 'legend';
     this.legend.open = true;
@@ -73,7 +82,7 @@ export class Hud {
         <span class="legend-mark forest-mark"></span><span>forest</span>
         <span class="legend-mark stress-mark"></span><span>front instability</span>
       </div>
-      <div class="legend-note">City left click: production on/off<br>City right click: switch side<br>Space: pause · ←/→: rewind · ↑/↓: speed</div>
+      <div class="legend-note">${cityControls}<br>Space: pause · ←/→: rewind · ↑/↓: speed</div>
     `;
   }
 
