@@ -80,22 +80,18 @@ export const buildDijkstraApproximation: PotentialApproximationStrategy = (
   const safeDecay = Math.max(EPS, Math.min(0.999999, config.potentialDecay));
   const logDecay = Math.log(safeDecay);
   const distances = new Float64Array(potential.length);
+  const sourcePotential = new Float32Array(potential.length);
   distances.fill(Number.POSITIVE_INFINITY);
   const heap = new MinHeap();
 
-  // Treat every current front cell as a source. Different need values are
-  // represented as a small source-distance offset, so the global approximation
-  // preserves front demand while remaining a shortest-path problem.
+  // Every current front cell starts at the same distance. Need affects the
+  // potential carried by the selected nearest source, but never makes one front
+  // segment artificially closer than another.
   for (let i = 0; i < potential.length; i++) {
     if (context.currentStatus[i] !== 2) continue;
-    const boundaryPotential = 1 + context.smoothedNeed[i];
-    if (boundaryPotential <= EPS) continue;
-    const ratio = Math.min(1, boundaryPotential / context.maxFrontPotential);
-    const sourceDistance = logDecay < -EPS
-      ? Math.max(0, Math.log(Math.max(ratio, EPS)) / logDecay)
-      : 0;
-    distances[i] = sourceDistance;
-    heap.push(i, sourceDistance);
+    distances[i] = 0;
+    sourcePotential[i] = 1 + context.smoothedNeed[i];
+    heap.push(i, 0);
   }
 
   while (heap.size > 0) {
@@ -125,6 +121,7 @@ export const buildDijkstraApproximation: PotentialApproximationStrategy = (
       const candidate = current.cost + edgeDistance(transmission);
       if (candidate >= distances[neighbor]) continue;
       distances[neighbor] = candidate;
+      sourcePotential[neighbor] = sourcePotential[current.index];
       heap.push(neighbor, candidate);
     }
   }
@@ -139,7 +136,7 @@ export const buildDijkstraApproximation: PotentialApproximationStrategy = (
         0,
         Math.min(
           context.maxFrontPotential,
-          context.maxFrontPotential * Math.exp(logDecay * distances[i]),
+          sourcePotential[i] * Math.exp(logDecay * distances[i]),
         ),
       );
     }
