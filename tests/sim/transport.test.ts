@@ -131,9 +131,9 @@ describe('transport', () => {
     expect(side.war[2]).toBeGreaterThan(crowdedIncrease);
   });
 
-  it('fans out laterally when the direct route is saturated', () => {
+  it('does not route downhill around a saturated destination', () => {
     const side = createSideFields(9);
-    // 3x3: source in the center, direct cell to the right is full.
+    // 3x3: source in the center, only uphill cell is the full cell to the right.
     side.war[4] = 6;
     side.war[5] = config.resourceCellCapacity;
     side.potential.set([
@@ -154,7 +154,8 @@ describe('transport', () => {
 
     transportResource(side, grid, { ...config, baseEdgeCapacityPerSecond: 1000 });
 
-    expect(side.war[1] + side.war[7]).toBeGreaterThan(0);
+    expect(side.war[1] + side.war[7]).toBe(0);
+    expect(side.war[4]).toBe(6);
     expect(side.war[5]).toBe(config.resourceCellCapacity);
   });
 
