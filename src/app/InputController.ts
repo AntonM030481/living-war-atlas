@@ -72,6 +72,9 @@ export class InputController {
   };
 
   private readonly handleContextMenu = (event: MouseEvent): void => {
+    const target = event.target;
+    if (!(target instanceof Element) || !target.closest('.map-stage')) return;
+    event.preventDefault();
     this.handlers.onSecondaryClick(event, true);
   };
 
