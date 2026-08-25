@@ -24,10 +24,17 @@
   opacity: .82;
 }
 
-#status {
-  font-size: 22px;
-  font-weight: 700;
-  opacity: .96;
+.time-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.time-row #time,
+.time-row #status {
+  font-size: 12px;
+  font-weight: 400;
+  opacity: .82;
 }
 
 .speed-row,
