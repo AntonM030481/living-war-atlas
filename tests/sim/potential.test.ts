@@ -95,6 +95,45 @@ describe('potential solver stages', () => {
     expect(side.potential[2 * width + frontX]).toBeGreaterThan(side.potential[frontX]);
   });
 
+  it('coarse-dijkstra seeds distant cells before coarse relaxation can reach them', () => {
+    const width = 256;
+    const frontIndex = 2;
+    const side = createSideFields(width);
+    const transportGrid = grid(width, 1, (index) => index === frontIndex);
+
+    side.need[frontIndex] = 1;
+    buildApproximatePotential(side, transportGrid, {
+      ...config,
+      potentialApproximation: 'coarse-dijkstra',
+      potentialCoarsePasses: 1,
+    });
+
+    expect(side.potential[width - 1]).toBeGreaterThan(0);
+    expect(side.potential[frontIndex]).toBeGreaterThan(side.potential[width - 1]);
+  });
+
+  it('coarse-dijkstra uses local need as source amplitude rather than max need', () => {
+    const width = 32;
+    const height = 8;
+    const frontX = 1;
+    const side = createSideFields(width * height);
+    const transportGrid = grid(width, height, (index) => index % width === frontX);
+
+    for (let y = 0; y < height; y++) {
+      side.need[y * width + frontX] = y < 2 ? 2 : 0;
+    }
+
+    buildApproximatePotential(side, transportGrid, {
+      ...config,
+      potentialApproximation: 'coarse-dijkstra',
+      potentialCoarsePasses: 1,
+    });
+
+    const rearX = 20;
+    expect(side.potential[rearX]).toBeGreaterThan(side.potential[6 * width + rearX]);
+    expect(side.potential[frontX]).toBeGreaterThan(side.potential[6 * width + frontX]);
+  });
+
   it('dijkstra approximation discards stale global potential after the front moves', () => {
     const width = 256;
     let frontIndex = 2;
