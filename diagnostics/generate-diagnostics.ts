@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Simulation } from '../src/sim/Simulation';
+import { CFG, ticks } from '../src/sim/Config';
 import { testMap } from '../src/map/testMap';
 import type { City, MapDefinition, SimulationSnapshot } from '../src/sim/types';
 
@@ -213,9 +214,9 @@ function traceCityFlow(snapshot: SimulationSnapshot, city: City): { points: numb
 function cityFlowDiagnostics(totalSeconds = 120): CityFlowSample[] {
   const sim = new Simulation(testMap, 20260816);
   const rows: CityFlowSample[] = [];
-  const sampleEverySteps = Math.round(5 / 0.1);
+  const sampleEverySteps = ticks(5);
 
-  for (let step = 0; step <= Math.round(totalSeconds / 0.1); step++) {
+  for (let step = 0; step <= ticks(totalSeconds); step++) {
     sim.tick();
     if (step % sampleEverySteps !== 0) continue;
 
@@ -299,12 +300,12 @@ function commitmentTransition(): CommitmentSample[] {
 
   const internals = sim as unknown as { computeFrontMassAndNeed(): void };
   const samples: CommitmentSample[] = [];
-  for (let step = 0; step < 40; step++) {
+  for (let step = 0; step < ticks(4); step++) {
     internals.computeFrontMassAndNeed();
-    if (step % 2 === 0) {
+    if (step % ticks(0.2) === 0) {
       samples.push({
         phase: 'engage',
-        t: (step + 1) * 0.1,
+        t: (step + 1) * CFG.dt,
         committed: sim.committedBlue[3],
         reserve: sim.warBlue[3] - sim.committedBlue[3],
       });
@@ -313,12 +314,12 @@ function commitmentTransition(): CommitmentSample[] {
 
   sim.warRed.fill(0);
   sim.control.fill(1);
-  for (let step = 0; step < 120; step++) {
+  for (let step = 0; step < ticks(12); step++) {
     internals.computeFrontMassAndNeed();
-    if (step % 6 === 0) {
+    if (step % ticks(0.6) === 0) {
       samples.push({
         phase: 'release',
-        t: (step + 1) * 0.1,
+        t: (step + 1) * CFG.dt,
         committed: sim.committedBlue[3],
         reserve: sim.warBlue[3] - sim.committedBlue[3],
       });
@@ -330,7 +331,7 @@ function commitmentTransition(): CommitmentSample[] {
 function recoveryScenario(outageSeconds: number): RecoverySample[] {
   const width = 80;
   const sim = new Simulation(oneDimensionalMap(width), 12345);
-  sim.runWarmup(75);
+  for (let step = 0; step < ticks(75); step++) sim.tick();
   const fixedFrontX = frontPosition1D(sim, width);
   const blue = sim.cities.find((city) => city.id === 'b');
   if (!blue) throw new Error('Blue city missing');
@@ -338,11 +339,11 @@ function recoveryScenario(outageSeconds: number): RecoverySample[] {
 
   const samples: RecoverySample[] = [];
   const totalSeconds = outageSeconds + 220;
-  for (let step = 0; step <= Math.round(totalSeconds / 0.1); step++) {
-    const t = step * 0.1;
+  for (let step = 0; step <= ticks(totalSeconds); step++) {
+    const t = step * CFG.dt;
     if (t >= outageSeconds) blue.baseProduction = 4;
     sim.tick();
-    if (step % 50 === 0) samples.push(snapshotRecoverySample(sim, t, fixedFrontX));
+    if (step % ticks(5) === 0) samples.push(snapshotRecoverySample(sim, t, fixedFrontX));
   }
   return samples;
 }
@@ -353,14 +354,14 @@ function tippingScenario(): TippingSample[] {
   for (const duration of durations) {
     const width = 80;
     const sim = new Simulation(oneDimensionalMap(width), 12345);
-    sim.runWarmup(75);
+    for (let step = 0; step < ticks(75); step++) sim.tick();
     const start = frontPosition1D(sim, width);
     const blue = sim.cities.find((city) => city.id === 'b');
     if (!blue) throw new Error('Blue city missing');
     blue.baseProduction = 0;
-    for (let i = 0; i < Math.round(duration / 0.1); i++) sim.tick();
+    for (let i = 0; i < ticks(duration); i++) sim.tick();
     blue.baseProduction = 4;
-    for (let i = 0; i < Math.round(240 / 0.1); i++) sim.tick();
+    for (let i = 0; i < ticks(240); i++) sim.tick();
     const final = frontPosition1D(sim, width);
     rows.push({
       duration,
