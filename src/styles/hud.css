@@ -193,20 +193,26 @@
 .blue-flow { color: #164f91; }
 .red-flow { color: #b12620; }
 
-.blue-city::before,
-.red-city::before {
+.city-pair::before,
+.city-pair::after {
   content: "";
   position: absolute;
-  left: 9px;
-  top: 1px;
+  top: 0;
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  border: 2px solid #f6efd7;
+  background: transparent;
 }
 
-.blue-city::before { background: #164f91; }
-.red-city::before { background: #b12620; }
+.city-pair::before {
+  left: 3px;
+  border: 2px solid #164f91;
+}
+
+.city-pair::after {
+  left: 18px;
+  border: 2px solid #b12620;
+}
 
 .river-mark::before {
   content: "";
