@@ -58,7 +58,7 @@ export class GameApp {
     await this.initPixi();
     this.mapStage.append(this.pointMarker);
     this.renderer = new AtlasRenderer(this.pixi, this.map);
-    this.renderer.setDebug(true);
+    this.renderer.setDebug(false);
     this.renderer.setShowFlows(false);
 
     this.overlays = new CityOverlays(this.map, this.renderer, this.mapStage);
@@ -164,6 +164,7 @@ export class GameApp {
       this.hud.legend.open = false;
       this.diagnosticsPanel.element.open = false;
     }
+    this.renderer.setDebug(next);
     this.renderer.setShowFlows(next);
     this.renderDiagnostics();
     this.updatePointMarker();
