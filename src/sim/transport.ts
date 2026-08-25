@@ -525,6 +525,10 @@ export function transportResource(
         continue;
       }
       if (access <= 0.01) {
+        // Elimination of all forces on a cell that is no longer accessible.
+        war[i] = 0;
+        committed[i] = 0;
+
         flow.x[i] += (0 - flow.x[i]) * response;
         flow.y[i] += (0 - flow.y[i]) * response;
         continue;
