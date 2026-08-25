@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { linearMap } from '../../src/map/linearMap';
+import { smallLinearMap } from '../../src/map/smallLinearMap';
 import { testMap } from '../../src/map/testMap';
 import { applyFrontConsumption } from '../../src/sim/combat';
 import { CFG, ticks } from '../../src/sim/Config';
@@ -66,8 +67,8 @@ describe('Simulation', () => {
   });
 
   it('is deterministic for the same seed', () => {
-    const a = new Simulation(testMap, 42);
-    const b = new Simulation(testMap, 42);
+    const a = new Simulation(smallLinearMap, 42);
+    const b = new Simulation(smallLinearMap, 42);
     for (let i = 0; i < 30; i++) {
       a.tick();
       b.tick();
@@ -77,10 +78,10 @@ describe('Simulation', () => {
   });
 
   it('restores a saved state and continues deterministically', () => {
-    const baseline = new Simulation(testMap, 42);
+    const baseline = new Simulation(smallLinearMap, 42);
     for (let i = 0; i < 24; i++) baseline.tick();
     const state = baseline.saveState();
-    const expected = new Simulation(testMap, 42);
+    const expected = new Simulation(smallLinearMap, 42);
     expected.restoreState(state);
 
     for (let i = 0; i < 17; i++) {
@@ -98,7 +99,7 @@ describe('Simulation', () => {
   });
 
   it('cities generate war resource', () => {
-    const sim = new Simulation(testMap, 1);
+    const sim = new Simulation(smallLinearMap, 1);
     const before = total(sim.warBlue) + total(sim.warRed);
     sim.tick();
     const after = total(sim.warBlue) + total(sim.warRed);
@@ -107,7 +108,7 @@ describe('Simulation', () => {
   });
 
   it('reports active and controlled city production points', () => {
-    const sim = new Simulation(testMap, 1);
+    const sim = new Simulation(smallLinearMap, 1);
 
     const expectedProduction = (side: 'blue' | 'red', activeOnly: boolean): number =>
       sim.cities
@@ -136,7 +137,7 @@ describe('Simulation', () => {
   });
 
   it('flips city owner without changing production enabled state', () => {
-    const sim = new Simulation(testMap, 1);
+    const sim = new Simulation(smallLinearMap, 1);
     sim.toggleCityEnabled('b1');
     const city = sim.cities.find((candidate) => candidate.id === 'b1');
     if (!city) throw new Error('Missing b1');
@@ -151,16 +152,16 @@ describe('Simulation', () => {
   });
 
   it('keeps control bounded', () => {
-    const sim = new Simulation(testMap, 7);
+    const sim = new Simulation(smallLinearMap, 7);
     for (let i = 0; i < 100; i++) sim.tick();
     for (const c of sim.control) {
       expect(c).toBeGreaterThanOrEqual(-1);
       expect(c).toBeLessThanOrEqual(1);
     }
-  }, 30000);
+  });
 
   it('exhausts front-supporting mass when city production is cut', () => {
-    const sim = new Simulation(linearMap, 12345);
+    const sim = new Simulation(smallLinearMap, 12345);
     const y = Math.floor(sim.height / 2);
     for (let i = 0; i < ticks(75); i++) sim.tick();
     const initialFront = frontPosition1D(sim, sim.width, y);
@@ -176,7 +177,7 @@ describe('Simulation', () => {
 
   it('separates committed combat mass from mobile reserve', () => {
     function settleCommitment(blueAmount: number, redAmount: number) {
-      const sim = new Simulation(linearMap, 1);
+      const sim = new Simulation(smallLinearMap, 1);
       const cells = linearFrontCells(sim);
       sim.warBlue.fill(0);
       sim.warRed.fill(0);
@@ -202,7 +203,7 @@ describe('Simulation', () => {
   });
 
   it('commits the stronger red side in a one-dimensional superiority case', () => {
-    const sim = new Simulation(linearMap, 1);
+    const sim = new Simulation(smallLinearMap, 1);
     const cells = linearFrontCells(sim);
     sim.warBlue.fill(0);
     sim.warRed.fill(0);
@@ -218,7 +219,7 @@ describe('Simulation', () => {
   });
 
   it('treats both cells adjacent to the zero contour as frontline', () => {
-    const sim = new Simulation(linearMap, 1);
+    const sim = new Simulation(smallLinearMap, 1);
     const cells = linearFrontCells(sim);
     const internals = sim as unknown as { isFront(i: number): boolean };
 
@@ -273,7 +274,7 @@ describe('Simulation', () => {
   });
 
   it('transports reserve without transporting committed combat mass', () => {
-    const sim = new Simulation(linearMap, 1);
+    const sim = new Simulation(smallLinearMap, 1);
     const cells = linearFrontCells(sim);
     sim.warBlue.fill(0);
     sim.warRed.fill(0);
@@ -365,7 +366,7 @@ describe('Simulation', () => {
   });
 
   it('combat attrition consumes committed mass but leaves reserve unchanged', () => {
-    const sim = new Simulation(linearMap, 1);
+    const sim = new Simulation(smallLinearMap, 1);
     const cells = linearFrontCells(sim);
     sim.warBlue.fill(0);
     sim.committedBlue.fill(0);
@@ -384,7 +385,7 @@ describe('Simulation', () => {
   });
 
   it('releases committed mass gradually when enemy contact disappears', () => {
-    const sim = new Simulation(linearMap, 1);
+    const sim = new Simulation(smallLinearMap, 1);
     const cells = linearFrontCells(sim);
     sim.warBlue.fill(0);
     sim.warRed.fill(0);
@@ -408,8 +409,8 @@ describe('Simulation', () => {
     expect(sim.warBlue[cells.blue] - later).toBeGreaterThan(9);
   });
 
-  it('keeps committed mass bounded on the authored map smoke path', () => {
-    const sim = new Simulation(testMap, 99);
+  it('keeps committed mass bounded on a small authored-map smoke path', () => {
+    const sim = new Simulation(smallLinearMap, 99);
     for (let step = 0; step < 100; step++) {
       sim.tick();
       for (let i = 0; i < sim.size; i++) {
@@ -419,5 +420,5 @@ describe('Simulation', () => {
         expect(sim.committedRed[i]).toBeLessThanOrEqual(sim.warRed[i] + 1e-5);
       }
     }
-  }, 30000);
+  });
 });
