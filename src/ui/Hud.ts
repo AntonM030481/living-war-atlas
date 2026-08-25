@@ -68,8 +68,7 @@ export class Hud {
         <span class="legend-mark old-border"></span><span>prewar border</span>
         <span class="legend-mark blue-flow"></span><span>Blue flow arrows (Diag)</span>
         <span class="legend-mark red-flow"></span><span>Red flow arrows (Diag)</span>
-        <span class="legend-mark blue-city"></span><span>Blue city</span>
-        <span class="legend-mark red-city"></span><span>Red city</span>
+        <span class="legend-mark city-pair"></span><span>city</span>
         <span class="legend-mark river-mark"></span><span>river</span>
         <span class="legend-mark forest-mark"></span><span>forest</span>
         <span class="legend-mark stress-mark"></span><span>front instability</span>
