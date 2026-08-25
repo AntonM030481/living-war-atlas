@@ -5,6 +5,7 @@
       "label": "Vite dev server",
       "type": "npm",
       "script": "dev",
+      "args": ["--", "--strictPort"],
       "isBackground": true,
       "problemMatcher": {
         "owner": "vite",
@@ -14,7 +15,7 @@
         "background": {
           "activeOnStart": true,
           "beginsPattern": ".*",
-          "endsPattern": "Local:.*http://localhost:5173"
+          "endsPattern": "Local:.*http://localhost:5173/"
         }
       },
       "presentation": {
