@@ -225,7 +225,7 @@ describe('Simulation', () => {
     expect(sim.control[cells.blue]).toBeGreaterThan(0);
     expect(sim.control[cells.red]).toBeLessThan(0);
     expect(internals.isFront(cells.blue)).toBe(true);
-    expect(internals.isFront(cells.red]).toBe(true);
+    expect(internals.isFront(cells.red)).toBe(true);
   });
 
   it('does not create frontline cells on blocked terrain', () => {
