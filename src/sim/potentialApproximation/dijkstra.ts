@@ -71,6 +71,12 @@ function edgeDistance(transmission: number): number {
   return 1 / Math.sqrt(Math.max(transmission, EPS));
 }
 
+/**
+ * Builds only the global geometric shape of the field. All front cells are
+ * equal-distance sources; their individual need values remain boundary
+ * conditions for fine relaxation instead of being propagated through Voronoi
+ * regions by Dijkstra.
+ */
 export const buildDijkstraApproximation: PotentialApproximationStrategy = (
   potential,
   grid,
@@ -80,17 +86,12 @@ export const buildDijkstraApproximation: PotentialApproximationStrategy = (
   const safeDecay = Math.max(EPS, Math.min(0.999999, config.potentialDecay));
   const logDecay = Math.log(safeDecay);
   const distances = new Float64Array(potential.length);
-  const sourcePotential = new Float32Array(potential.length);
   distances.fill(Number.POSITIVE_INFINITY);
   const heap = new MinHeap();
 
-  // Every current front cell starts at the same distance. Need affects the
-  // potential carried by the selected nearest source, but never makes one front
-  // segment artificially closer than another.
   for (let i = 0; i < potential.length; i++) {
     if (context.currentStatus[i] !== 2) continue;
     distances[i] = 0;
-    sourcePotential[i] = 1 + context.smoothedNeed[i];
     heap.push(i, 0);
   }
 
@@ -121,7 +122,6 @@ export const buildDijkstraApproximation: PotentialApproximationStrategy = (
       const candidate = current.cost + edgeDistance(transmission);
       if (candidate >= distances[neighbor]) continue;
       distances[neighbor] = candidate;
-      sourcePotential[neighbor] = sourcePotential[current.index];
       heap.push(neighbor, candidate);
     }
   }
@@ -136,7 +136,7 @@ export const buildDijkstraApproximation: PotentialApproximationStrategy = (
         0,
         Math.min(
           context.maxFrontPotential,
-          sourcePotential[i] * Math.exp(logDecay * distances[i]),
+          context.maxFrontPotential * Math.exp(logDecay * distances[i]),
         ),
       );
     }
