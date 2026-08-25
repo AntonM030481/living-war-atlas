@@ -33,6 +33,7 @@ export function sideAccess(side: Side, control: number): number {
 export interface TransportConfig {
   dt: number;
   potentialDecay: number;
+  potentialRepairEnabled?: boolean;
   baseEdgeCapacityPerSecond: number;
   resourceCellCapacity: number;
   resourceCongestionStrength: number;
@@ -355,22 +356,23 @@ function repairPotentialTransitions(
   }
 }
 
+export interface ApproximatePotentialResult {
+  smoothedNeed: Float32Array;
+  currentStatus: Uint8Array;
+  reaction: number;
+  maxFrontPotential: number;
+}
+
 /**
- * Builds a smooth screened-diffusion potential with front demand as a fixed
- * boundary condition. Unlike max propagation, every connected neighbouring
- * front segment contributes to the field, so small demand changes deform the
- * gradient continuously instead of switching whole regions between winners.
- *
- * potentialDecay is converted to the equivalent discrete reaction term so a
- * straight 1D corridor keeps approximately the same per-cell decay as before.
- * The stored potential is reused between rebuilds, so only a few relaxation
- * sweeps are needed each time and convergence happens incrementally.
+ * Builds the global approximate potential used as the starting point for fine
+ * refinement. The current strategy reuses the previous solution and, when
+ * enabled, repairs neighbourhoods whose domain/front status changed.
  */
-export function rebuildPotential(
-  fields: Pick<SideFields, 'need' | 'potential' | 'war'>,
+export function buildApproximatePotential(
+  fields: Pick<SideFields, 'need' | 'potential'>,
   grid: TransportGrid,
   config: TransportConfig,
-): void {
+): ApproximatePotentialResult {
   const { need, potential } = fields;
   const smoothedNeed = smoothFrontDemand(need, grid);
   const decay = Math.max(EPS, Math.min(0.999999, config.potentialDecay));
@@ -395,13 +397,34 @@ export function rebuildPotential(
   if (maxFrontPotential <= EPS) {
     potential.fill(0);
     potentialStatusByField.set(potential, currentStatus);
-    return;
+    return { smoothedNeed, currentStatus, reaction, maxFrontPotential };
   }
 
-  if (previousStatus && previousStatus.length === currentStatus.length) {
+  if (
+    config.potentialRepairEnabled !== false &&
+    previousStatus &&
+    previousStatus.length === currentStatus.length
+  ) {
     repairPotentialTransitions(potential, currentStatus, previousStatus, grid, reaction);
   }
   potentialStatusByField.set(potential, currentStatus);
+
+  return { smoothedNeed, currentStatus, reaction, maxFrontPotential };
+}
+
+/**
+ * Refines an approximate potential on the full-resolution grid. This is kept as
+ * a separate stage so the approximation strategy and refinement implementation
+ * can evolve independently (for example, a different global solver or GPU
+ * refinement) without changing transport semantics.
+ */
+export function refinePotential(
+  potential: Float32Array,
+  grid: TransportGrid,
+  approximate: ApproximatePotentialResult,
+): void {
+  const { smoothedNeed, currentStatus, reaction, maxFrontPotential } = approximate;
+  if (maxFrontPotential <= EPS) return;
 
   for (let pass = 0; pass < POTENTIAL_RELAXATION_PASSES; pass++) {
     const reverse = (pass & 1) === 1;
@@ -445,6 +468,20 @@ export function rebuildPotential(
 
     if (maxDelta < POTENTIAL_RELAXATION_TOLERANCE) break;
   }
+}
+
+/**
+ * Builds a smooth screened-diffusion potential with front demand as a fixed
+ * boundary condition. The build is deliberately split into a global approximate
+ * solution followed by full-resolution fine refinement.
+ */
+export function rebuildPotential(
+  fields: Pick<SideFields, 'need' | 'potential' | 'war'>,
+  grid: TransportGrid,
+  config: TransportConfig,
+): void {
+  const approximate = buildApproximatePotential(fields, grid, config);
+  refinePotential(fields.potential, grid, approximate);
 }
 
 interface TransferProposal {
