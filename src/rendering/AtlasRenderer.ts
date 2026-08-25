@@ -11,6 +11,7 @@ import { clientToWorld, worldToScreen, type Point, type ViewTransform } from './
 
 const BLUE_DARK = 0x164f91;
 const RED_DARK = 0xb12620;
+const TOUCH_CITY_HIT_RADIUS_PX = 24;
 
 export { type FrontDebugInfo } from '../diagnostics/types';
 
@@ -101,12 +102,21 @@ export class AtlasRenderer {
   }
 
   cityIdAtClientPoint(clientX: number, clientY: number): string | null {
-    const { x, y } = this.clientToWorld(clientX, clientY);
+    const transform = this.transform();
+    const { x, y } = clientToWorld(clientX, clientY, transform);
+    const touchFriendly = window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 1;
+    const touchRadiusWorld = touchFriendly
+      ? TOUCH_CITY_HIT_RADIUS_PX / Math.max(0.001, Math.min(
+          transform.scaleX * transform.canvasScaleX,
+          transform.scaleY * transform.canvasScaleY,
+        ))
+      : 0;
     let best: string | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;
 
     for (const city of this.map.cities) {
-      const radius = (1.15 + city.baseProduction * 0.14) * this.mapScale();
+      const visualRadius = (1.15 + city.baseProduction * 0.14) * this.mapScale();
+      const radius = Math.max(visualRadius, touchRadiusWorld);
       const distance = Math.hypot(x - city.x, y - city.y);
       if (distance <= radius && distance < bestDistance) {
         best = city.id;
