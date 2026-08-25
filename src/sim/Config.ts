@@ -52,6 +52,10 @@ export const CFG = {
   initialFrontResource: 1,
 } as const;
 
+export function ticks(seconds: number): number {
+  return Math.round(seconds / CFG.dt);
+}
+
 export const SPEEDS = [1, 2, 4, 8, 16] as const;
 
 export type Side = 'blue' | 'red';
