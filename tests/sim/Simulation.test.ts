@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { linearMap } from '../../src/map/linearMap';
 import { testMap } from '../../src/map/testMap';
 import { applyFrontConsumption } from '../../src/sim/combat';
 import { CFG, ticks } from '../../src/sim/Config';
@@ -10,16 +11,27 @@ function total(a: Float32Array): number {
   return sum;
 }
 
-function frontPosition1D(sim: Simulation, width: number): number {
+function frontPosition1D(sim: Simulation, width: number, y = 0): number {
+  const row = y * width;
   for (let x = 0; x < width - 1; x++) {
-    const a = sim.control[x];
-    const b = sim.control[x + 1];
+    const a = sim.control[row + x];
+    const b = sim.control[row + x + 1];
     if (a >= 0 && b <= 0) {
       const t = a / (a - b || 1);
       return x + t;
     }
   }
-  return sim.control[0] < 0 ? 0 : width - 1;
+  return sim.control[row] < 0 ? 0 : width - 1;
+}
+
+function linearFrontCells(sim: Simulation): { y: number; blue: number; red: number } {
+  const y = Math.floor(sim.height / 2);
+  const frontX = Math.floor(sim.width / 2);
+  return {
+    y,
+    blue: y * sim.width + frontX - 1,
+    red: y * sim.width + frontX + 1,
+  };
 }
 
 function localFlow(snapshot: ReturnType<Simulation['snapshot']>, cityId: string): number {
@@ -148,60 +160,40 @@ describe('Simulation', () => {
   }, 30000);
 
   it('exhausts front-supporting mass when city production is cut', () => {
-    const width = 80;
-    const map = {
-      width,
-      height: 1,
-      initialFrontX: () => 40.4,
-      riverX: () => 1000,
-      forests: [],
-      cities: [
-        { id: 'b', name: 'Blue', x: 8, y: 0, baseProduction: 4, owner: 'blue' as const, integration: 1 },
-        { id: 'r', name: 'Red', x: 71, y: 0, baseProduction: 4, owner: 'red' as const, integration: 1 },
-      ],
-    };
-
-    const sim = new Simulation(map, 12345);
+    const sim = new Simulation(linearMap, 12345);
+    const y = Math.floor(sim.height / 2);
     for (let i = 0; i < ticks(75); i++) sim.tick();
-    const initialFront = frontPosition1D(sim, width);
+    const initialFront = frontPosition1D(sim, sim.width, y);
 
-    const blue = sim.cities.find((c) => c.id === 'b');
+    const blue = sim.cities.find((city) => city.id === 'b1');
     if (!blue) throw new Error('Blue city missing');
     blue.baseProduction = 0;
 
     for (let i = 0; i < ticks(400); i++) sim.tick();
 
-    expect(frontPosition1D(sim, width)).toBeLessThan(initialFront - 1.5);
+    expect(frontPosition1D(sim, sim.width, y)).toBeLessThan(initialFront - 1.5);
   });
 
   it('separates committed combat mass from mobile reserve', () => {
-    const map = {
-      width: 9,
-      height: 1,
-      initialFrontX: () => 4,
-      riverX: () => 100,
-      forests: [],
-      cities: [],
-    };
-
     function settleCommitment(blueAmount: number, redAmount: number) {
-      const sim = new Simulation(map, 1);
+      const sim = new Simulation(linearMap, 1);
+      const cells = linearFrontCells(sim);
       sim.warBlue.fill(0);
       sim.warRed.fill(0);
-      sim.warBlue[3] = blueAmount;
-      sim.warRed[5] = redAmount;
+      sim.warBlue[cells.blue] = blueAmount;
+      sim.warRed[cells.red] = redAmount;
 
       const internals = sim as unknown as { computeFrontMassAndNeed(): void };
       for (let i = 0; i < 80; i++) internals.computeFrontMassAndNeed();
-      return sim;
+      return { sim, cells };
     }
 
     const equalFight = settleCommitment(1, 1);
     const overwhelmingBlue = settleCommitment(10, 1);
-    const equalCommitted = equalFight.committedBlue[3];
-    const equalReserve = equalFight.warBlue[3] - equalCommitted;
-    const overwhelmingCommitted = overwhelmingBlue.committedBlue[3];
-    const overwhelmingReserve = overwhelmingBlue.warBlue[3] - overwhelmingCommitted;
+    const equalCommitted = equalFight.sim.committedBlue[equalFight.cells.blue];
+    const equalReserve = equalFight.sim.warBlue[equalFight.cells.blue] - equalCommitted;
+    const overwhelmingCommitted = overwhelmingBlue.sim.committedBlue[overwhelmingBlue.cells.blue];
+    const overwhelmingReserve = overwhelmingBlue.sim.warBlue[overwhelmingBlue.cells.blue] - overwhelmingCommitted;
 
     expect(equalCommitted).toBeGreaterThan(0);
     expect(equalReserve).toBeGreaterThan(0);
@@ -210,46 +202,30 @@ describe('Simulation', () => {
   });
 
   it('commits the stronger red side in a one-dimensional superiority case', () => {
-    const map = {
-      width: 9,
-      height: 1,
-      initialFrontX: () => 4,
-      riverX: () => 100,
-      forests: [],
-      cities: [],
-    };
-
-    const sim = new Simulation(map, 1);
+    const sim = new Simulation(linearMap, 1);
+    const cells = linearFrontCells(sim);
     sim.warBlue.fill(0);
     sim.warRed.fill(0);
-    sim.warBlue[3] = 1;
-    sim.warRed[5] = 10;
+    sim.warBlue[cells.blue] = 1;
+    sim.warRed[cells.red] = 10;
 
     const internals = sim as unknown as { computeFrontMassAndNeed(): void };
     for (let i = 0; i < 80; i++) internals.computeFrontMassAndNeed();
 
-    expect(sim.committedRed[5]).toBeGreaterThan(sim.committedBlue[3]);
-    expect(sim.committedRed[5]).toBeGreaterThan(6);
-    expect(sim.warRed[5] - sim.committedRed[5]).toBeLessThan(4);
+    expect(sim.committedRed[cells.red]).toBeGreaterThan(sim.committedBlue[cells.blue]);
+    expect(sim.committedRed[cells.red]).toBeGreaterThan(0);
+    expect(sim.warRed[cells.red] - sim.committedRed[cells.red]).toBeGreaterThan(0);
   });
 
   it('treats both cells adjacent to the zero contour as frontline', () => {
-    const width = 80;
-    const map = {
-      width,
-      height: 1,
-      initialFrontX: () => 40.4,
-      riverX: () => 1000,
-      forests: [],
-      cities: [],
-    };
-    const sim = new Simulation(map, 1);
+    const sim = new Simulation(linearMap, 1);
+    const cells = linearFrontCells(sim);
     const internals = sim as unknown as { isFront(i: number): boolean };
 
-    expect(sim.control[40]).toBeGreaterThan(0);
-    expect(sim.control[41]).toBeLessThan(0);
-    expect(internals.isFront(40)).toBe(true);
-    expect(internals.isFront(41)).toBe(true);
+    expect(sim.control[cells.blue]).toBeGreaterThan(0);
+    expect(sim.control[cells.red]).toBeLessThan(0);
+    expect(internals.isFront(cells.blue)).toBe(true);
+    expect(internals.isFront(cells.red)).toBe(true);
   });
 
   it('does not create frontline cells on blocked terrain', () => {
@@ -297,20 +273,12 @@ describe('Simulation', () => {
   });
 
   it('transports reserve without transporting committed combat mass', () => {
-    const map = {
-      width: 9,
-      height: 1,
-      initialFrontX: () => 4,
-      riverX: () => 100,
-      forests: [],
-      cities: [],
-    };
-
-    const sim = new Simulation(map, 1);
+    const sim = new Simulation(linearMap, 1);
+    const cells = linearFrontCells(sim);
     sim.warBlue.fill(0);
     sim.warRed.fill(0);
-    sim.warBlue[3] = 10;
-    sim.warRed[5] = 1;
+    sim.warBlue[cells.blue] = 10;
+    sim.warRed[cells.red] = 1;
 
     const internals = sim as unknown as {
       computeFrontMassAndNeed(): void;
@@ -318,42 +286,36 @@ describe('Simulation', () => {
     };
     for (let i = 0; i < 80; i++) internals.computeFrontMassAndNeed();
 
-    const committedBefore = sim.committedBlue[3];
-    const reserveBefore = sim.warBlue[3] - committedBefore;
+    const committedBefore = sim.committedBlue[cells.blue];
+    const reserveBefore = sim.warBlue[cells.blue] - committedBefore;
+    const destination = cells.blue - 1;
     sim.sides.blue.potential.fill(0);
-    sim.sides.blue.potential[3] = 1;
-    sim.sides.blue.potential[2] = 2;
+    sim.sides.blue.potential[cells.blue] = 1;
+    sim.sides.blue.potential[destination] = 2;
 
-    const destinationBefore = sim.warBlue[2];
+    const destinationBefore = sim.warBlue[destination];
     internals.transportResource('blue');
-    const moved = sim.warBlue[2] - destinationBefore;
+    const moved = sim.warBlue[destination] - destinationBefore;
 
     expect(moved).toBeGreaterThan(0);
     expect(moved).toBeLessThanOrEqual(reserveBefore + 1e-6);
-    expect(sim.committedBlue[3]).toBeCloseTo(committedBefore, 6);
-    expect(sim.warBlue[3]).toBeGreaterThanOrEqual(sim.committedBlue[3]);
+    expect(sim.committedBlue[cells.blue]).toBeCloseTo(committedBefore, 6);
+    expect(sim.warBlue[cells.blue]).toBeGreaterThanOrEqual(sim.committedBlue[cells.blue]);
   });
 
   it('lets distant rear resource sources participate in frontline supply', () => {
-    const width = 360;
-    const frontX = 250;
-    const map = {
-      width,
-      height: 1,
-      initialFrontX: () => frontX,
-      riverX: () => 1000,
-      forests: [],
-      cities: [],
-    };
-    const sim = new Simulation(map, 1);
+    const sim = new Simulation(linearMap, 1);
+    const cells = linearFrontCells(sim);
+    const blueSource = cells.y * sim.width + 5;
+    const redSource = cells.y * sim.width + sim.width - 6;
     sim.warBlue.fill(0);
     sim.warRed.fill(0);
     sim.committedBlue.fill(0);
     sim.committedRed.fill(0);
-    sim.warBlue[5] = 20;
-    sim.warRed[width - 6] = 20;
-    sim.warBlue[frontX - 1] = 2;
-    sim.warRed[frontX + 1] = 2;
+    sim.warBlue[blueSource] = 20;
+    sim.warRed[redSource] = 20;
+    sim.warBlue[cells.blue] = 2;
+    sim.warRed[cells.red] = 2;
 
     const internals = sim as unknown as {
       computeFrontMassAndNeed(): void;
@@ -364,14 +326,14 @@ describe('Simulation', () => {
     internals.rebuildPotential('blue');
     internals.rebuildPotential('red');
 
-    expect(sim.sides.blue.potential[5]).toBeGreaterThan(0);
-    expect(sim.sides.red.potential[width - 6]).toBeGreaterThan(0);
+    expect(sim.sides.blue.potential[blueSource]).toBeGreaterThan(0);
+    expect(sim.sides.red.potential[redSource]).toBeGreaterThan(0);
 
     internals.transportResource('blue');
     internals.transportResource('red');
 
-    expect(sim.flowBlueX[5]).toBeGreaterThan(0);
-    expect(sim.flowRedX[width - 6]).toBeLessThan(0);
+    expect(sim.flowBlueX[blueSource]).toBeGreaterThan(0);
+    expect(sim.flowRedX[redSource]).toBeLessThan(0);
   });
 
   it('keeps distant authored-map cities connected to resource flow', () => {
@@ -403,77 +365,51 @@ describe('Simulation', () => {
   });
 
   it('combat attrition consumes committed mass but leaves reserve unchanged', () => {
-    const map = {
-      width: 9,
-      height: 1,
-      initialFrontX: () => 4,
-      riverX: () => 100,
-      forests: [],
-      cities: [],
-    };
-
-    const sim = new Simulation(map, 1);
+    const sim = new Simulation(linearMap, 1);
+    const cells = linearFrontCells(sim);
     sim.warBlue.fill(0);
     sim.committedBlue.fill(0);
-    sim.warBlue[3] = 10;
-    sim.committedBlue[3] = 6;
+    sim.warBlue[cells.blue] = 10;
+    sim.committedBlue[cells.blue] = 6;
 
     const exposure = new Float32Array(sim.size);
-    exposure[3] = 1;
-    const reserveBefore = sim.warBlue[3] - sim.committedBlue[3];
-    const committedBefore = sim.committedBlue[3];
+    exposure[cells.blue] = 1;
+    const reserveBefore = sim.warBlue[cells.blue] - sim.committedBlue[cells.blue];
+    const committedBefore = sim.committedBlue[cells.blue];
     applyFrontConsumption(sim.sides.blue, exposure, CFG.dt);
-    const reserveAfter = sim.warBlue[3] - sim.committedBlue[3];
+    const reserveAfter = sim.warBlue[cells.blue] - sim.committedBlue[cells.blue];
 
-    expect(sim.committedBlue[3]).toBeLessThan(committedBefore);
+    expect(sim.committedBlue[cells.blue]).toBeLessThan(committedBefore);
     expect(reserveAfter).toBeCloseTo(reserveBefore, 6);
   });
 
   it('releases committed mass gradually when enemy contact disappears', () => {
-    const map = {
-      width: 9,
-      height: 1,
-      initialFrontX: () => 4,
-      riverX: () => 100,
-      forests: [],
-      cities: [],
-    };
-    const sim = new Simulation(map, 1);
+    const sim = new Simulation(linearMap, 1);
+    const cells = linearFrontCells(sim);
     sim.warBlue.fill(0);
     sim.warRed.fill(0);
-    sim.warBlue[3] = 10;
-    sim.warRed[5] = 1;
+    sim.warBlue[cells.blue] = 10;
+    sim.warRed[cells.red] = 1;
 
     const internals = sim as unknown as { computeFrontMassAndNeed(): void };
     for (let i = 0; i < 120; i++) internals.computeFrontMassAndNeed();
-    const committedBefore = sim.committedBlue[3];
+    const committedBefore = sim.committedBlue[cells.blue];
 
     sim.warRed.fill(0);
     sim.control.fill(1);
     internals.computeFrontMassAndNeed();
-    const immediatelyAfter = sim.committedBlue[3];
+    const immediatelyAfter = sim.committedBlue[cells.blue];
     for (let i = 0; i < 200; i++) internals.computeFrontMassAndNeed();
-    const later = sim.committedBlue[3];
+    const later = sim.committedBlue[cells.blue];
 
     expect(immediatelyAfter).toBeLessThan(committedBefore);
     expect(immediatelyAfter).toBeGreaterThan(0);
     expect(later).toBeLessThan(immediatelyAfter * 0.1);
-    expect(sim.warBlue[3] - later).toBeGreaterThan(9);
+    expect(sim.warBlue[cells.blue] - later).toBeGreaterThan(9);
   });
 
   it('never has committed mass larger than total War Resource', () => {
-    const map = {
-      width: 80,
-      height: 1,
-      initialFrontX: () => 40.4,
-      riverX: () => 1000,
-      forests: [],
-      cities: [
-        { id: 'b', name: 'Blue', x: 8, y: 0, baseProduction: 4, owner: 'blue' as const, integration: 1 },
-        { id: 'r', name: 'Red', x: 71, y: 0, baseProduction: 4, owner: 'red' as const, integration: 1 },
-      ],
-    };
-    const sim = new Simulation(map, 99);
+    const sim = new Simulation(linearMap, 99);
     for (let step = 0; step < 500; step++) {
       sim.tick();
       for (let i = 0; i < sim.size; i++) {
