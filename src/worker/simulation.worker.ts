@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 
 import type { Speed } from '../sim/Config';
+import { clearPotential, winnerFromControl } from '../sim/completion';
 import { forceCityEnclave } from '../sim/DebugActions';
 import { Simulation } from '../sim/Simulation';
 import type { MapDefinition, MapId, SimulationState, WorkerInMessage, WorkerOutMessage } from '../sim/types';
@@ -22,9 +23,14 @@ function post(message: WorkerOutMessage): void {
   self.postMessage(message);
 }
 
+function currentWinner() {
+  if (!sim) return null;
+  return winnerFromControl(sim.control, sim.terrainBlocked);
+}
+
 function postSnapshot(): void {
   if (!sim) return;
-  post({ type: 'snapshot', snapshot: sim.snapshot(), history: history.info(sim.gameTime) });
+  post({ type: 'snapshot', snapshot: sim.snapshot(), history: history.info(sim.gameTime), winner: currentWinner() });
 }
 
 function saveHistoryCheckpoint(force = false): void {
@@ -37,6 +43,15 @@ function isStateCompatible(state: SimulationState, map: MapDefinition): boolean 
     && state.height === map.height
     && state.cities.length === map.cities.length
     && state.cities.every((city, index) => city.id === map.cities[index]?.id);
+}
+
+function finishIfDecided(): boolean {
+  const winner = currentWinner();
+  if (!sim || !winner) return false;
+  clearPotential(sim.sides);
+  paused = true;
+  saveHistoryCheckpoint(true);
+  return true;
 }
 
 async function createSimulation(nextMapId: MapId, nextSeed: number, loadSavedState: boolean): Promise<void> {
@@ -55,6 +70,10 @@ async function createSimulation(nextMapId: MapId, nextSeed: number, loadSavedSta
         sim = new Simulation(map, seed);
         sim.restoreState(savedState);
         if (persisted.nextHistoryTime <= sim.gameTime) history.scheduleNext(sim.gameTime);
+        if (currentWinner()) {
+          clearPotential(sim.sides);
+          paused = true;
+        }
         post({ type: 'ready', seed, mapId });
         postSnapshot();
         return;
@@ -68,6 +87,7 @@ async function createSimulation(nextMapId: MapId, nextSeed: number, loadSavedSta
   if (token !== launchToken) return;
   seed = fallbackSeed;
   sim = new Simulation(map, seed);
+  paused = false;
   history.reset(sim.gameTime);
   saveHistoryCheckpoint(true);
   post({ type: 'ready', seed, mapId });
@@ -81,6 +101,7 @@ function ensureLoop(): void {
     for (let i = 0; i < speed; i++) {
       sim.tick();
       saveHistoryCheckpoint();
+      if (finishIfDecided()) break;
     }
     postSnapshot();
   }, 100);
