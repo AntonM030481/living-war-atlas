@@ -1,4 +1,5 @@
 import { buildCoarseApproximation } from './potentialApproximation/coarse';
+import { buildCoarseDijkstraApproximation } from './potentialApproximation/coarseDijkstra';
 import { buildDijkstraApproximation } from './potentialApproximation/dijkstra';
 import { buildPreviousApproximation } from './potentialApproximation/previous';
 import type {
@@ -11,6 +12,7 @@ const STRATEGIES: PotentialApproximationRegistry = {
   previous: buildPreviousApproximation,
   coarse: buildCoarseApproximation,
   dijkstra: buildDijkstraApproximation,
+  'coarse-dijkstra': buildCoarseDijkstraApproximation,
 };
 
 export function applyApproximatePotential(
@@ -19,6 +21,6 @@ export function applyApproximatePotential(
   config: TransportConfig,
   context: FinePotentialContext,
 ): void {
-  const strategy = STRATEGIES[config.potentialApproximation ?? 'dijkstra'];
+  const strategy = STRATEGIES[config.potentialApproximation ?? 'coarse-dijkstra'];
   strategy(potential, grid, config, context);
 }
