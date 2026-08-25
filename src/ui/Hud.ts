@@ -12,6 +12,7 @@ export interface HudHandlers {
 export class Hud {
   readonly element: HTMLDivElement;
   readonly legend: HTMLDetailsElement;
+  private readonly time: HTMLSpanElement;
   private readonly status: HTMLSpanElement;
   private readonly historyStatus: HTMLSpanElement;
   private readonly pauseButton: HTMLButtonElement;
@@ -24,7 +25,7 @@ export class Hud {
     this.element.className = 'hud';
     this.element.innerHTML = `
       <strong>${title}</strong>
-      <span id="status">warming up…</span>
+      <div class="time-row"><span id="time">0:00</span><span id="status" hidden></span></div>
       <span id="history-status">history --/--</span>
       <div class="speed-row">
         ${SPEEDS.map((speed) => `<button data-speed="${speed}" class="${speed === initialSpeed ? 'active' : ''}" title="Set simulation speed to ${speed}×">${speed}×</button>`).join('')}
@@ -40,6 +41,7 @@ export class Hud {
       </div>
     `;
 
+    this.time = this.element.querySelector('#time')!;
     this.status = this.element.querySelector('#status')!;
     this.historyStatus = this.element.querySelector('#history-status')!;
     this.pauseButton = this.element.querySelector('#pause')!;
@@ -76,8 +78,13 @@ export class Hud {
     `;
   }
 
-  setStatus(text: string): void {
-    this.status.textContent = text;
+  setTime(text: string): void {
+    this.time.textContent = text;
+  }
+
+  setStatus(text: string | null): void {
+    this.status.textContent = text ?? '';
+    this.status.hidden = text === null;
   }
 
   setSpeed(speed: Speed): void {
