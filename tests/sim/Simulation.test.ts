@@ -96,17 +96,31 @@ describe('Simulation', () => {
 
   it('reports active and controlled city production points', () => {
     const sim = new Simulation(testMap, 1);
+
+    const expectedProduction = (side: 'blue' | 'red', activeOnly: boolean): number =>
+      sim.cities
+        .filter((city) => city.owner === side && (!activeOnly || city.enabled !== false))
+        .reduce(
+          (sum, city) => sum + city.baseProduction * (activeOnly ? city.integration : 1),
+          0,
+        );
+
     const snapshot = sim.snapshot();
+    expect(snapshot.stats.controlledCityPointsBlue).toBe(expectedProduction('blue', false));
+    expect(snapshot.stats.controlledCityPointsRed).toBe(expectedProduction('red', false));
+    expect(snapshot.stats.activeCityPointsBlue).toBe(expectedProduction('blue', true));
+    expect(snapshot.stats.activeCityPointsRed).toBe(expectedProduction('red', true));
 
-    expect(snapshot.stats.controlledCityPointsBlue).toBe(20);
-    expect(snapshot.stats.controlledCityPointsRed).toBe(20);
-    expect(snapshot.stats.activeCityPointsBlue).toBe(20);
-    expect(snapshot.stats.activeCityPointsRed).toBe(20);
+    const city = sim.cities.find((candidate) => candidate.owner === 'blue');
+    if (!city) throw new Error('Missing blue city');
+    const controlledBefore = snapshot.stats.controlledCityPointsBlue;
+    const activeBefore = snapshot.stats.activeCityPointsBlue;
+    const disabledProduction = city.baseProduction * city.integration;
 
-    sim.toggleCityEnabled('b5');
+    sim.toggleCityEnabled(city.id);
     const afterToggle = sim.snapshot();
-    expect(afterToggle.stats.controlledCityPointsBlue).toBe(20);
-    expect(afterToggle.stats.activeCityPointsBlue).toBe(14);
+    expect(afterToggle.stats.controlledCityPointsBlue).toBe(controlledBefore);
+    expect(afterToggle.stats.activeCityPointsBlue).toBeCloseTo(activeBefore - disabledProduction, 8);
   });
 
   it('flips city owner without changing production enabled state', () => {
