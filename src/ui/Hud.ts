@@ -63,9 +63,13 @@ export class Hud {
     this.element.querySelector<HTMLButtonElement>('#reset')!.addEventListener('click', handlers.onReset);
     this.debugButton.addEventListener('click', handlers.onDiagnosticsToggle);
 
-    const cityControls = isIOS()
+    const ios = isIOS();
+    const cityControls = ios
       ? 'City short press: production on/off<br>City long press: switch side'
       : 'City left click: production on/off<br>City right click: switch side';
+    const keyboardControls = ios
+      ? ''
+      : '<br>Space: pause · ←/→: rewind · ↑/↓: speed';
 
     this.legend = document.createElement('details');
     this.legend.className = 'legend';
@@ -82,7 +86,7 @@ export class Hud {
         <span class="legend-mark forest-mark"></span><span>forest</span>
         <span class="legend-mark stress-mark"></span><span>front instability</span>
       </div>
-      <div class="legend-note">${cityControls}<br>Space: pause · ←/→: rewind · ↑/↓: speed</div>
+      <div class="legend-note">${cityControls}${keyboardControls}</div>
     `;
   }
 
