@@ -1,6 +1,8 @@
 import type { Speed } from '../sim/Config';
 import type { MapId, WorkerInMessage, WorkerOutMessage } from '../sim/types';
 
+const NEW_GAME_MAP_KEY = 'living-war-atlas:new-game-map';
+
 export class SimulationClient {
   private readonly worker = new Worker(new URL('../worker/simulation.worker.ts', import.meta.url), { type: 'module' });
 
@@ -9,7 +11,10 @@ export class SimulationClient {
   }
 
   start(mapId: MapId, seed: number): void {
-    this.send({ type: 'start', mapId, seed });
+    const pendingMapId = sessionStorage.getItem(NEW_GAME_MAP_KEY);
+    const loadSavedState = pendingMapId !== mapId;
+    if (!loadSavedState) sessionStorage.removeItem(NEW_GAME_MAP_KEY);
+    this.send({ type: 'start', mapId, seed, loadSavedState });
   }
 
   setSpeed(speed: Speed): void {
