@@ -99,6 +99,10 @@ export class Hud {
     this.pauseButton.classList.toggle('active', paused);
   }
 
+  setFinished(finished: boolean): void {
+    this.pauseButton.disabled = finished;
+  }
+
   setDiagnostics(enabled: boolean): void {
     this.debugButton.textContent = enabled ? 'Diag on' : 'Diag';
     this.debugButton.title = enabled
