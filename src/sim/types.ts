@@ -120,5 +120,5 @@ export type WorkerInMessage =
 
 export type WorkerOutMessage =
   | { type: 'ready'; seed: number; mapId: MapId }
-  | { type: 'snapshot'; snapshot: SimulationSnapshot; history: HistoryInfo }
+  | { type: 'snapshot'; snapshot: SimulationSnapshot; history: HistoryInfo; winner: Side | null }
   | { type: 'stats'; fps: number };
