@@ -71,6 +71,30 @@ describe('potential solver stages', () => {
     expect(side.potential[frontIndex]).toBeGreaterThan(side.potential[width - 1]);
   });
 
+  it('dijkstra approximation does not propagate front-need stripes into the rear', () => {
+    const width = 32;
+    const height = 5;
+    const frontX = 1;
+    const side = createSideFields(width * height);
+    const transportGrid = grid(width, height, (index) => index % width === frontX);
+
+    for (let y = 0; y < height; y++) {
+      side.need[y * width + frontX] = y === 2 ? 2 : 0;
+    }
+
+    buildApproximatePotential(side, transportGrid, {
+      ...config,
+      potentialApproximation: 'dijkstra',
+    });
+
+    const rearX = 20;
+    const firstRow = side.potential[rearX];
+    for (let y = 1; y < height; y++) {
+      expect(side.potential[y * width + rearX]).toBeCloseTo(firstRow, 6);
+    }
+    expect(side.potential[2 * width + frontX]).toBeGreaterThan(side.potential[frontX]);
+  });
+
   it('dijkstra approximation discards stale global potential after the front moves', () => {
     const width = 256;
     let frontIndex = 2;
