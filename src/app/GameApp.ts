@@ -1,5 +1,5 @@
 import { Application } from 'pixi.js';
-import { SPEEDS, type Speed } from '../sim/Config';
+import { SPEEDS, type Side, type Speed } from '../sim/Config';
 import type { HistoryInfo, MapDefinition, MapId, SimulationSnapshot, WorkerOutMessage } from '../sim/types';
 import { AtlasRenderer } from '../rendering/AtlasRenderer';
 import { buildCityDiagnostics } from '../diagnostics/CityDiagnostics';
@@ -31,6 +31,7 @@ export class GameApp {
   private currentSeed = 20260816;
   private speed: Speed = 4;
   private paused = false;
+  private finished = false;
   private diagnosticsEnabled = false;
   private latestSnapshot: SimulationSnapshot | null = null;
   private latestHistory: HistoryInfo | null = null;
@@ -85,7 +86,9 @@ export class GameApp {
   private createUi(): void {
     this.hud = new Hud(getMapOption(this.mapId).name, this.speed, {
       onSpeed: (speed) => this.setSpeed(speed),
-      onPauseToggle: () => this.setPaused(!this.paused),
+      onPauseToggle: () => {
+        if (!this.finished) this.setPaused(!this.paused);
+      },
       onHistoryStep: (delta) => this.stepHistory(delta),
       onReset: () => void this.reset(),
       onDiagnosticsToggle: () => this.setDiagnostics(!this.diagnosticsEnabled),
@@ -120,7 +123,9 @@ export class GameApp {
       onPrimaryClick: (event) => this.handlePrimaryClick(event),
       onPrimaryDrag: (event) => this.handlePrimaryDrag(event),
       onSecondaryClick: (event, force) => this.handleSecondaryCityClick(event, force),
-      onPauseToggle: () => this.setPaused(!this.paused),
+      onPauseToggle: () => {
+        if (!this.finished) this.setPaused(!this.paused);
+      },
       onDiagnosticsToggle: () => this.setDiagnostics(!this.diagnosticsEnabled),
       onHistoryStep: (delta) => this.stepHistory(delta),
       onSpeedStep: (delta) => this.stepSpeed(delta),
@@ -139,6 +144,16 @@ export class GameApp {
     this.paused = next;
     this.hud.setPaused(next);
     this.simulation.setPaused(next);
+  }
+
+  private setCompletion(winner: Side | null): void {
+    this.finished = winner !== null;
+    if (this.finished) {
+      this.paused = true;
+      this.hud.setPaused(true);
+    }
+    this.hud.setFinished(this.finished);
+    this.hud.setStatus(winner ? `${winner[0].toUpperCase()}${winner.slice(1)} wins` : null);
   }
 
   private setDiagnostics(next: boolean): void {
@@ -177,7 +192,7 @@ export class GameApp {
     this.setPaused(true);
     const nextMapId = await this.chooseNewMap(this.mapId);
     if (!nextMapId) {
-      this.setPaused(false);
+      if (!this.finished) this.setPaused(false);
       return;
     }
 
@@ -188,7 +203,9 @@ export class GameApp {
     }
 
     this.currentSeed = (this.currentSeed + 104729) >>> 0;
-    this.hud.setStatus(`seed ${this.currentSeed} · starting…`);
+    this.finished = false;
+    this.hud.setFinished(false);
+    this.hud.setStatus(null);
     this.simulation.reset(this.mapId, this.currentSeed);
     this.setPaused(false);
   }
@@ -264,7 +281,6 @@ export class GameApp {
   private handleWorkerMessage(message: WorkerOutMessage): void {
     if (message.type === 'ready') {
       this.currentSeed = message.seed;
-      this.hud.setStatus(`seed ${message.seed} · ready`);
       return;
     }
     if (message.type !== 'snapshot') return;
@@ -289,6 +305,7 @@ export class GameApp {
 
     const minutes = Math.floor(message.snapshot.gameTime / 60);
     const seconds = Math.floor(message.snapshot.gameTime % 60).toString().padStart(2, '0');
-    this.hud.setStatus(`${minutes}:${seconds}`);
+    this.hud.setTime(`${minutes}:${seconds}`);
+    this.setCompletion(message.winner);
   }
 }
