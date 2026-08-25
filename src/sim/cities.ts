@@ -60,6 +60,7 @@ export function flipCityOwner(cities: City[], cityId: string): Side | null {
   const city = cities.find((candidate) => candidate.id === cityId);
   if (!city) return null;
   city.owner = city.owner === 'blue' ? 'red' : 'blue';
-  city.integration = 0;
+  city.enabled = true;
+  city.integration = 1;
   return city.owner;
 }
