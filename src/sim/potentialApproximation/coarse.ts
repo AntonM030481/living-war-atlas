@@ -8,8 +8,8 @@ import {
 import type { FinePotentialContext } from './types';
 
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
-const DEFAULT_COARSE_SCALE = 2;
-const DEFAULT_COARSE_RELAXATION_PASSES = 24;
+export const DEFAULT_COARSE_SCALE = 2;
+export const DEFAULT_COARSE_RELAXATION_PASSES = 24;
 const POTENTIAL_RELAXATION_TOLERANCE = 1e-5;
 
 function reactionForDecay(decay: number): number {
@@ -17,7 +17,7 @@ function reactionForDecay(decay: number): number {
   return safeDecay + 1 / safeDecay - 2;
 }
 
-interface CoarseGrid {
+export interface CoarseGrid {
   width: number;
   height: number;
   scale: number;
@@ -66,7 +66,7 @@ function fineBoundaryTransmission(
   return count > 0 ? sum / count : 0;
 }
 
-function buildCoarseGrid(
+export function buildCoarseGrid(
   grid: TransportGrid,
   context: FinePotentialContext,
   scale: number,
@@ -137,7 +137,7 @@ function buildCoarseGrid(
   };
 }
 
-function coarseEdgeTransmission(
+export function coarseEdgeTransmission(
   x: number,
   y: number,
   dx: number,
@@ -152,17 +152,27 @@ function coarseEdgeTransmission(
   return 0;
 }
 
-function solveCoarsePotential(
+export function solveCoarsePotential(
   coarse: CoarseGrid,
   decay: number,
   passes: number,
+  initialPotential?: Float32Array,
 ): Float32Array {
-  const potential = new Float32Array(coarse.width * coarse.height);
+  const size = coarse.width * coarse.height;
+  const potential = initialPotential
+    ? new Float32Array(initialPotential)
+    : new Float32Array(size);
+  if (potential.length !== size) throw new Error('Coarse initial potential size mismatch');
+
   const coarseDecay = Math.pow(Math.max(EPS, Math.min(0.999999, decay)), coarse.scale);
   const reaction = reactionForDecay(coarseDecay);
   let maxFrontPotential = 0;
 
   for (let i = 0; i < potential.length; i++) {
+    if (coarse.status[i] === 0) {
+      potential[i] = 0;
+      continue;
+    }
     if (coarse.status[i] !== 2) continue;
     potential[i] = coarse.boundaryPotential[i];
     maxFrontPotential = Math.max(maxFrontPotential, potential[i]);
@@ -234,19 +244,13 @@ function coarseSample(
   return top + (bottom - top) * ty;
 }
 
-export const buildCoarseApproximation: PotentialApproximationStrategy = (
-  potential,
-  grid,
-  config,
-  context,
-) => {
-  const scale = Math.max(2, Math.round(config.potentialCoarseScale ?? DEFAULT_COARSE_SCALE));
-  const passes = Math.max(1, Math.round(
-    config.potentialCoarsePasses ?? DEFAULT_COARSE_RELAXATION_PASSES,
-  ));
-  const coarse = buildCoarseGrid(grid, context, scale);
-  const coarsePotential = solveCoarsePotential(coarse, config.potentialDecay, passes);
-
+export function projectCoarsePotential(
+  potential: Float32Array,
+  coarsePotential: Float32Array,
+  coarse: CoarseGrid,
+  grid: TransportGrid,
+  context: FinePotentialContext,
+): void {
   for (let y = 0; y < grid.height; y++) {
     for (let x = 0; x < grid.width; x++) {
       const i = y * grid.width + x;
@@ -262,4 +266,19 @@ export const buildCoarseApproximation: PotentialApproximationStrategy = (
       }
     }
   }
+}
+
+export const buildCoarseApproximation: PotentialApproximationStrategy = (
+  potential,
+  grid,
+  config,
+  context,
+) => {
+  const scale = Math.max(2, Math.round(config.potentialCoarseScale ?? DEFAULT_COARSE_SCALE));
+  const passes = Math.max(1, Math.round(
+    config.potentialCoarsePasses ?? DEFAULT_COARSE_RELAXATION_PASSES,
+  ));
+  const coarse = buildCoarseGrid(grid, context, scale);
+  const coarsePotential = solveCoarsePotential(coarse, config.potentialDecay, passes);
+  projectCoarsePotential(potential, coarsePotential, coarse, grid, context);
 };
