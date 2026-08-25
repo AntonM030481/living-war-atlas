@@ -67,7 +67,6 @@ export class AtlasRenderer {
   setDebug(value: boolean): void {
     this.debug = value;
     this.instability.visible = value;
-    this.resourceDensity.visible = value;
     this.potentialContours.visible = value;
     if (!value) this.potentialContourRenderer.clear();
   }
@@ -132,11 +131,11 @@ export class AtlasRenderer {
 
   render(snapshot: SimulationSnapshot): void {
     this.territory.clear();
+    this.drawResourceDensity(snapshot);
+
     if (this.debug) {
-      this.drawResourceDensity(snapshot);
       this.potentialContourRenderer.draw(snapshot);
     } else {
-      this.resourceDensity.clear();
       this.potentialContourRenderer.clear();
     }
 
