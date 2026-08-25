@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { testMap } from '../../src/map/testMap';
+import { smallLinearMap } from '../../src/map/smallLinearMap';
 import { CFG } from '../../src/sim/Config';
 import { forceCityEnclave, FORCED_ENCLAVE_RADIUS } from '../../src/sim/DebugActions';
 import { Simulation } from '../../src/sim/Simulation';
@@ -30,7 +30,7 @@ function localSignChanges(sim: Simulation, cx: number, cy: number, radius: numbe
 
 describe('forceCityEnclave', () => {
   it('creates a closed secondary front that is not recaptured on the next tick', () => {
-    const sim = new Simulation(testMap, 1);
+    const sim = new Simulation(smallLinearMap, 1);
     const city = sim.cities.find((candidate) => candidate.id === 'b1');
     if (!city) throw new Error('Missing b1');
 
