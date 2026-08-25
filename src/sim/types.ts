@@ -110,7 +110,7 @@ export interface HistoryInfo {
 }
 
 export type WorkerInMessage =
-  | { type: 'start'; seed: number; mapId: MapId }
+  | { type: 'start'; seed: number; mapId: MapId; loadSavedState: boolean }
   | { type: 'speed'; speed: Speed }
   | { type: 'reset'; seed: number; mapId: MapId }
   | { type: 'toggleCity'; cityId: string }
