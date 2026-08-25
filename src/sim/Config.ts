@@ -35,7 +35,7 @@ export const CFG = {
   unopposedUsefulMass: 0.35,
   unopposedAdvance: 2.5,
   maintenanceRate: 0.004,
-  combatConsumptionRate: 0.010,
+  combatConsumptionRate: 0.045,
   instabilityGrow: 0.48,
   instabilityRecover: 0.16,
   collapseEnter: 1.0,
