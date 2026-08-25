@@ -176,20 +176,15 @@
 }
 
 @media (orientation: landscape) and (max-height: 500px) {
-  :root {
-    --side-panel-gap: 6px;
-    --app-padding: 6px;
-  }
-
   #app {
-    grid-template-columns: minmax(0, 1fr) clamp(210px, 28vw, 260px);
-    grid-template-rows: minmax(0, 1fr);
+    grid-template-columns:
+      calc((100dvh - var(--app-padding) * 2) * var(--map-aspect))
+      minmax(0, 1fr);
   }
 
-  .side-panel {
-    display: flex;
-    flex-direction: column;
-    max-height: calc(100vh - var(--app-padding) * 2);
-    overflow: auto;
+  .map-stage {
+    width: 100%;
+    height: calc(100dvh - var(--app-padding) * 2);
   }
 }
+
