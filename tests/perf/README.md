@@ -33,12 +33,13 @@ Potential benchmarks use the same 0, 50, and 100 tick checkpoints and measure:
 - full potential rebuild for one side
 - full potential rebuild for both sides
 - preparation, including front-demand smoothing and status construction
+- fine-relaxation stencil construction
 - coarse-grid construction
 - multi-source Dijkstra shortest-path solve
 - coarse relaxation
 - coarse-to-fine projection
 - fine relaxation
 
-Stage benchmarks use the blue side because the solver is symmetric. The Dijkstra stage measures the shortest-path solve itself; the small distances-to-seed conversion is excluded. Fine relaxation resets its input with `Float32Array.set()` before each sample so every iteration starts from the same projected field.
+Stage benchmarks use the blue side because the solver is symmetric. The Dijkstra stage measures the shortest-path solve itself; the small distances-to-seed conversion is excluded. Fine relaxation resets its input with `Float32Array.set()` before each sample so every iteration starts from the same projected field. The fine-stencil stage measures the one-time per-rebuild precomputation of neighbor indices, edge transmissions, and relaxation denominators.
 
-No timing/profiling instrumentation is added to the production hot path. `prepareFinePotential` is exported only so the benchmark can invoke the existing production stage directly; its implementation and call path are unchanged.
+No timing/profiling instrumentation is added to the production hot path. Benchmark-only exports expose existing solver stages without changing the runtime scheduling of the simulation.
