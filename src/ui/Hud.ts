@@ -1,9 +1,8 @@
 import { SPEEDS, type Speed } from '../sim/Config';
 import type { HistoryInfo } from '../sim/types';
 
-function isIOS(): boolean {
-  return /iPad|iPhone|iPod/.test(navigator.userAgent)
-    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function usesTouchControls(): boolean {
+  return window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
 }
 
 export interface HudHandlers {
@@ -63,11 +62,11 @@ export class Hud {
     this.element.querySelector<HTMLButtonElement>('#reset')!.addEventListener('click', handlers.onReset);
     this.debugButton.addEventListener('click', handlers.onDiagnosticsToggle);
 
-    const ios = isIOS();
-    const cityControls = ios
+    const touchControls = usesTouchControls();
+    const cityControls = touchControls
       ? 'City short press: production on/off<br>City long press: switch side'
       : 'City left click: production on/off<br>City right click: switch side';
-    const keyboardControls = ios
+    const keyboardControls = touchControls
       ? ''
       : '<br>Space: pause · ←/→: rewind · ↑/↓: speed';
 
