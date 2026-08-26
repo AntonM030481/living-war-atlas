@@ -35,11 +35,48 @@ function terrainAt(x: number, y: number): TerrainType {
   return 'open';
 }
 
+// Main river runs north-west to south-east. riverX remains the simulation
+// representation; riverPaths gives the renderer the full branched geometry.
+const riverX = (y: number): number =>
+  38 + y * 1.08 + 5.2 * Math.sin(y / 19 + 0.4) + 2.2 * Math.sin(y / 7.8 - 0.6);
+
+const mainRiver = [
+  { x: riverX(0), y: 0 },
+  { x: riverX(18), y: 18 },
+  { x: riverX(38), y: 38 },
+  { x: riverX(58), y: 58 },
+  { x: riverX(78), y: 78 },
+  { x: riverX(98), y: 98 },
+  { x: riverX(118), y: 118 },
+  { x: riverX(138), y: 138 },
+  { x: riverX(159), y: 159 },
+];
+
+// Two deliberately asymmetric tributaries: a long shallow western branch and
+// a shorter, steeper eastern branch joining farther downstream.
+const westTributary = [
+  { x: 3, y: 43 },
+  { x: 25, y: 47 },
+  { x: 48, y: 53 },
+  { x: 70, y: 60 },
+  { x: 90, y: 68 },
+  { x: riverX(75), y: 75 },
+];
+
+const eastTributary = [
+  { x: 253, y: 88 },
+  { x: 235, y: 94 },
+  { x: 219, y: 101 },
+  { x: 205, y: 108 },
+  { x: riverX(116), y: 116 },
+];
+
 export const islandMap: MapDefinition = {
   width,
   height,
   initialControl: 'city-distance',
-  riverX: () => -100,
+  riverX,
+  riverPaths: [mainRiver, westTributary, eastTributary],
   forests: [
     // Original interior forests, stretched with the rest of the theatre.
     { x: 95, y: 36, r: 10 },
