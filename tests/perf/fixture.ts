@@ -1,7 +1,8 @@
 import { getMapDefinition } from '../../src/map/maps';
+import { generateCityResource, updateCities } from '../../src/sim/cities';
+import { CFG, type Side } from '../../src/sim/Config';
 import { seedInitialEnclaves } from '../../src/sim/DebugActions';
 import { Simulation } from '../../src/sim/Simulation';
-import type { Side } from '../../src/sim/Config';
 import { requireSide, type SideFields } from '../../src/sim/sides';
 import type { TransportGrid } from '../../src/sim/transportGrid';
 
@@ -40,6 +41,14 @@ export interface PotentialBenchmarkFixture {
 
 export function createPotentialBenchmarkFixture(ticks: number): PotentialBenchmarkFixture {
   const simulation = createCanonicalSimulation(ticks);
+
+  // Match the prefix of Simulation.tick() exactly up to the potential rebuild.
+  updateCities(simulation.cities, simulation.control, simulation.width, {
+    captureThreshold: CFG.cityCaptureThreshold,
+    integrationPerSecond: CFG.cityIntegrationPerSecond,
+    dt: CFG.dt,
+  });
+  generateCityResource(simulation.cities, simulation.width, simulation.sides, CFG.dt);
   internals(simulation).computeFrontMassAndNeed();
 
   function sideFixture(side: Side): PotentialBenchmarkSide {
