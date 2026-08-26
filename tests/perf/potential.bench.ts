@@ -9,6 +9,7 @@ import {
 } from '../../src/sim/potential';
 import {
   buildCoarseGrid,
+  buildCoarseRelaxationStencil,
   coarseEdgeTransmission,
   projectCoarsePotential,
   solveCoarsePotential,
@@ -92,7 +93,14 @@ for (const ticks of CHECKPOINTS) {
   const shortestPath = solveMultiSourceDijkstra(dijkstraGrid);
   const seed = makeDijkstraSeed(coarse, shortestPath.distances, shortestPath.sources);
   const coarsePasses = Math.max(1, Math.round(CFG.potentialCoarsePasses));
-  const coarsePotential = solveCoarsePotential(coarse, CFG.potentialDecay, coarsePasses, seed);
+  const coarseStencil = buildCoarseRelaxationStencil(coarse, CFG.potentialDecay);
+  const coarsePotential = solveCoarsePotential(
+    coarse,
+    CFG.potentialDecay,
+    coarsePasses,
+    seed,
+    coarseStencil,
+  );
   const projectedPotential = new Float32Array(blue.fields.potential.length);
   projectCoarsePotential(projectedPotential, coarsePotential, coarse, blue.grid, context);
   const finePotential = projectedPotential.slice();
@@ -134,9 +142,17 @@ for (const ticks of CHECKPOINTS) {
   );
 
   bench(
+    `${label}: potential stage / coarse stencil`,
+    () => {
+      buildCoarseRelaxationStencil(coarse, CFG.potentialDecay);
+    },
+    STAGE_OPTIONS,
+  );
+
+  bench(
     `${label}: potential stage / coarse relaxation`,
     () => {
-      solveCoarsePotential(coarse, CFG.potentialDecay, coarsePasses, seed);
+      solveCoarsePotential(coarse, CFG.potentialDecay, coarsePasses, seed, coarseStencil);
     },
     STAGE_OPTIONS,
   );
