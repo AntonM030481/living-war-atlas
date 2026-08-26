@@ -3,6 +3,7 @@ import type { City, MapDefinition, SimulationSnapshot, SimulationState, Simulati
 import { applyFrontConsumption, clamp, resolvePairCombat } from './combat';
 import { computePairCommitment } from './commitment';
 import { flipCityOwner, generateCityResource, toggleCityEnabled, updateCities } from './cities';
+import { initializeControlFromCities } from './initialControl';
 import { assertStateDimensions, clearArrays, cloneCities } from './state';
 import {
   CURRENT_SIDE_IDS,
@@ -299,6 +300,12 @@ export class Simulation {
   }
 
   private initializeControl(): void {
+    if (this.map.initialControl === 'city-distance') {
+      initializeControlFromCities(this.control, this.width, this.height, this.terrainBlocked, this.cities);
+      return;
+    }
+
+    if (!this.map.initialFrontX) throw new Error('Map must define initialFrontX or initialControl');
     for (let y = 0; y < this.height; y++) {
       const frontX = this.map.initialFrontX(y);
       for (let x = 0; x < this.width; x++) {
@@ -318,7 +325,8 @@ export class Simulation {
       const riverX = this.map.riverX(y);
       for (let x = 0; x < this.width; x++) {
         const i = this.index(x, y);
-        if (this.map.terrainAt?.(x, y) === 'blocked') {
+        const terrain = this.map.terrainAt?.(x, y) ?? 'open';
+        if (terrain !== 'open') {
           this.terrainBlocked[i] = 1;
           this.terrainMobility[i] = 0;
           this.terrainCapacity[i] = 0;
