@@ -17,7 +17,8 @@ export interface City {
 export interface MapDefinition {
   width: number;
   height: number;
-  initialFrontX: (y: number) => number;
+  initialFrontX?: (y: number) => number;
+  initialControl?: 'city-distance';
   cities: City[];
   forests: Array<{ x: number; y: number; r: number }>;
   riverX: (y: number) => number;
