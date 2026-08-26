@@ -1,25 +1,26 @@
+import { CFG } from '../sim/Config';
 import type { MapDefinition, TerrainType } from '../sim/types';
 
-// Tightly cropped around the playable area. There is no sea terrain on this
-// map: the canvas edge itself is the world boundary.
-const width = 208;
-const height = 128;
+// Standard theatre size. Geometry is the previous tightly-cropped layout
+// stretched to the regular 256x160 simulation canvas.
+const width = CFG.width;
+const height = CFG.height;
 
 interface Circle { x: number; y: number; r: number }
 
 const mountains: Circle[] = [
-  { x: 29, y: 14, r: 13 },
-  { x: 42, y: 34, r: 10 },
-  { x: 19, y: 53, r: 9 },
-  { x: 68, y: 11, r: 8 },
-  { x: 89, y: 50, r: 7 },
-  { x: 135, y: 22, r: 9 },
-  { x: 172, y: 42, r: 11 },
-  { x: 193, y: 81, r: 10 },
-  { x: 154, y: 99, r: 8 },
-  { x: 113, y: 110, r: 9 },
-  { x: 58, y: 101, r: 10 },
-  { x: 21, y: 91, r: 8 },
+  { x: 36, y: 18, r: 16 },
+  { x: 52, y: 42, r: 12 },
+  { x: 23, y: 66, r: 11 },
+  { x: 84, y: 14, r: 10 },
+  { x: 110, y: 62, r: 9 },
+  { x: 166, y: 28, r: 11 },
+  { x: 212, y: 52, r: 14 },
+  { x: 238, y: 101, r: 12 },
+  { x: 190, y: 124, r: 10 },
+  { x: 139, y: 138, r: 11 },
+  { x: 71, y: 126, r: 12 },
+  { x: 26, y: 114, r: 10 },
 ];
 
 function terrainAt(x: number, y: number): TerrainType {
@@ -40,26 +41,41 @@ export const islandMap: MapDefinition = {
   initialControl: 'city-distance',
   riverX: () => -100,
   forests: [
-    { x: 77, y: 29, r: 8 },
-    { x: 111, y: 28, r: 7 },
-    { x: 149, y: 52, r: 8 },
-    { x: 67, y: 71, r: 7 },
-    { x: 127, y: 74, r: 9 },
-    { x: 175, y: 69, r: 6 },
+    // Original interior forests, stretched with the rest of the theatre.
+    { x: 95, y: 36, r: 10 },
+    { x: 137, y: 35, r: 9 },
+    { x: 183, y: 65, r: 10 },
+    { x: 82, y: 89, r: 9 },
+    { x: 156, y: 92, r: 11 },
+    { x: 215, y: 86, r: 7 },
+
+    // Foothill belts around the main mountain groups. These remain passable,
+    // but make approaches to the massifs strategically distinct from open land.
+    { x: 53, y: 25, r: 8 },
+    { x: 67, y: 54, r: 7 },
+    { x: 27, y: 82, r: 7 },
+    { x: 99, y: 49, r: 7 },
+    { x: 151, y: 43, r: 8 },
+    { x: 195, y: 40, r: 7 },
+    { x: 225, y: 72, r: 8 },
+    { x: 210, y: 113, r: 8 },
+    { x: 158, y: 125, r: 7 },
+    { x: 91, y: 135, r: 8 },
+    { x: 48, y: 126, r: 7 },
   ],
   terrainAt,
   // Ownership intentionally alternates geographically. The city-distance
   // initializer turns these seeds into a patchwork with several enclaves.
   cities: [
-    { id: 'i1', name: 'Norden', x: 55, y: 22, baseProduction: 2, owner: 'blue', integration: 1 },
-    { id: 'i2', name: 'Varda', x: 122, y: 10, baseProduction: 2, owner: 'red', integration: 1 },
-    { id: 'i3', name: 'Eastport', x: 179, y: 23, baseProduction: 2, owner: 'blue', integration: 1 },
-    { id: 'i4', name: 'Westhaven', x: 27, y: 72, baseProduction: 2, owner: 'red', integration: 1 },
-    { id: 'i5', name: 'Meren', x: 87, y: 63, baseProduction: 2, owner: 'blue', integration: 1 },
-    { id: 'i6', name: 'Roven', x: 149, y: 63, baseProduction: 3, owner: 'red', integration: 1 },
-    { id: 'i7', name: 'Aster', x: 64, y: 85, baseProduction: 3, owner: 'red', integration: 1 },
-    { id: 'i8', name: 'Kelm', x: 177, y: 105, baseProduction: 2, owner: 'blue', integration: 1 },
-    { id: 'i9', name: 'Southwatch', x: 82, y: 117, baseProduction: 1, owner: 'blue', integration: 1 },
-    { id: 'i10', name: 'Saren', x: 131, y: 117, baseProduction: 1, owner: 'red', integration: 1 },
+    { id: 'i1', name: 'Norden', x: 68, y: 28, baseProduction: 2, owner: 'blue', integration: 1 },
+    { id: 'i2', name: 'Varda', x: 150, y: 12, baseProduction: 2, owner: 'red', integration: 1 },
+    { id: 'i3', name: 'Eastport', x: 220, y: 29, baseProduction: 2, owner: 'blue', integration: 1 },
+    { id: 'i4', name: 'Westhaven', x: 33, y: 90, baseProduction: 2, owner: 'red', integration: 1 },
+    { id: 'i5', name: 'Meren', x: 107, y: 79, baseProduction: 2, owner: 'blue', integration: 1 },
+    { id: 'i6', name: 'Roven', x: 183, y: 79, baseProduction: 3, owner: 'red', integration: 1 },
+    { id: 'i7', name: 'Aster', x: 79, y: 106, baseProduction: 3, owner: 'red', integration: 1 },
+    { id: 'i8', name: 'Kelm', x: 218, y: 131, baseProduction: 2, owner: 'blue', integration: 1 },
+    { id: 'i9', name: 'Southwatch', x: 101, y: 146, baseProduction: 1, owner: 'blue', integration: 1 },
+    { id: 'i10', name: 'Saren', x: 161, y: 146, baseProduction: 1, owner: 'red', integration: 1 },
   ],
 };
