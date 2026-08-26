@@ -132,6 +132,7 @@ function printPotentialTable(rows) {
     ['fine stencil', 'potential stage / fine stencil'],
     ['coarse grid', 'potential stage / coarse grid'],
     ['dijkstra', 'potential stage / dijkstra'],
+    ['coarse stencil', 'potential stage / coarse stencil'],
     ['coarse relaxation', 'potential stage / coarse relaxation'],
     ['projection', 'potential stage / projection'],
     ['fine relaxation', 'potential stage / fine relaxation'],
