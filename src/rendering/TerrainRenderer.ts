@@ -129,8 +129,12 @@ export class TerrainRenderer {
       const t = Math.abs(denominator) < 1e-6 ? 0.5 : va / denominator;
       return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
     };
+    const dot = (a: Point, b: Point): void => {
+      const x = (a.x + b.x) * 0.5;
+      const y = (a.y + b.y) * 0.5;
+      g.circle(x, y, 0.16).fill({ color: INK, alpha: 0.48 });
+    };
 
-    let segmentIndex = 0;
     for (let y = 0; y < height - 1; y++) {
       for (let x = 0; x < width - 1; x++) {
         const i00 = y * width + x;
@@ -151,19 +155,15 @@ export class TerrainRenderer {
         if ((v01 >= 0) !== (v00 >= 0)) points.push(intersection({ x, y: y + 1 }, { x, y }, v01, v00));
 
         if (points.length === 2) {
-          if ((segmentIndex++ & 1) === 0) g.moveTo(points[0].x, points[0].y).lineTo(points[1].x, points[1].y);
+          dot(points[0], points[1]);
         } else if (points.length === 4) {
           const center = (v00 + v10 + v11 + v01) * 0.25;
           const pairs: Array<[Point, Point]> = center >= 0
             ? [[points[0], points[3]], [points[1], points[2]]]
             : [[points[0], points[1]], [points[2], points[3]]];
-          for (const [a, b] of pairs) {
-            if ((segmentIndex++ & 1) === 0) g.moveTo(a.x, a.y).lineTo(b.x, b.y);
-          }
+          for (const [a, b] of pairs) dot(a, b);
         }
       }
     }
-
-    g.stroke({ color: INK, width: 0.38, alpha: 0.40 });
   }
 }
