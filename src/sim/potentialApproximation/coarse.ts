@@ -27,6 +27,12 @@ export interface CoarseGrid {
   downTransmission: Float32Array;
 }
 
+export interface CoarseRelaxationStencil {
+  neighborIndices: Int32Array;
+  transmissions: Float32Array;
+  denominators: Float64Array;
+}
+
 function fineBoundaryTransmission(
   cx: number,
   cy: number,
@@ -152,11 +158,52 @@ export function coarseEdgeTransmission(
   return 0;
 }
 
+export function buildCoarseRelaxationStencil(
+  coarse: CoarseGrid,
+  decay: number,
+): CoarseRelaxationStencil {
+  const size = coarse.width * coarse.height;
+  const neighborIndices = new Int32Array(size * DIRS.length);
+  const transmissions = new Float32Array(size * DIRS.length);
+  const denominators = new Float64Array(size);
+  const coarseDecay = Math.pow(Math.max(EPS, Math.min(0.999999, decay)), coarse.scale);
+  const reaction = reactionForDecay(coarseDecay);
+
+  for (let y = 0; y < coarse.height; y++) {
+    for (let x = 0; x < coarse.width; x++) {
+      const i = y * coarse.width + x;
+      if (coarse.status[i] !== 1) continue;
+
+      const base = i * DIRS.length;
+      let transmissionSum = 0;
+      for (let direction = 0; direction < DIRS.length; direction++) {
+        const [dx, dy] = DIRS[direction];
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || nx >= coarse.width || ny < 0 || ny >= coarse.height) continue;
+        const j = ny * coarse.width + nx;
+        if (coarse.status[j] === 0) continue;
+
+        const transmission = coarseEdgeTransmission(x, y, dx, dy, coarse);
+        if (transmission <= EPS) continue;
+        neighborIndices[base + direction] = j;
+        transmissions[base + direction] = transmission;
+        transmissionSum += transmission;
+      }
+
+      if (transmissionSum > EPS) denominators[i] = transmissionSum + reaction;
+    }
+  }
+
+  return { neighborIndices, transmissions, denominators };
+}
+
 export function solveCoarsePotential(
   coarse: CoarseGrid,
   decay: number,
   passes: number,
   initialPotential?: Float32Array,
+  relaxationStencil?: CoarseRelaxationStencil,
 ): Float32Array {
   const size = coarse.width * coarse.height;
   const potential = initialPotential
@@ -164,10 +211,7 @@ export function solveCoarsePotential(
     : new Float32Array(size);
   if (potential.length !== size) throw new Error('Coarse initial potential size mismatch');
 
-  const coarseDecay = Math.pow(Math.max(EPS, Math.min(0.999999, decay)), coarse.scale);
-  const reaction = reactionForDecay(coarseDecay);
   let maxFrontPotential = 0;
-
   for (let i = 0; i < potential.length; i++) {
     if (coarse.status[i] === 0) {
       potential[i] = 0;
@@ -178,6 +222,9 @@ export function solveCoarsePotential(
     maxFrontPotential = Math.max(maxFrontPotential, potential[i]);
   }
   if (maxFrontPotential <= EPS) return potential;
+
+  const stencil = relaxationStencil ?? buildCoarseRelaxationStencil(coarse, decay);
+  const { neighborIndices, transmissions, denominators } = stencil;
 
   for (let pass = 0; pass < passes; pass++) {
     const reverse = (pass & 1) === 1;
@@ -193,25 +240,14 @@ export function solveCoarsePotential(
         continue;
       }
 
-      const x = i % coarse.width;
-      const y = Math.floor(i / coarse.width);
-      let weightedPotential = 0;
-      let transmissionSum = 0;
-      for (const [dx, dy] of DIRS) {
-        const nx = x + dx;
-        const ny = y + dy;
-        if (nx < 0 || nx >= coarse.width || ny < 0 || ny >= coarse.height) continue;
-        const j = ny * coarse.width + nx;
-        if (coarse.status[j] === 0) continue;
-        const transmission = coarseEdgeTransmission(x, y, dx, dy, coarse);
-        if (transmission <= EPS) continue;
-        weightedPotential += potential[j] * transmission;
-        transmissionSum += transmission;
-      }
-
-      const target = transmissionSum > EPS
-        ? weightedPotential / (transmissionSum + reaction)
-        : 0;
+      const base = i * DIRS.length;
+      const weightedPotential =
+        potential[neighborIndices[base]] * transmissions[base]
+        + potential[neighborIndices[base + 1]] * transmissions[base + 1]
+        + potential[neighborIndices[base + 2]] * transmissions[base + 2]
+        + potential[neighborIndices[base + 3]] * transmissions[base + 3];
+      const denominator = denominators[i];
+      const target = denominator > 0 ? weightedPotential / denominator : 0;
       const before = potential[i];
       potential[i] = Math.max(0, Math.min(maxFrontPotential, target));
       maxDelta = Math.max(maxDelta, Math.abs(potential[i] - before));
