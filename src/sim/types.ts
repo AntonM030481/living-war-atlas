@@ -100,38 +100,25 @@ export interface SimulationStats {
   controlledCityPointsRed: number;
 }
 
-export interface SimulationCompletion {
-  winner: Side;
-  loser: Side;
+export interface HistoryInfo {
+  currentIndex: number;
+  length: number;
+  intervalSeconds: number;
+  canRewind: boolean;
+  canForward: boolean;
+  currentTime: number;
 }
 
-export interface DebugCellPatch {
-  x: number;
-  y: number;
-  control?: number;
-  warBlue?: number;
-  warRed?: number;
-  committedBlue?: number;
-  committedRed?: number;
-  instabilityBlue?: number;
-  instabilityRed?: number;
-  potentialBlue?: number;
-  potentialRed?: number;
-}
-
-export type WorkerCommand =
-  | { type: 'init'; mapId?: MapId }
-  | { type: 'play' }
-  | { type: 'pause' }
-  | { type: 'setSpeed'; speed: Speed }
-  | { type: 'newGame'; mapId?: MapId }
+export type WorkerInMessage =
+  | { type: 'start'; seed: number; mapId: MapId; loadSavedState: boolean }
+  | { type: 'speed'; speed: Speed }
+  | { type: 'reset'; seed: number; mapId: MapId }
   | { type: 'toggleCity'; cityId: string }
   | { type: 'flipCityOwner'; cityId: string }
-  | { type: 'debugPatch'; patches: DebugCellPatch[] }
-  | { type: 'historyBack' }
-  | { type: 'historyForward' }
-  | { type: 'historyLive' };
+  | { type: 'pause'; paused: boolean }
+  | { type: 'historyStep'; delta: -1 | 1 };
 
-export type WorkerEvent =
-  | { type: 'snapshot'; snapshot: SimulationSnapshot; historyOffset: number; historyLength: number; live: boolean; completion?: SimulationCompletion }
-  | { type: 'historyStatus'; offset: number; length: number; live: boolean };
+export type WorkerOutMessage =
+  | { type: 'ready'; seed: number; mapId: MapId }
+  | { type: 'snapshot'; snapshot: SimulationSnapshot; history: HistoryInfo; winner: Side | null }
+  | { type: 'stats'; fps: number };
