@@ -1,7 +1,54 @@
 import type { City } from './types';
 import type { Side } from './Config';
 
-const INF = 0x3fffffff;
+const INF = Number.POSITIVE_INFINITY;
+const SQRT2 = Math.SQRT2;
+const SMOOTH_PASSES = 8;
+
+interface HeapNode {
+  index: number;
+  distance: number;
+}
+
+class MinHeap {
+  private readonly items: HeapNode[] = [];
+
+  get length(): number { return this.items.length; }
+
+  push(node: HeapNode): void {
+    const items = this.items;
+    items.push(node);
+    let index = items.length - 1;
+    while (index > 0) {
+      const parent = (index - 1) >> 1;
+      if (items[parent].distance <= node.distance) break;
+      items[index] = items[parent];
+      index = parent;
+    }
+    items[index] = node;
+  }
+
+  pop(): HeapNode | undefined {
+    const items = this.items;
+    if (items.length === 0) return undefined;
+    const root = items[0];
+    const tail = items.pop()!;
+    if (items.length === 0) return root;
+
+    let index = 0;
+    while (true) {
+      const left = index * 2 + 1;
+      if (left >= items.length) break;
+      const right = left + 1;
+      const child = right < items.length && items[right].distance < items[left].distance ? right : left;
+      if (items[child].distance >= tail.distance) break;
+      items[index] = items[child];
+      index = child;
+    }
+    items[index] = tail;
+    return root;
+  }
+}
 
 function distancesFromCities(
   width: number,
@@ -9,42 +56,105 @@ function distancesFromCities(
   blocked: Uint8Array,
   cities: City[],
   side: Side,
-): Int32Array {
+): Float64Array {
   const size = width * height;
-  const distance = new Int32Array(size);
+  const distance = new Float64Array(size);
   distance.fill(INF);
-  const queue = new Int32Array(size);
-  let head = 0;
-  let tail = 0;
+  const heap = new MinHeap();
 
   for (const city of cities) {
     if (city.owner !== side) continue;
     const index = city.y * width + city.x;
-    if (blocked[index]) continue;
-    if (distance[index] === 0) continue;
+    if (blocked[index] || distance[index] === 0) continue;
     distance[index] = 0;
-    queue[tail++] = index;
+    heap.push({ index, distance: 0 });
   }
 
-  while (head < tail) {
-    const index = queue[head++];
-    const x = index % width;
-    const y = Math.floor(index / width);
-    const nextDistance = distance[index] + 1;
+  while (heap.length > 0) {
+    const current = heap.pop()!;
+    if (current.distance !== distance[current.index]) continue;
 
-    const visit = (next: number): void => {
-      if (blocked[next] || distance[next] <= nextDistance) return;
+    const x = current.index % width;
+    const y = Math.floor(current.index / width);
+
+    const visit = (nx: number, ny: number, cost: number): void => {
+      if (nx < 0 || nx >= width || ny < 0 || ny >= height) return;
+      const next = ny * width + nx;
+      if (blocked[next]) return;
+
+      // Do not let a diagonal path squeeze through the touching corners of
+      // impassable cells; mountain and sea geometry should remain solid.
+      if (nx !== x && ny !== y) {
+        if (blocked[y * width + nx] || blocked[ny * width + x]) return;
+      }
+
+      const nextDistance = current.distance + cost;
+      if (nextDistance >= distance[next]) return;
       distance[next] = nextDistance;
-      queue[tail++] = next;
+      heap.push({ index: next, distance: nextDistance });
     };
 
-    if (x > 0) visit(index - 1);
-    if (x + 1 < width) visit(index + 1);
-    if (y > 0) visit(index - width);
-    if (y + 1 < height) visit(index + width);
+    visit(x - 1, y, 1);
+    visit(x + 1, y, 1);
+    visit(x, y - 1, 1);
+    visit(x, y + 1, 1);
+    visit(x - 1, y - 1, SQRT2);
+    visit(x + 1, y - 1, SQRT2);
+    visit(x - 1, y + 1, SQRT2);
+    visit(x + 1, y + 1, SQRT2);
   }
 
   return distance;
+}
+
+function smoothControl(
+  control: Float32Array,
+  width: number,
+  height: number,
+  blocked: Uint8Array,
+  cities: City[],
+): void {
+  const next = new Float32Array(control.length);
+  const pinned = new Int8Array(control.length);
+  for (const city of cities) pinned[city.y * width + city.x] = city.owner === 'blue' ? 1 : -1;
+
+  for (let pass = 0; pass < SMOOTH_PASSES; pass++) {
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = y * width + x;
+        if (blocked[i]) {
+          next[i] = 0;
+          continue;
+        }
+        if (pinned[i] !== 0) {
+          next[i] = pinned[i];
+          continue;
+        }
+
+        let sum = control[i] * 2;
+        let weight = 2;
+        const add = (xx: number, yy: number, w: number): void => {
+          if (xx < 0 || xx >= width || yy < 0 || yy >= height) return;
+          const j = yy * width + xx;
+          if (blocked[j]) return;
+          if (xx !== x && yy !== y && (blocked[y * width + xx] || blocked[yy * width + x])) return;
+          sum += control[j] * w;
+          weight += w;
+        };
+
+        add(x - 1, y, 1);
+        add(x + 1, y, 1);
+        add(x, y - 1, 1);
+        add(x, y + 1, 1);
+        add(x - 1, y - 1, 0.7);
+        add(x + 1, y - 1, 0.7);
+        add(x - 1, y + 1, 0.7);
+        add(x + 1, y + 1, 0.7);
+        next[i] = sum / weight;
+      }
+    }
+    control.set(next);
+  }
 }
 
 export function initializeControlFromCities(
@@ -65,14 +175,16 @@ export function initializeControlFromCities(
 
     const blueDistance = blue[i];
     const redDistance = red[i];
-    if (blueDistance === INF && redDistance === INF) {
+    if (!Number.isFinite(blueDistance) && !Number.isFinite(redDistance)) {
       control[i] = 0;
-    } else if (blueDistance === INF) {
+    } else if (!Number.isFinite(blueDistance)) {
       control[i] = -1;
-    } else if (redDistance === INF) {
+    } else if (!Number.isFinite(redDistance)) {
       control[i] = 1;
     } else {
       control[i] = Math.tanh((redDistance - blueDistance) / 2.4);
     }
   }
+
+  smoothControl(control, width, height, blocked, cities);
 }
