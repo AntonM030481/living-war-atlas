@@ -94,24 +94,6 @@ export class TerrainRenderer {
     const g = this.historicalBorder;
     g.clear();
 
-    if (this.map.initialControl === 'city-distance') {
-      this.drawCityDistanceBorder(g);
-      return;
-    }
-    if (!this.map.initialFrontX) return;
-
-    let draw = true;
-    for (let y = 0; y < this.map.height - 0.8; y += 0.8) {
-      if (draw) {
-        g.moveTo(this.map.initialFrontX(y), y)
-          .lineTo(this.map.initialFrontX(y + 0.55), y + 0.55);
-      }
-      draw = !draw;
-    }
-    g.stroke({ color: INK, width: 0.26, alpha: 0.24 });
-  }
-
-  private drawCityDistanceBorder(g: Graphics): void {
     const { width, height } = this.map;
     const blocked = new Uint8Array(width * height);
     if (this.map.terrainAt) {
@@ -123,8 +105,25 @@ export class TerrainRenderer {
     }
 
     const control = new Float32Array(width * height);
-    initializeControlFromCities(control, width, height, blocked, this.map.cities);
+    if (this.map.initialControl === 'city-distance') {
+      initializeControlFromCities(control, width, height, blocked, this.map.cities);
+    } else if (this.map.initialFrontX) {
+      for (let y = 0; y < height; y++) {
+        const frontX = this.map.initialFrontX(y);
+        for (let x = 0; x < width; x++) {
+          const i = y * width + x;
+          control[i] = blocked[i] ? 0 : Math.tanh((frontX - x) / 2.4);
+        }
+      }
+    } else {
+      return;
+    }
 
+    this.drawControlZeroContour(g, control, blocked);
+  }
+
+  private drawControlZeroContour(g: Graphics, control: Float32Array, blocked: Uint8Array): void {
+    const { width, height } = this.map;
     const intersection = (a: Point, b: Point, va: number, vb: number): Point => {
       const denominator = va - vb;
       const t = Math.abs(denominator) < 1e-6 ? 0.5 : va / denominator;
@@ -165,6 +164,6 @@ export class TerrainRenderer {
       }
     }
 
-    g.stroke({ color: INK, width: 0.26, alpha: 0.24 });
+    g.stroke({ color: INK, width: 0.38, alpha: 0.40 });
   }
 }
