@@ -6,8 +6,8 @@ export interface RiverRaster {
   crossingY: Float32Array;
 }
 
-const WIDTH = 1.15;
-const CROSSING = 0.26;
+const BANK_RADIUS = 2.6;
+const CROSSING_FACTOR = 0.18;
 
 function pointSegmentDistance(px: number, py: number, a: MapPoint, b: MapPoint): number {
   const dx = b.x - a.x;
@@ -42,22 +42,26 @@ export function rasterizeRivers(width: number, height: number, rivers?: MapPoint
     for (let p = 0; p + 1 < path.length; p++) {
       const a = path[p];
       const b = path[p + 1];
-      const minX = Math.max(0, Math.floor(Math.min(a.x, b.x) - WIDTH));
-      const maxX = Math.min(width - 1, Math.ceil(Math.max(a.x, b.x) + WIDTH));
-      const minY = Math.max(0, Math.floor(Math.min(a.y, b.y) - WIDTH));
-      const maxY = Math.min(height - 1, Math.ceil(Math.max(a.y, b.y) + WIDTH));
+      const minX = Math.max(0, Math.floor(Math.min(a.x, b.x) - BANK_RADIUS));
+      const maxX = Math.min(width - 1, Math.ceil(Math.max(a.x, b.x) + BANK_RADIUS));
+      const minY = Math.max(0, Math.floor(Math.min(a.y, b.y) - BANK_RADIUS));
+      const maxY = Math.min(height - 1, Math.ceil(Math.max(a.y, b.y) + BANK_RADIUS));
 
       for (let y = minY; y <= maxY; y++) {
         for (let x = minX; x <= maxX; x++) {
           const i = y * width + x;
-          const distance = pointSegmentDistance(x, y, a, b);
-          if (distance < WIDTH) strength[i] = Math.max(strength[i], 1 - distance / WIDTH);
+          const distance = pointSegmentDistance(x + 0.5, y + 0.5, a, b);
+          if (distance < BANK_RADIUS) strength[i] = Math.max(strength[i], 1 - distance / BANK_RADIUS);
 
-          if (x + 1 < width && intersects(a, b, { x, y }, { x: x + 1, y })) {
-            crossingX[i] = Math.min(crossingX[i], CROSSING);
+          // crossingX belongs to movement between (x,y) and (x+1,y), so the
+          // relevant geometric boundary is the vertical edge at x+1.
+          if (x + 1 < width && intersects(a, b, { x: x + 1, y }, { x: x + 1, y: y + 1 })) {
+            crossingX[i] = Math.min(crossingX[i], CROSSING_FACTOR);
           }
-          if (y + 1 < height && intersects(a, b, { x, y }, { x, y: y + 1 })) {
-            crossingY[i] = Math.min(crossingY[i], CROSSING);
+          // crossingY belongs to movement between (x,y) and (x,y+1), hence
+          // the horizontal boundary at y+1.
+          if (y + 1 < height && intersects(a, b, { x, y: y + 1 }, { x: x + 1, y: y + 1 })) {
+            crossingY[i] = Math.min(crossingY[i], CROSSING_FACTOR);
           }
         }
       }
