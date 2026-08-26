@@ -86,7 +86,7 @@ function reactionForDecay(decay: number): number {
   return safeDecay + 1 / safeDecay - 2;
 }
 
-function prepareFinePotential(
+export function prepareFinePotential(
   fields: Pick<SideFields, 'need' | 'potential'>,
   grid: TransportGrid,
   config: TransportConfig,
