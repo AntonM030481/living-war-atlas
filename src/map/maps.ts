@@ -20,7 +20,7 @@ export const MAP_OPTIONS: readonly MapOption[] = [
   {
     id: 'island',
     name: 'Mountain theatre',
-    description: '208x128 map with 10 cities and impassable mountain massifs.',
+    description: '256x160 map with 10 cities, impassable mountain massifs and foothill forests.',
     map: islandMap,
   },
   {
