@@ -6,12 +6,13 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const vitestEntry = resolve(root, 'node_modules', 'vitest', 'vitest.mjs');
+const MAX_SHARE_RME = 5;
 
-console.log('Running simulation benchmarks...');
+console.log('Running simulation benchmarks sequentially...');
 
 const result = spawnSync(
   process.execPath,
-  [vitestEntry, 'bench', 'tests/perf'],
+  [vitestEntry, 'bench', 'tests/perf', '--no-file-parallelism'],
   {
     cwd: root,
     encoding: 'utf8',
@@ -76,7 +77,7 @@ function parseBenchmarkRows(output) {
     const name = tokens.slice(0, -10).join(' ');
     parsed.set(name, {
       mean: parseNumber(mean),
-      rme,
+      rme: Number(rme.slice(1, -1)),
     });
   }
   return parsed;
@@ -96,7 +97,7 @@ function parseNumber(value) {
 
 function formatMeasurement(row) {
   if (!row) return '-';
-  return `${formatMs(row.mean)} ${row.rme}`;
+  return `${formatMs(row.mean)} ±${row.rme.toFixed(2)}%`;
 }
 
 function formatMs(value) {
@@ -147,6 +148,7 @@ function printPotentialTable(rows) {
     const fine = rows.get(`theatre @ ${ticks} ticks: potential stage / fine relaxation`);
     const rebuild = rows.get(`theatre @ ${ticks} ticks: potential rebuild / blue`);
     if (!coarse || !fine || !rebuild || rebuild.mean <= 0) return '-';
+    if (Math.max(coarse.rme, fine.rme, rebuild.rme) > MAX_SHARE_RME) return 'unstable';
     return `${(((coarse.mean + fine.mean) / rebuild.mean) * 100).toFixed(1)}%`;
   });
 
@@ -155,6 +157,11 @@ function printPotentialTable(rows) {
     ['share', '0 ticks', '50 ticks', '100 ticks'],
     [['relaxation / blue rebuild', ...shares]],
   );
+
+  const unstableCount = [...rows.values()].filter((row) => row.rme > MAX_SHARE_RME).length;
+  if (unstableCount > 0) {
+    console.log(`\nWarning: ${unstableCount} measurements have RME > ${MAX_SHARE_RME}%; treat them as noisy.`);
+  }
 }
 
 function checkpointMeasurements(rows, suffix) {
