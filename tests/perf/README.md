@@ -1,10 +1,18 @@
 # Simulation performance benchmarks
 
-Run with:
+Run the compact report with:
 
 ```sh
 npm run bench:sim
 ```
+
+Run the full Vitest benchmark output with:
+
+```sh
+npm run bench:sim:raw
+```
+
+The compact command runs the same Vitest benchmarks and only post-processes their console report. It shows `mean ± rme`, grouped into simulation and potential tables, plus the share of a one-side potential rebuild spent in coarse + fine relaxation. The raw command remains available for hz, percentiles, samples, and Vitest's comparison summary.
 
 The baseline scenario intentionally matches the standard Full Playground opening:
 
