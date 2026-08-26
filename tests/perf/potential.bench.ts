@@ -2,6 +2,7 @@ import { bench } from 'vitest';
 
 import { CFG } from '../../src/sim/Config';
 import {
+  buildFineRelaxationStencil,
   prepareFinePotential,
   rebuildPotential,
   refinePotential,
@@ -73,6 +74,8 @@ for (const ticks of CHECKPOINTS) {
     blue.grid,
     CFG,
   );
+  const stencil = buildFineRelaxationStencil(blue.grid, context.currentStatus, context.reaction);
+  const approximate = { ...context, stencil };
   const scale = Math.max(2, Math.round(CFG.potentialCoarseScale));
   const coarse = buildCoarseGrid(blue.grid, context, scale);
   const dijkstraGrid = {
@@ -102,6 +105,14 @@ for (const ticks of CHECKPOINTS) {
     () => {
       prepareInput.set(blue.initialPotential);
       prepareFinePotential({ need: blue.fields.need, potential: prepareInput }, blue.grid, CFG);
+    },
+    STAGE_OPTIONS,
+  );
+
+  bench(
+    `${label}: potential stage / fine stencil`,
+    () => {
+      buildFineRelaxationStencil(blue.grid, context.currentStatus, context.reaction);
     },
     STAGE_OPTIONS,
   );
@@ -142,7 +153,7 @@ for (const ticks of CHECKPOINTS) {
     `${label}: potential stage / fine relaxation`,
     () => {
       finePotential.set(projectedPotential);
-      refinePotential(finePotential, blue.grid, context, finePasses);
+      refinePotential(finePotential, blue.grid, approximate, finePasses);
     },
     STAGE_OPTIONS,
   );
