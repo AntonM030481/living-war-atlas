@@ -1,5 +1,6 @@
-import { CFG } from './Config';
+import { CFG, type Side } from './Config';
 import type { Simulation } from './Simulation';
+import type { MapDefinition } from './types';
 
 export const FORCED_ENCLAVE_RADIUS = Math.max(4, Math.round(4.5 * CFG.spatialScale));
 const ENCLAVE_CORE_SHARE = 0.65;
@@ -13,6 +14,38 @@ function clamp(value: number, min: number, max: number): number {
 function smoothstep(edge0: number, edge1: number, value: number): number {
   const t = clamp((value - edge0) / (edge1 - edge0), 0, 1);
   return t * t * (3 - 2 * t);
+}
+
+function seededIndex(value: number, count: number): number {
+  let x = value >>> 0;
+  x ^= x << 13;
+  x ^= x >>> 17;
+  x ^= x << 5;
+  return (x >>> 0) % count;
+}
+
+/**
+ * Applies the standard Full Playground opening: one deterministic production-2
+ * city for each side becomes an enemy enclave.
+ */
+export function seedInitialEnclaves(
+  simulation: Simulation,
+  map: MapDefinition,
+  simulationSeed: number,
+): void {
+  const sides: readonly Side[] = ['blue', 'red'];
+  for (let sideIndex = 0; sideIndex < sides.length; sideIndex++) {
+    const side = sides[sideIndex];
+    const candidates = map.cities.filter(
+      (city) => city.owner === side && city.baseProduction === 2,
+    );
+    if (candidates.length === 0) continue;
+    const index = seededIndex(
+      simulationSeed ^ Math.imul(0x9e3779b9, sideIndex + 1),
+      candidates.length,
+    );
+    forceCityEnclave(simulation, candidates[index].id);
+  }
 }
 
 /**
