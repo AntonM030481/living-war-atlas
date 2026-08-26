@@ -1,17 +1,11 @@
 import { bench } from 'vitest';
 
-import { getMapDefinition } from '../../src/map/maps';
-import { seedInitialEnclaves } from '../../src/sim/DebugActions';
-import { Simulation } from '../../src/sim/Simulation';
+import { createCanonicalSimulation } from './fixture';
 
-const BENCHMARK_MAP_ID = 'theatre' as const;
-const BENCHMARK_SEED = 1;
 const POTENTIAL_CADENCE_TICKS = 10;
 const STANDARD_RUN_TICKS = 100;
 
-const map = getMapDefinition(BENCHMARK_MAP_ID);
-const simulation = new Simulation(map, BENCHMARK_SEED);
-seedInitialEnclaves(simulation, map, BENCHMARK_SEED);
+const simulation = createCanonicalSimulation();
 const benchmarkStartState = simulation.saveState();
 
 function resetSimulation(): void {
