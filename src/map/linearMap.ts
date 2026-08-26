@@ -7,14 +7,11 @@ const sc = (value: number): number => value * S;
 const width = CFG.width;
 const height = sc(12);
 
-// A deliberately narrow, obstacle-free theatre for fast checks of resource
-// transport and front behaviour. The small height makes it close to 1D while
-// still exercising the normal 2D simulation and renderer.
 export const linearMap: MapDefinition = {
   width,
   height,
   initialFrontX: () => width * 0.5,
-  riverX: () => -sc(100),
+  rivers: [],
   forests: [],
   terrainAt: blockedPerimeter(width, height),
   seedInitialResource: false,
