@@ -14,6 +14,11 @@ export interface City {
   enabled?: boolean;
 }
 
+export interface MapPoint {
+  x: number;
+  y: number;
+}
+
 export interface MapDefinition {
   width: number;
   height: number;
@@ -22,6 +27,7 @@ export interface MapDefinition {
   cities: City[];
   forests: Array<{ x: number; y: number; r: number }>;
   riverX: (y: number) => number;
+  riverPaths?: MapPoint[][];
   terrainAt?: (x: number, y: number) => TerrainType;
   seedInitialResource?: boolean;
 }
