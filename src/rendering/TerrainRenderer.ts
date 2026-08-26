@@ -1,5 +1,6 @@
 import { Graphics } from 'pixi.js';
 import type { MapDefinition } from '../sim/types';
+import { initializeControlFromCities } from '../sim/initialControl';
 import type { Point } from './coordinates';
 
 const PAPER = 0xe6ddb7;
@@ -92,6 +93,11 @@ export class TerrainRenderer {
   private drawHistoricalBorder(): void {
     const g = this.historicalBorder;
     g.clear();
+
+    if (this.map.initialControl === 'city-distance') {
+      this.drawCityDistanceBorder(g);
+      return;
+    }
     if (!this.map.initialFrontX) return;
 
     let draw = true;
@@ -102,6 +108,63 @@ export class TerrainRenderer {
       }
       draw = !draw;
     }
+    g.stroke({ color: INK, width: 0.26, alpha: 0.24 });
+  }
+
+  private drawCityDistanceBorder(g: Graphics): void {
+    const { width, height } = this.map;
+    const blocked = new Uint8Array(width * height);
+    if (this.map.terrainAt) {
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          if (this.map.terrainAt(x, y) !== 'open') blocked[y * width + x] = 1;
+        }
+      }
+    }
+
+    const control = new Float32Array(width * height);
+    initializeControlFromCities(control, width, height, blocked, this.map.cities);
+
+    const intersection = (a: Point, b: Point, va: number, vb: number): Point => {
+      const denominator = va - vb;
+      const t = Math.abs(denominator) < 1e-6 ? 0.5 : va / denominator;
+      return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+    };
+
+    let segmentIndex = 0;
+    for (let y = 0; y < height - 1; y++) {
+      for (let x = 0; x < width - 1; x++) {
+        const i00 = y * width + x;
+        const i10 = i00 + 1;
+        const i01 = i00 + width;
+        const i11 = i01 + 1;
+        if (blocked[i00] || blocked[i10] || blocked[i01] || blocked[i11]) continue;
+
+        const v00 = control[i00];
+        const v10 = control[i10];
+        const v11 = control[i11];
+        const v01 = control[i01];
+        const points: Point[] = [];
+
+        if ((v00 >= 0) !== (v10 >= 0)) points.push(intersection({ x, y }, { x: x + 1, y }, v00, v10));
+        if ((v10 >= 0) !== (v11 >= 0)) points.push(intersection({ x: x + 1, y }, { x: x + 1, y: y + 1 }, v10, v11));
+        if ((v11 >= 0) !== (v01 >= 0)) points.push(intersection({ x: x + 1, y: y + 1 }, { x, y: y + 1 }, v11, v01));
+        if ((v01 >= 0) !== (v00 >= 0)) points.push(intersection({ x, y: y + 1 }, { x, y }, v01, v00));
+
+        if (points.length === 2) {
+          if ((segmentIndex++ & 1) === 0) g.moveTo(points[0].x, points[0].y).lineTo(points[1].x, points[1].y);
+        } else if (points.length === 4) {
+          const center = (v00 + v10 + v11 + v01) * 0.25;
+          const pairs: Array<[Point, Point]> = center >= 0
+            ? [[points[0], points[3]], [points[1], points[2]]]
+            : [[points[0], points[1]], [points[2], points[3]]];
+          for (const [a, b] of pairs) {
+            if ((segmentIndex++ & 1) === 0) g.moveTo(a.x, a.y).lineTo(b.x, b.y);
+          }
+        }
+      }
+    }
+
     g.stroke({ color: INK, width: 0.26, alpha: 0.24 });
   }
 }
