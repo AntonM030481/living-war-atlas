@@ -4,6 +4,7 @@ import { applyFrontConsumption, clamp, resolvePairCombat } from './combat';
 import { computePairCommitment } from './commitment';
 import { flipCityOwner, generateCityResource, toggleCityEnabled, updateCities } from './cities';
 import { initializeControlFromCities } from './initialControl';
+import { rasterizeRivers } from './rivers';
 import { assertStateDimensions, clearArrays, cloneCities } from './state';
 import {
   CURRENT_SIDE_IDS,
@@ -320,8 +321,10 @@ export class Simulation {
     this.terrainDefense.fill(1);
     this.terrainMobility.fill(1);
     this.terrainCapacity.fill(1);
-    this.riverCrossingX.fill(1);
-    this.riverCrossingY.fill(1);
+
+    const river = rasterizeRivers(this.width, this.height, this.map.rivers);
+    this.riverCrossingX.set(river.crossingX);
+    this.riverCrossingY.set(river.crossingY);
 
     for (const forest of this.map.forests) {
       const minX = Math.max(0, Math.floor(forest.x - forest.r));
@@ -339,7 +342,6 @@ export class Simulation {
     }
 
     for (let y = 0; y < this.height; y++) {
-      const riverX = this.map.riverX(y);
       for (let x = 0; x < this.width; x++) {
         const i = this.index(x, y);
         const terrain = this.map.terrainAt?.(x, y) ?? 'open';
@@ -350,28 +352,17 @@ export class Simulation {
           continue;
         }
 
-        const riverDistance = Math.abs(x - riverX);
-        if (riverDistance < 1.15) {
-          const strength = 1 - riverDistance / 1.15;
-          this.terrainDefense[i] *= 1 + 0.20 * strength;
-          this.terrainMobility[i] *= 1 - 0.42 * strength;
-          this.terrainCapacity[i] *= 1 - 0.40 * strength;
+        const riverStrength = river.strength[i];
+        if (riverStrength > 0) {
+          this.terrainDefense[i] *= 1 + 0.20 * riverStrength;
+          this.terrainMobility[i] *= 1 - 0.42 * riverStrength;
+          this.terrainCapacity[i] *= 1 - 0.40 * riverStrength;
         }
 
         if (this.terrainForest[i]) {
           this.terrainDefense[i] *= 1.55;
           this.terrainMobility[i] *= 0.30;
           this.terrainCapacity[i] *= 0.42;
-        }
-
-        if (x + 1 < this.width && x < riverX && x + 1 >= riverX) {
-          this.riverCrossingX[i] = 0.26;
-        }
-        if (y + 1 < this.height) {
-          const nextRiverX = this.map.riverX(y + 1);
-          const midRiverX = (riverX + nextRiverX) * 0.5;
-          const drift = Math.abs(nextRiverX - riverX);
-          if (Math.abs(x - midRiverX) < 0.65 + drift * 0.25) this.riverCrossingY[i] = 0.82;
         }
       }
     }
