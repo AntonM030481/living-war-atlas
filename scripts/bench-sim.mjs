@@ -129,6 +129,7 @@ function printPotentialTable(rows) {
   console.log('Potential benchmark — theatre, blue stages');
   const stages = [
     ['prepare', 'potential stage / prepare'],
+    ['fine stencil', 'potential stage / fine stencil'],
     ['coarse grid', 'potential stage / coarse grid'],
     ['dijkstra', 'potential stage / dijkstra'],
     ['coarse relaxation', 'potential stage / coarse relaxation'],
@@ -155,7 +156,7 @@ function printPotentialTable(rows) {
   console.log('');
   printCheckpointTable(
     ['share', '0 ticks', '50 ticks', '100 ticks'],
-    [['relaxation / blue rebuild', ...shares]],
+    [['relaxation only / blue rebuild', ...shares]],
   );
 
   const unstableCount = [...rows.values()].filter((row) => row.rme > MAX_SHARE_RME).length;
