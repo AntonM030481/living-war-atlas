@@ -26,8 +26,7 @@ export interface MapDefinition {
   initialControl?: 'city-distance';
   cities: City[];
   forests: Array<{ x: number; y: number; r: number }>;
-  riverX: (y: number) => number;
-  riverPaths?: MapPoint[][];
+  rivers: MapPoint[][];
   terrainAt?: (x: number, y: number) => TerrainType;
   seedInitialResource?: boolean;
 }
