@@ -70,7 +70,7 @@ export class TerrainRenderer {
     if (this.map.terrainAt) {
       for (let y = 0; y < this.map.height; y++) {
         for (let x = 0; x < this.map.width; x++) {
-          if (this.map.terrainAt(x, y) !== 'blocked') continue;
+          if (this.map.terrainAt(x, y) === 'open') continue;
           g.rect(x, y, 1, 1).fill({ color: BLOCKED, alpha: 0.88 });
         }
       }
@@ -92,6 +92,8 @@ export class TerrainRenderer {
   private drawHistoricalBorder(): void {
     const g = this.historicalBorder;
     g.clear();
+    if (!this.map.initialFrontX) return;
+
     let draw = true;
     for (let y = 0; y < this.map.height - 0.8; y += 0.8) {
       if (draw) {
