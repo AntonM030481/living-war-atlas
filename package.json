@@ -10,7 +10,7 @@
     "test": "vitest run",
     "bench": "vitest bench",
     "bench:sim": "node scripts/bench-sim.mjs",
-    "bench:sim:raw": "vitest bench tests/perf",
+    "bench:sim:raw": "vitest bench tests/perf --no-file-parallelism",
     "diagnostics": "DIAGNOSTICS=1 vitest run tests/diagnostics/generate-diagnostics.test.ts",
     "ios:init": "npm run build && npx cap add ios && npx cap open ios",
     "ios:sync": "npm run build && npx cap sync ios",
