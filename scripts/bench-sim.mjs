@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const vitestEntry = resolve(root, 'node_modules', 'vitest', 'vitest.mjs');
 
+console.log('Running simulation benchmarks...');
+
 const result = spawnSync(
   process.execPath,
   [vitestEntry, 'bench', 'tests/perf'],
