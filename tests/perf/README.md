@@ -12,7 +12,7 @@ Run the full Vitest benchmark output with:
 npm run bench:sim:raw
 ```
 
-The compact command runs the same Vitest benchmarks and only post-processes their console report. It shows `mean ± rme`, grouped into simulation and potential tables, plus the share of a one-side potential rebuild spent in coarse + fine relaxation. The raw command remains available for hz, percentiles, samples, and Vitest's comparison summary.
+The compact command runs the same Vitest benchmarks and only post-processes their console report. It shows `mean ± rme`, grouped into simulation, heavy-tick breakdown, and potential tables. The raw command remains available for hz, percentiles, samples, and Vitest's comparison summary.
 
 The baseline scenario intentionally matches the standard Full Playground opening:
 
@@ -28,6 +28,17 @@ Simulation benchmarks measure:
 - 10 ticks at 0, 50, and 100 ticks, covering one full `potentialEverySteps` cadence
 - 100 simulation ticks from the canonical start as the main end-to-end baseline
 
+Heavy-tick benchmarks split that same rebuild-boundary tick into:
+
+- city update + production
+- front mass / need calculation
+- potential rebuild for both sides
+- transport for both sides
+- combat + instability
+- control-field update
+
+The compact report also shows the sum of those stages and the unaccounted difference from the end-to-end heavy tick. Stage setup is performed outside the measured benchmark body so each stage sees the same canonical pre-stage state.
+
 Potential benchmarks use the same 0, 50, and 100 tick checkpoints and measure:
 
 - full potential rebuild for one side
@@ -41,6 +52,6 @@ Potential benchmarks use the same 0, 50, and 100 tick checkpoints and measure:
 - coarse-to-fine projection
 - fine relaxation
 
-Stage benchmarks use the blue side because the solver is symmetric. The Dijkstra stage measures the shortest-path solve itself; the small distances-to-seed conversion is excluded. Fine relaxation resets its input with `Float32Array.set()` before each sample so every iteration starts from the same projected field. The fine- and coarse-stencil stages measure their one-time per-rebuild precomputation separately from the relaxation sweeps.
+Potential stage benchmarks use the blue side because the solver is symmetric. The Dijkstra stage measures the shortest-path solve itself; the small distances-to-seed conversion is excluded. Fine relaxation resets its input with `Float32Array.set()` before each sample so every iteration starts from the same projected field. The fine- and coarse-stencil stages measure their one-time per-rebuild precomputation separately from the relaxation sweeps.
 
-No timing/profiling instrumentation is added to the production hot path. Benchmark-only exports expose existing solver stages without changing the runtime scheduling of the simulation.
+No timing/profiling instrumentation is added to the production hot path. Benchmark-only access exposes existing solver stages without changing the runtime scheduling of the simulation.
