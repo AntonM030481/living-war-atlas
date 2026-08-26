@@ -56,7 +56,7 @@ export function ticks(seconds: number): number {
   return Math.round(seconds / CFG.dt);
 }
 
-export const SPEEDS = [1, 2, 4] as const;
+export const SPEEDS = [1, 2, 3, 4] as const;
 
 export type Side = 'blue' | 'red';
 export type Speed = typeof SPEEDS[number];
