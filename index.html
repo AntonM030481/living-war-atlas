@@ -5,6 +5,136 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Living War Atlas</title>
+    <style>
+      .app-error-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+        display: grid;
+        place-items: center;
+        padding: 20px;
+        background: rgba(35, 31, 24, .78);
+        font-family: Georgia, "Times New Roman", serif;
+      }
+
+      .app-error-card {
+        width: min(560px, 100%);
+        max-height: min(80vh, 560px);
+        overflow: auto;
+        padding: 18px;
+        border: 1px solid rgba(64, 52, 32, .48);
+        border-radius: 3px;
+        background: #f6efd7;
+        color: #2c2923;
+        box-shadow: 0 14px 40px rgba(0, 0, 0, .32);
+      }
+
+      .app-error-card h1 {
+        margin: 0 0 8px;
+        font-size: 20px;
+      }
+
+      .app-error-card p {
+        margin: 0 0 12px;
+        line-height: 1.4;
+      }
+
+      .app-error-card pre {
+        margin: 0 0 14px;
+        padding: 10px;
+        overflow: auto;
+        border: 1px solid rgba(64, 52, 32, .2);
+        background: #fff7dc;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+
+      .app-error-card button {
+        min-height: 36px;
+        padding: 6px 16px;
+        border: 1px solid rgba(64, 52, 32, .36);
+        border-radius: 2px;
+        background: #2f2b24;
+        color: #fff7dc;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+    </style>
+    <script>
+      (() => {
+        let shown = false;
+
+        const detailFor = (value) => {
+          if (value instanceof Error) return value.stack || value.message;
+          if (typeof value === 'string') return value;
+          try {
+            return JSON.stringify(value, null, 2);
+          } catch {
+            return String(value);
+          }
+        };
+
+        window.__livingWarAtlasShowError = (title, detail) => {
+          if (shown) return;
+          shown = true;
+
+          const overlay = document.createElement('div');
+          overlay.className = 'app-error-overlay';
+          overlay.setAttribute('role', 'alert');
+
+          const card = document.createElement('div');
+          card.className = 'app-error-card';
+
+          const heading = document.createElement('h1');
+          heading.textContent = title;
+
+          const message = document.createElement('p');
+          message.textContent = 'Reload the page. If the problem persists, clear this site\'s cached data and try again.';
+
+          const technical = document.createElement('pre');
+          technical.textContent = detail || 'No technical details were provided.';
+
+          const reload = document.createElement('button');
+          reload.type = 'button';
+          reload.textContent = 'Reload';
+          reload.addEventListener('click', () => window.location.reload());
+
+          card.append(heading, message, technical, reload);
+          overlay.append(card);
+
+          const mount = () => document.body.appendChild(overlay);
+          if (document.body) mount();
+          else window.addEventListener('DOMContentLoaded', mount, { once: true });
+        };
+
+        window.addEventListener('error', (event) => {
+          const target = event.target;
+          if (target instanceof HTMLScriptElement) {
+            window.__livingWarAtlasShowError(
+              'Living War Atlas could not start',
+              `Failed to load script: ${target.src || '(unknown script)'}`,
+            );
+            return;
+          }
+          if (target instanceof HTMLLinkElement && target.rel === 'stylesheet') {
+            window.__livingWarAtlasShowError(
+              'Living War Atlas could not start',
+              `Failed to load stylesheet: ${target.href || '(unknown stylesheet)'}`,
+            );
+            return;
+          }
+          if (event instanceof ErrorEvent && event.error) {
+            window.__livingWarAtlasShowError('Living War Atlas error', detailFor(event.error));
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', (event) => {
+          window.__livingWarAtlasShowError('Living War Atlas error', detailFor(event.reason));
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>
