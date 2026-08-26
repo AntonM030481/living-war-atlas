@@ -136,7 +136,7 @@ describe('Simulation', () => {
     expect(afterToggle.stats.activeCityPointsBlue).toBeCloseTo(activeBefore - disabledProduction, 8);
   });
 
-  it('flips city owner without changing production enabled state', () => {
+  it('flips city owner with full integration and production enabled', () => {
     const sim = new Simulation(smallLinearMap, 1);
     sim.toggleCityEnabled('b1');
     const city = sim.cities.find((candidate) => candidate.id === 'b1');
@@ -147,8 +147,8 @@ describe('Simulation', () => {
     sim.flipCityOwner('b1');
 
     expect(city.owner).toBe('red');
-    expect(city.integration).toBe(0);
-    expect(city.enabled).toBe(false);
+    expect(city.integration).toBe(1);
+    expect(city.enabled).toBe(true);
   });
 
   it('keeps control bounded', () => {
