@@ -24,23 +24,26 @@ function terrainAt(x: number, y: number): TerrainType {
   return 'open';
 }
 
-const riverX = (y: number): number =>
-  38 + y * 1.08 + 5.2 * Math.sin(y / 19 + 0.4) + 2.2 * Math.sin(y / 7.8 - 0.6);
-
+// A diagonal trunk routed through the valleys rather than through the mountain
+// massifs. The bend around the central and south-eastern ranges is intentional.
 const mainRiver = [
-  { x: riverX(0), y: 0 }, { x: riverX(18), y: 18 }, { x: riverX(38), y: 38 },
-  { x: riverX(58), y: 58 }, { x: riverX(78), y: 78 }, { x: riverX(98), y: 98 },
-  { x: riverX(118), y: 118 }, { x: riverX(138), y: 138 }, { x: riverX(159), y: 159 },
+  { x: 40, y: 0 }, { x: 62, y: 18 }, { x: 80, y: 38 }, { x: 94, y: 50 },
+  { x: 95, y: 62 }, { x: 104, y: 74 }, { x: 126, y: 88 }, { x: 148, y: 102 },
+  { x: 165, y: 116 }, { x: 173, y: 132 }, { x: 193, y: 146 }, { x: 220, y: 159 },
 ];
 
+// Long western tributary. It joins the trunk just after the central mountain
+// range and stays in the open corridor between the western massifs.
 const westTributary = [
   { x: 3, y: 43 }, { x: 25, y: 47 }, { x: 48, y: 53 },
-  { x: 70, y: 60 }, { x: 90, y: 68 }, { x: riverX(75), y: 75 },
+  { x: 70, y: 60 }, { x: 90, y: 68 }, { x: 104, y: 74 },
 ];
 
+// Shorter eastern tributary deliberately skirts north of the large eastern
+// massif before turning south-west to the main river.
 const eastTributary = [
-  { x: 253, y: 88 }, { x: 235, y: 94 }, { x: 219, y: 101 },
-  { x: 205, y: 108 }, { x: riverX(116), y: 116 },
+  { x: 253, y: 74 }, { x: 244, y: 78 }, { x: 232, y: 82 }, { x: 218, y: 88 },
+  { x: 204, y: 96 }, { x: 190, y: 105 }, { x: 176, y: 111 }, { x: 165, y: 116 },
 ];
 
 export const islandMap: MapDefinition = {
