@@ -30,7 +30,7 @@ function intersects(a: MapPoint, b: MapPoint, c: MapPoint, d: MapPoint): boolean
   return o1 * o2 <= 0 && o3 * o4 <= 0;
 }
 
-export function rasterizeRivers(width: number, height: number, rivers: MapPoint[][]): RiverRaster {
+export function rasterizeRivers(width: number, height: number, rivers?: MapPoint[][]): RiverRaster {
   const size = width * height;
   const strength = new Float32Array(size);
   const crossingX = new Float32Array(size);
@@ -38,7 +38,7 @@ export function rasterizeRivers(width: number, height: number, rivers: MapPoint[
   crossingX.fill(1);
   crossingY.fill(1);
 
-  for (const path of rivers) {
+  for (const path of rivers ?? []) {
     for (let p = 0; p + 1 < path.length; p++) {
       const a = path[p];
       const b = path[p + 1];
