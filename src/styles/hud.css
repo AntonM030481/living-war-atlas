@@ -150,14 +150,23 @@
   height: 12px;
 }
 
-.front-line::before {
+.front-line::before,
+.front-line::after {
   content: "";
   position: absolute;
-  left: 2px;
-  right: 2px;
-  top: 5px;
-  border-top: 4px solid #164f91;
-  box-shadow: 0 2px 0 #b12620, 0 3px 0 #2f2b24;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+}
+
+.front-line::before {
+  left: 8px;
+  background: #164f91;
+}
+
+.front-line::after {
+  right: 8px;
+  background: #b12620;
 }
 
 .old-border::before {
