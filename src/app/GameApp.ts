@@ -29,7 +29,7 @@ export class GameApp {
   private readonly pointMarker = document.createElement('div');
 
   private currentSeed = 20260816;
-  private speed: Speed = 4;
+  private speed: Speed = 2;
   private paused = false;
   private finished = false;
   private diagnosticsEnabled = false;
