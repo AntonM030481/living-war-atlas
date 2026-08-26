@@ -36,10 +36,11 @@ Potential benchmarks use the same 0, 50, and 100 tick checkpoints and measure:
 - fine-relaxation stencil construction
 - coarse-grid construction
 - multi-source Dijkstra shortest-path solve
+- coarse-relaxation stencil construction
 - coarse relaxation
 - coarse-to-fine projection
 - fine relaxation
 
-Stage benchmarks use the blue side because the solver is symmetric. The Dijkstra stage measures the shortest-path solve itself; the small distances-to-seed conversion is excluded. Fine relaxation resets its input with `Float32Array.set()` before each sample so every iteration starts from the same projected field. The fine-stencil stage measures the one-time per-rebuild precomputation of neighbor indices, edge transmissions, and relaxation denominators.
+Stage benchmarks use the blue side because the solver is symmetric. The Dijkstra stage measures the shortest-path solve itself; the small distances-to-seed conversion is excluded. Fine relaxation resets its input with `Float32Array.set()` before each sample so every iteration starts from the same projected field. The fine- and coarse-stencil stages measure their one-time per-rebuild precomputation separately from the relaxation sweeps.
 
 No timing/profiling instrumentation is added to the production hot path. Benchmark-only exports expose existing solver stages without changing the runtime scheduling of the simulation.
