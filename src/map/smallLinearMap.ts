@@ -4,12 +4,11 @@ import { blockedPerimeter } from './terrain';
 const width = 48;
 const height = 24;
 
-// Small, valid authored map for fast Simulation integration tests.
 export const smallLinearMap: MapDefinition = {
   width,
   height,
   initialFrontX: () => width * 0.5,
-  riverX: () => -100,
+  rivers: [],
   forests: [],
   terrainAt: blockedPerimeter(width, height),
   seedInitialResource: false,
