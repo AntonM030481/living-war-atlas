@@ -28,6 +28,7 @@ export class Simulation {
   readonly terrainMobility: Float32Array;
   readonly terrainCapacity: Float32Array;
   readonly terrainBlocked: Uint8Array;
+  readonly terrainForest: Uint8Array;
   readonly riverCrossingX: Float32Array;
   readonly riverCrossingY: Float32Array;
 
@@ -55,6 +56,7 @@ export class Simulation {
     this.terrainMobility = new Float32Array(this.size);
     this.terrainCapacity = new Float32Array(this.size);
     this.terrainBlocked = new Uint8Array(this.size);
+    this.terrainForest = new Uint8Array(this.size);
     this.riverCrossingX = new Float32Array(this.size);
     this.riverCrossingY = new Float32Array(this.size);
     this.forcing = new Float32Array(this.size);
@@ -321,6 +323,21 @@ export class Simulation {
     this.riverCrossingX.fill(1);
     this.riverCrossingY.fill(1);
 
+    for (const forest of this.map.forests) {
+      const minX = Math.max(0, Math.floor(forest.x - forest.r));
+      const maxX = Math.min(this.width - 1, Math.ceil(forest.x + forest.r));
+      const minY = Math.max(0, Math.floor(forest.y - forest.r));
+      const maxY = Math.min(this.height - 1, Math.ceil(forest.y + forest.r));
+      const radiusSquared = forest.r * forest.r;
+      for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+          const dx = x - forest.x;
+          const dy = y - forest.y;
+          if (dx * dx + dy * dy < radiusSquared) this.terrainForest[this.index(x, y)] = 1;
+        }
+      }
+    }
+
     for (let y = 0; y < this.height; y++) {
       const riverX = this.map.riverX(y);
       for (let x = 0; x < this.width; x++) {
@@ -341,14 +358,10 @@ export class Simulation {
           this.terrainCapacity[i] *= 1 - 0.40 * strength;
         }
 
-        for (const forest of this.map.forests) {
-          const distance = Math.hypot(x - forest.x, y - forest.y);
-          if (distance < forest.r) {
-            const strength = 1 - distance / forest.r;
-            this.terrainDefense[i] *= 1 + 0.55 * strength;
-            this.terrainMobility[i] *= 1 - 0.70 * strength;
-            this.terrainCapacity[i] *= 1 - 0.58 * strength;
-          }
+        if (this.terrainForest[i]) {
+          this.terrainDefense[i] *= 1.55;
+          this.terrainMobility[i] *= 0.30;
+          this.terrainCapacity[i] *= 0.42;
         }
 
         if (x + 1 < this.width && x < riverX && x + 1 >= riverX) {
