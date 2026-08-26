@@ -4,15 +4,22 @@ import type {
   TransportGrid,
 } from '../transportGrid';
 
-export interface ApproximatePotentialResult {
+export interface FinePotentialStencil {
+  neighborIndices: Int32Array;
+  transmissions: Float64Array;
+  denominators: Float64Array;
+}
+
+export interface FinePotentialContext {
   smoothedNeed: Float32Array;
   currentStatus: Uint8Array;
   reaction: number;
   maxFrontPotential: number;
+  previousStatus?: Uint8Array;
 }
 
-export interface FinePotentialContext extends ApproximatePotentialResult {
-  previousStatus?: Uint8Array;
+export interface ApproximatePotentialResult extends FinePotentialContext {
+  stencil: FinePotentialStencil | null;
 }
 
 export type PotentialApproximationStrategy = (
