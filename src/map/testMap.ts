@@ -7,9 +7,23 @@ const sc = (value: number): number => value * S;
 const width = CFG.width;
 const height = CFG.height;
 
-// One deliberately asymmetric theatre: a northern salient, a central river
-// crossing and a southern constriction. It is meant to expose different kinds
-// of front behaviour on the same screen rather than look procedurally neutral.
+const riverX = (y: number): number => {
+  const yy = y / S;
+  return (
+    width * 0.535
+    + sc(3.6) * Math.sin(yy / 10.5 + 0.25)
+    + sc(1.7) * Math.sin(yy / 4.9 + 1.35)
+    - sc(3.4) * Math.exp(-(((yy - 42) / 7.5) ** 2))
+    + sc(2.1) * Math.exp(-(((yy - 59) / 6.0) ** 2))
+    - sc(1.4) * Math.exp(-(((yy - 17) / 5.8) ** 2))
+  );
+};
+
+const river = Array.from({ length: Math.ceil(height / 2) + 1 }, (_, i) => {
+  const y = Math.min(height - 1, i * 2);
+  return { x: riverX(y), y };
+});
+
 export const testMap: MapDefinition = {
   width,
   height,
@@ -22,17 +36,7 @@ export const testMap: MapDefinition = {
     const texture = sc(1.2) * Math.sin(yy / 5.8) - sc(0.7) * Math.sin(yy / 2.9);
     return base + northernSalient + centralDent + southernSalient + texture;
   },
-  riverX: (y) => {
-    const yy = y / S;
-    return (
-      width * 0.535
-      + sc(3.6) * Math.sin(yy / 10.5 + 0.25)
-      + sc(1.7) * Math.sin(yy / 4.9 + 1.35)
-      - sc(3.4) * Math.exp(-(((yy - 42) / 7.5) ** 2))
-      + sc(2.1) * Math.exp(-(((yy - 59) / 6.0) ** 2))
-      - sc(1.4) * Math.exp(-(((yy - 17) / 5.8) ** 2))
-    );
-  },
+  rivers: [river],
   forests: [
     { x: sc(45), y: sc(24), r: sc(7) },
     { x: sc(57), y: sc(70), r: sc(7) },
@@ -46,7 +50,6 @@ export const testMap: MapDefinition = {
     { id: 'b3', name: 'Velin',  x: sc(17), y: sc(64), baseProduction: 2, owner: 'blue', integration: 1 },
     { id: 'b4', name: 'Karsk',  x: sc(51), y: sc(11), baseProduction: 1, owner: 'blue', integration: 1 },
     { id: 'b5', name: 'Dorna',  x: sc(49), y: sc(59), baseProduction: 3, owner: 'blue', integration: 1 },
-
     { id: 'r1', name: 'Orlov',  x: sc(113), y: sc(12), baseProduction: 2, owner: 'red', integration: 1 },
     { id: 'r2', name: 'Tarna',  x: sc(101), y: sc(36), baseProduction: 3, owner: 'red', integration: 1 },
     { id: 'r3', name: 'Sevra',  x: sc(113), y: sc(67), baseProduction: 2, owner: 'red', integration: 1 },
