@@ -7,6 +7,7 @@ export interface RiverRaster {
 }
 
 const BANK_RADIUS = 2.6;
+const BANK_STRENGTH = 1.30;
 const CROSSING_FACTOR = 0.18;
 
 function pointSegmentDistance(px: number, py: number, a: MapPoint, b: MapPoint): number {
@@ -51,7 +52,10 @@ export function rasterizeRivers(width: number, height: number, rivers?: MapPoint
         for (let x = minX; x <= maxX; x++) {
           const i = y * width + x;
           const distance = pointSegmentDistance(x + 0.5, y + 0.5, a, b);
-          if (distance < BANK_RADIUS) strength[i] = Math.max(strength[i], 1 - distance / BANK_RADIUS);
+          if (distance < BANK_RADIUS) {
+            const localStrength = BANK_STRENGTH * (1 - distance / BANK_RADIUS);
+            strength[i] = Math.max(strength[i], localStrength);
+          }
 
           // crossingX belongs to movement between (x,y) and (x+1,y), so the
           // relevant geometric boundary is the vertical edge at x+1.
