@@ -72,30 +72,19 @@ export class TerrainRenderer {
   }
 
   private drawRivers(g: Graphics): void {
-    const paths = this.map.riverPaths;
-    if (paths?.length) {
-      for (const path of paths) {
-        if (path.length < 2) continue;
-        g.moveTo(path[0].x, path[0].y);
-        for (let i = 1; i < path.length; i++) g.lineTo(path[i].x, path[i].y);
-      }
-      g.stroke({ color: PAPER_LIGHT, width: 1.10, alpha: 0.75 });
+    if (!this.map.rivers.length) return;
 
-      for (const path of paths) {
-        if (path.length < 2) continue;
-        g.moveTo(path[0].x, path[0].y);
-        for (let i = 1; i < path.length; i++) g.lineTo(path[i].x, path[i].y);
-      }
-      g.stroke({ color: RIVER, width: 0.46, alpha: 0.82 });
-      return;
-    }
-
-    for (let y = 0; y < this.map.height - 0.5; y += 0.5) {
-      g.moveTo(this.map.riverX(y), y).lineTo(this.map.riverX(y + 0.5), y + 0.5);
+    for (const path of this.map.rivers) {
+      if (path.length < 2) continue;
+      g.moveTo(path[0].x, path[0].y);
+      for (let i = 1; i < path.length; i++) g.lineTo(path[i].x, path[i].y);
     }
     g.stroke({ color: PAPER_LIGHT, width: 1.10, alpha: 0.75 });
-    for (let y = 0; y < this.map.height - 0.5; y += 0.5) {
-      g.moveTo(this.map.riverX(y), y).lineTo(this.map.riverX(y + 0.5), y + 0.5);
+
+    for (const path of this.map.rivers) {
+      if (path.length < 2) continue;
+      g.moveTo(path[0].x, path[0].y);
+      for (let i = 1; i < path.length; i++) g.lineTo(path[i].x, path[i].y);
     }
     g.stroke({ color: RIVER, width: 0.46, alpha: 0.82 });
   }
