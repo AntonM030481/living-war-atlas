@@ -1,4 +1,5 @@
 import type { MapDefinition, MapId } from '../sim/types';
+import { islandMap } from './islandMap';
 import { linearMap } from './linearMap';
 import { testMap } from './testMap';
 
@@ -15,6 +16,12 @@ export const MAP_OPTIONS: readonly MapOption[] = [
     name: 'Full playground map',
     description: '256x160 map with 10 cities, river and forests.',
     map: testMap,
+  },
+  {
+    id: 'island',
+    name: 'Mountain theatre',
+    description: '256x160 map with 10 cities, a thin sea boundary and impassable mountain massifs.',
+    map: islandMap,
   },
   {
     id: 'linear',
