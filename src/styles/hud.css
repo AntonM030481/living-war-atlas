@@ -44,7 +44,7 @@
   gap: 6px;
 }
 
-.speed-row { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.speed-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .transport-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) minmax(0, 1fr); }
 .action-row { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); }
 
