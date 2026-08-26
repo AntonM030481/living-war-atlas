@@ -23,8 +23,11 @@ export class CityOverlays {
   ) {
     this.blueBadge.className = 'city-points-badge blue';
     this.redBadge.className = 'city-points-badge red';
-    this.blueBadge.innerHTML = '<span>Blue --/--</span><small>force --</small>';
-    this.redBadge.innerHTML = '<span>Red --/--</span><small>force --</small>';
+    this.blueBadge.textContent = 'Production --/-- · Force --';
+    this.redBadge.textContent = 'Production --/-- · Force --';
+    const badgeTitle = 'Production is active production / controlled production capacity. Active production generates force, which flows from cities toward the front.';
+    this.blueBadge.title = badgeTitle;
+    this.redBadge.title = badgeTitle;
     this.host.append(this.blueBadge, this.redBadge);
 
     for (const city of map.cities) {
@@ -50,8 +53,8 @@ export class CityOverlays {
     const mapLeft = rect.left - hostRect.left;
     const mapTop = rect.top - hostRect.top;
 
-    this.blueBadge.innerHTML = `<span>Blue ${formatPoints(stats.activeCityPointsBlue)}/${formatPoints(stats.controlledCityPointsBlue)}</span><small>force ${Math.round(stats.totalWarBlue)}</small>`;
-    this.redBadge.innerHTML = `<span>Red ${formatPoints(stats.activeCityPointsRed)}/${formatPoints(stats.controlledCityPointsRed)}</span><small>force ${Math.round(stats.totalWarRed)}</small>`;
+    this.blueBadge.textContent = `Production ${formatPoints(stats.activeCityPointsBlue)}/${formatPoints(stats.controlledCityPointsBlue)} · Force ${Math.round(stats.totalWarBlue)}`;
+    this.redBadge.textContent = `Production ${formatPoints(stats.activeCityPointsRed)}/${formatPoints(stats.controlledCityPointsRed)} · Force ${Math.round(stats.totalWarRed)}`;
     this.blueBadge.style.left = `${mapLeft + 10}px`;
     this.blueBadge.style.top = `${mapTop + 10}px`;
     this.redBadge.style.left = `${mapLeft + rect.width - this.redBadge.offsetWidth - 10}px`;
