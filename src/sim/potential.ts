@@ -3,6 +3,7 @@ import { applyApproximatePotential } from './potentialApproximation';
 import type {
   ApproximatePotentialResult,
   FinePotentialContext,
+  FinePotentialStencil,
 } from './potentialApproximation/types';
 import {
   edgeTransmission,
@@ -14,6 +15,7 @@ import {
 export type {
   ApproximatePotentialResult,
   FinePotentialContext,
+  FinePotentialStencil,
 } from './potentialApproximation/types';
 
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
@@ -114,6 +116,45 @@ export function prepareFinePotential(
   return { smoothedNeed, currentStatus, reaction, maxFrontPotential, previousStatus };
 }
 
+export function buildFineRelaxationStencil(
+  grid: TransportGrid,
+  currentStatus: Uint8Array,
+  reaction: number,
+): FinePotentialStencil {
+  const size = currentStatus.length;
+  const neighborIndices = new Int32Array(size * DIRS.length);
+  const transmissions = new Float64Array(size * DIRS.length);
+  const denominators = new Float64Array(size);
+
+  for (let y = 0; y < grid.height; y++) {
+    for (let x = 0; x < grid.width; x++) {
+      const i = y * grid.width + x;
+      if (currentStatus[i] !== 1) continue;
+
+      const base = i * DIRS.length;
+      let transmissionSum = 0;
+      for (let direction = 0; direction < DIRS.length; direction++) {
+        const [dx, dy] = DIRS[direction];
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || nx >= grid.width || ny < 0 || ny >= grid.height) continue;
+
+        const j = ny * grid.width + nx;
+        const transmission = edgeTransmission(i, j, x, y, dx, dy, grid);
+        if (transmission <= EPS) continue;
+
+        neighborIndices[base + direction] = j;
+        transmissions[base + direction] = transmission;
+        transmissionSum += transmission;
+      }
+
+      if (transmissionSum > EPS) denominators[i] = transmissionSum + reaction;
+    }
+  }
+
+  return { neighborIndices, transmissions, denominators };
+}
+
 export function buildApproximatePotential(
   fields: Pick<SideFields, 'need' | 'potential'>,
   grid: TransportGrid,
@@ -128,19 +169,24 @@ export function buildApproximatePotential(
     applyApproximatePotential(potential, grid, config, context);
   }
 
+  const stencil = context.maxFrontPotential > EPS
+    ? buildFineRelaxationStencil(grid, context.currentStatus, context.reaction)
+    : null;
   potentialStatusByField.set(potential, context.currentStatus);
-  return context;
+  return { ...context, stencil };
 }
 
 export function refinePotential(
   potential: Float32Array,
-  grid: TransportGrid,
+  _grid: TransportGrid,
   approximate: ApproximatePotentialResult,
   passes = DEFAULT_FINE_RELAXATION_PASSES,
 ): void {
-  const { smoothedNeed, currentStatus, reaction, maxFrontPotential } = approximate;
+  const { smoothedNeed, currentStatus, maxFrontPotential, stencil } = approximate;
   if (maxFrontPotential <= EPS) return;
+  if (!stencil) throw new Error('Fine relaxation stencil is missing');
 
+  const { neighborIndices, transmissions, denominators } = stencil;
   for (let pass = 0; pass < passes; pass++) {
     const reverse = (pass & 1) === 1;
     let maxDelta = 0;
@@ -155,24 +201,14 @@ export function refinePotential(
         continue;
       }
 
-      const x = i % grid.width;
-      const y = Math.floor(i / grid.width);
-      let weightedPotential = 0;
-      let transmissionSum = 0;
-      for (const [dx, dy] of DIRS) {
-        const nx = x + dx;
-        const ny = y + dy;
-        if (nx < 0 || nx >= grid.width || ny < 0 || ny >= grid.height) continue;
-        const j = ny * grid.width + nx;
-        const transmission = edgeTransmission(i, j, x, y, dx, dy, grid);
-        if (transmission <= EPS) continue;
-        weightedPotential += potential[j] * transmission;
-        transmissionSum += transmission;
-      }
-
-      const target = transmissionSum > EPS
-        ? weightedPotential / (transmissionSum + reaction)
-        : 0;
+      const base = i * DIRS.length;
+      const weightedPotential =
+        potential[neighborIndices[base]] * transmissions[base]
+        + potential[neighborIndices[base + 1]] * transmissions[base + 1]
+        + potential[neighborIndices[base + 2]] * transmissions[base + 2]
+        + potential[neighborIndices[base + 3]] * transmissions[base + 3];
+      const denominator = denominators[i];
+      const target = denominator > 0 ? weightedPotential / denominator : 0;
       const before = potential[i];
       const relaxed = before + (target - before) * POTENTIAL_RELAXATION_OMEGA;
       potential[i] = Math.max(0, Math.min(maxFrontPotential, relaxed));
