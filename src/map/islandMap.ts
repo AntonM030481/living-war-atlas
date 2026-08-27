@@ -1,12 +1,11 @@
 import { CFG } from '../sim/Config';
-import type { MapDefinition, TerrainType } from '../sim/types';
+import type { MapDefinition, TerrainRegion, TerrainType } from '../sim/types';
+import { pointInTerrainRegion } from './terrain';
 
 const width = CFG.width;
 const height = CFG.height;
 
-interface Circle { x: number; y: number; r: number }
-
-const mountains: Circle[] = [
+const mountains: TerrainRegion[] = [
   { x: 36, y: 18, r: 16 }, { x: 52, y: 42, r: 12 }, { x: 23, y: 66, r: 11 },
   { x: 84, y: 14, r: 10 }, { x: 110, y: 62, r: 9 }, { x: 166, y: 28, r: 11 },
   { x: 212, y: 52, r: 14 }, { x: 238, y: 101, r: 12 }, { x: 190, y: 124, r: 10 },
@@ -15,12 +14,7 @@ const mountains: Circle[] = [
 
 function terrainAt(x: number, y: number): TerrainType {
   if (x === 0 || y === 0 || x === width - 1 || y === height - 1) return 'blocked';
-  for (const mountain of mountains) {
-    const dx = (x - mountain.x) / mountain.r;
-    const dy = (y - mountain.y) / (mountain.r * 0.78);
-    const wobble = 0.10 * Math.sin(x * 0.31 + y * 0.17);
-    if (dx * dx + dy * dy < 1 + wobble) return 'mountain';
-  }
+  if (mountains.some((mountain) => pointInTerrainRegion(x, y, mountain))) return 'mountain';
   return 'open';
 }
 
@@ -59,6 +53,7 @@ export const islandMap: MapDefinition = {
     { x: 225, y: 72, r: 8 }, { x: 210, y: 113, r: 8 }, { x: 158, y: 125, r: 7 },
     { x: 91, y: 135, r: 8 }, { x: 48, y: 126, r: 7 },
   ],
+  mountains,
   terrainAt,
   cities: [
     { id: 'i1', name: 'Norden', x: 68, y: 28, baseProduction: 2, owner: 'blue', integration: 1 },
