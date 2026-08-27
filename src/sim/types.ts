@@ -19,13 +19,20 @@ export interface MapPoint {
   y: number;
 }
 
+export interface TerrainRegion {
+  x: number;
+  y: number;
+  r: number;
+}
+
 export interface MapDefinition {
   width: number;
   height: number;
   initialFrontX?: (y: number) => number;
   initialControl?: 'city-distance';
   cities: City[];
-  forests: Array<{ x: number; y: number; r: number }>;
+  forests: TerrainRegion[];
+  mountains?: TerrainRegion[];
   rivers: MapPoint[][];
   terrainAt?: (x: number, y: number) => TerrainType;
   seedInitialResource?: boolean;
