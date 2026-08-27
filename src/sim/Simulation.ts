@@ -4,7 +4,7 @@ import { applyFrontConsumption, clamp, resolvePairCombat } from './combat';
 import { computePairCommitment } from './commitment';
 import { flipCityOwner, generateCityResource, toggleCityEnabled, updateCities } from './cities';
 import { initializeControlFromCities } from './initialControl';
-import { pointInTerrainRegion } from '../map/terrain';
+import { rasterizeTerrainRegions } from '../map/terrain';
 import { rasterizeRivers } from './rivers';
 import { assertStateDimensions, clearArrays, cloneCities } from './state';
 import {
@@ -326,20 +326,7 @@ export class Simulation {
     const river = rasterizeRivers(this.width, this.height, this.map.rivers);
     this.riverCrossingX.set(river.crossingX);
     this.riverCrossingY.set(river.crossingY);
-
-    for (const forest of this.map.forests) {
-      const minX = Math.max(0, Math.floor(forest.x - forest.r * 1.25));
-      const maxX = Math.min(this.width - 1, Math.ceil(forest.x + forest.r * 1.25));
-      const minY = Math.max(0, Math.floor(forest.y - forest.r));
-      const maxY = Math.min(this.height - 1, Math.ceil(forest.y + forest.r));
-      for (let y = minY; y <= maxY; y++) {
-        for (let x = minX; x <= maxX; x++) {
-          if (pointInTerrainRegion(x + 0.5, y + 0.5, forest)) {
-            this.terrainForest[this.index(x, y)] = 1;
-          }
-        }
-      }
-    }
+    this.terrainForest.set(rasterizeTerrainRegions(this.width, this.height, this.map.forests));
 
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
