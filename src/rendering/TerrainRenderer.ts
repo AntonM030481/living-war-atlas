@@ -1,6 +1,7 @@
 import { Graphics } from 'pixi.js';
-import type { MapDefinition } from '../sim/types';
+import type { MapDefinition, TerrainRegion } from '../sim/types';
 import { initializeControlFromCities } from '../sim/initialControl';
+import { terrainRegionBoundary } from '../map/terrain';
 import type { Point } from './coordinates';
 
 const PAPER = 0xe6ddb7;
@@ -9,6 +10,7 @@ const INK = 0x2f2b24;
 const RIVER = 0x4fa6bd;
 const GRID = 0x8b7a59;
 const BLOCKED = 0x68655f;
+const FOREST = 0x83a96b;
 
 export class TerrainRenderer {
   constructor(
@@ -41,34 +43,35 @@ export class TerrainRenderer {
     g.stroke({ color: 0xb8a77d, width: 0.04, alpha: 0.06 });
 
     for (const forest of this.map.forests) {
-      const boundary: Point[] = [];
-      const points = 42;
-      for (let i = 0; i < points; i++) {
-        const a = (i / points) * Math.PI * 2;
-        const wobble = 1
-          + 0.13 * Math.sin(a * 3 + forest.x * 0.13)
-          + 0.08 * Math.sin(a * 5 - forest.y * 0.11)
-          + 0.05 * Math.sin(a * 9 + forest.x * 0.07);
-        boundary.push({
-          x: forest.x + Math.cos(a) * forest.r * wobble * 0.92,
-          y: forest.y + Math.sin(a) * forest.r * wobble * 0.78,
-        });
-      }
-      g.moveTo(boundary[0].x, boundary[0].y);
-      for (let i = 1; i < boundary.length; i++) g.lineTo(boundary[i].x, boundary[i].y);
-      g.closePath().fill({ color: 0x83a96b, alpha: 0.30 });
+      this.drawTerrainRegion(g, forest, FOREST, 0.30);
     }
 
     this.drawRivers(g);
 
+    for (const mountain of this.map.mountains ?? []) {
+      this.drawTerrainRegion(g, mountain, BLOCKED, 0.88);
+    }
+
+    // Generic blocked/sea terrain remains cell-based. Named terrain regions such
+    // as mountains have their own geometry and renderer above, just like forests.
     if (this.map.terrainAt) {
       for (let y = 0; y < this.map.height; y++) {
         for (let x = 0; x < this.map.width; x++) {
-          if (this.map.terrainAt(x, y) === 'open') continue;
+          const terrain = this.map.terrainAt(x, y);
+          if (terrain !== 'blocked' && terrain !== 'sea') continue;
           g.rect(x, y, 1, 1).fill({ color: BLOCKED, alpha: 0.88 });
         }
       }
     }
+  }
+
+  private drawTerrainRegion(g: Graphics, region: TerrainRegion, color: number, alpha: number): void {
+    const boundary = terrainRegionBoundary(region);
+    if (!boundary.length) return;
+
+    g.moveTo(boundary[0].x, boundary[0].y);
+    for (let i = 1; i < boundary.length; i++) g.lineTo(boundary[i].x, boundary[i].y);
+    g.closePath().fill({ color, alpha });
   }
 
   private drawRivers(g: Graphics): void {
