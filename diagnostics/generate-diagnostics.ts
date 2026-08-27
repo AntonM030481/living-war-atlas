@@ -70,7 +70,7 @@ function oneDimensionalMap(width = 80): MapDefinition {
     width,
     height: 1,
     initialFrontX: () => 40.4,
-    riverX: () => 1000,
+    rivers: [],
     forests: [],
     cities: [
       { id: 'b', name: 'Blue', x: 8, y: 0, baseProduction: 4, owner: 'blue', integration: 1 },
@@ -288,7 +288,7 @@ function commitmentTransition(): CommitmentSample[] {
     width: 9,
     height: 1,
     initialFrontX: () => 4,
-    riverX: () => 100,
+    rivers: [],
     forests: [],
     cities: [],
   };
