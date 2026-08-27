@@ -25,6 +25,26 @@ export function pointInTerrainRegion(x: number, y: number, region: TerrainRegion
   return radius < region.r * terrainRegionWobble(angle, region);
 }
 
+export function rasterizeTerrainRegions(
+  width: number,
+  height: number,
+  regions: readonly TerrainRegion[],
+): Uint8Array {
+  const mask = new Uint8Array(width * height);
+  for (const region of regions) {
+    const minX = Math.max(0, Math.floor(region.x - region.r * 1.25));
+    const maxX = Math.min(width - 1, Math.ceil(region.x + region.r * 1.25));
+    const minY = Math.max(0, Math.floor(region.y - region.r));
+    const maxY = Math.min(height - 1, Math.ceil(region.y + region.r));
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        if (pointInTerrainRegion(x + 0.5, y + 0.5, region)) mask[y * width + x] = 1;
+      }
+    }
+  }
+  return mask;
+}
+
 export function blockedPerimeter(width: number, height: number) {
   return (x: number, y: number): TerrainType =>
     x === 0 || y === 0 || x === width - 1 || y === height - 1 ? 'blocked' : 'open';
