@@ -14,7 +14,7 @@ const mountains: TerrainRegion[] = [
 
 function terrainAt(x: number, y: number): TerrainType {
   if (x === 0 || y === 0 || x === width - 1 || y === height - 1) return 'blocked';
-  if (mountains.some((mountain) => pointInTerrainRegion(x, y, mountain))) return 'mountain';
+  if (mountains.some((mountain) => pointInTerrainRegion(x + 0.5, y + 0.5, mountain))) return 'mountain';
   return 'open';
 }
 
