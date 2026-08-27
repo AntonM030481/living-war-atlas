@@ -195,7 +195,7 @@ describe('Simulation', () => {
     const equalCommitted = equalFight.sim.committedBlue[equalFight.cells.blue];
     const equalReserve = equalFight.sim.warBlue[equalFight.cells.blue] - equalCommitted;
     const overwhelmingCommitted = overwhelmingBlue.sim.committedBlue[overwhelmingBlue.cells.blue];
-    const overwhelmingReserve = overwhelmingBlue.sim.warBlue[equalFight.cells.blue] - overwhelmingCommitted;
+    const overwhelmingReserve = overwhelmingBlue.sim.warBlue[overwhelmingBlue.cells.blue] - overwhelmingCommitted;
 
     expect(equalCommitted).toBeGreaterThan(0);
     expect(equalReserve).toBeGreaterThan(0);
