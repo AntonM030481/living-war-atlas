@@ -1,6 +1,6 @@
 import { CFG } from '../sim/Config';
 import type { MapDefinition, TerrainRegion, TerrainType } from '../sim/types';
-import { pointInTerrainRegion } from './terrain';
+import { rasterizeTerrainRegions } from './terrain';
 
 const width = CFG.width;
 const height = CFG.height;
@@ -11,10 +11,11 @@ const mountains: TerrainRegion[] = [
   { x: 212, y: 52, r: 14 }, { x: 238, y: 101, r: 12 }, { x: 190, y: 124, r: 10 },
   { x: 139, y: 138, r: 11 }, { x: 71, y: 126, r: 12 }, { x: 26, y: 114, r: 10 },
 ];
+const mountainMask = rasterizeTerrainRegions(width, height, mountains);
 
 function terrainAt(x: number, y: number): TerrainType {
   if (x === 0 || y === 0 || x === width - 1 || y === height - 1) return 'blocked';
-  if (mountains.some((mountain) => pointInTerrainRegion(x + 0.5, y + 0.5, mountain))) return 'mountain';
+  if (mountainMask[y * width + x]) return 'mountain';
   return 'open';
 }
 
