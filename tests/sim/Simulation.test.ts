@@ -5,6 +5,7 @@ import { testMap } from '../../src/map/testMap';
 import { applyFrontConsumption } from '../../src/sim/combat';
 import { CFG, ticks } from '../../src/sim/Config';
 import { Simulation } from '../../src/sim/Simulation';
+import { MapDefinition } from '../../src/sim/types';
 
 function total(a: Float32Array): number {
   let sum = 0;
@@ -232,7 +233,7 @@ describe('Simulation', () => {
   it('does not create frontline cells on blocked terrain', () => {
     const width = 12;
     const height = 8;
-    const map = {
+    const map: MapDefinition = {
       width,
       height,
       initialFrontX: () => 6,
