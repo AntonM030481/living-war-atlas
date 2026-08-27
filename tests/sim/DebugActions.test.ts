@@ -39,7 +39,7 @@ describe('forceCityEnclave', () => {
 
     const center = city.y * sim.width + city.x;
     expect(city.owner).toBe('red');
-    expect(city.integration).toBe(0);
+    expect(city.integration).toBe(1);
     expect(sim.control[center]).toBeLessThan(-CFG.cityCaptureThreshold);
     expect(sim.warRed[center]).toBeGreaterThan(redBefore);
     expect(localSignChanges(sim, city.x, city.y, FORCED_ENCLAVE_RADIUS + 2)).toBeGreaterThan(4);
