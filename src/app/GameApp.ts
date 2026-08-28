@@ -165,7 +165,7 @@ export class GameApp {
       this.diagnosticsPanel.element.open = false;
     }
     this.renderer.setDebug(next);
-    this.renderer.setShowFlows(next);
+    this.renderer.setShowFlows(false);
     this.renderDiagnostics();
     this.updatePointMarker();
   }
