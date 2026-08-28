@@ -5,10 +5,19 @@ const EPS = 1e-6;
 export const HISTORY_INTERVAL_SECONDS = 5;
 export const MAX_HISTORY_CHECKPOINTS = 120;
 
+export interface RecentCaptures {
+  time: Float32Array;
+  side: Int8Array;
+}
+
 export class HistoryManager {
   private history: SimulationState[] = [];
   private historyIndex = -1;
   private nextHistoryTime = 0;
+  private trackedControl: Float32Array | null = null;
+  private trackedTime = -Infinity;
+  private captureTime = new Float32Array(0);
+  private captureSide = new Int8Array(0);
 
   constructor(private readonly storage: HistoryStorage) {}
 
@@ -19,6 +28,7 @@ export class HistoryManager {
     this.history = persisted.history.slice(dropped);
     this.historyIndex = Math.max(0, Math.min(this.history.length - 1, persisted.historyIndex - dropped));
     this.nextHistoryTime = persisted.nextHistoryTime;
+    this.resetCaptureTracking();
     return { ...persisted, history: this.history, historyIndex: this.historyIndex };
   }
 
@@ -26,6 +36,7 @@ export class HistoryManager {
     this.history = [];
     this.historyIndex = -1;
     this.scheduleNext(gameTime);
+    this.resetCaptureTracking();
   }
 
   currentState(): SimulationState | null {
@@ -41,6 +52,28 @@ export class HistoryManager {
       canForward: this.historyIndex >= 0 && this.historyIndex + 1 < this.history.length,
       currentTime,
     };
+  }
+
+  recentCaptures(control: Float32Array, currentTime: number, maxAgeSeconds: number): RecentCaptures {
+    if (!this.trackedControl || this.trackedControl.length !== control.length) {
+      this.initializeCaptureTracking(control, currentTime);
+      return { time: this.captureTime, side: this.captureSide };
+    }
+
+    if (currentTime + EPS < this.trackedTime) {
+      this.rebuildCaptureTracking(control.length, currentTime, maxAgeSeconds);
+    }
+
+    const trackedControl = this.trackedControl;
+    if (!trackedControl || trackedControl.length !== control.length) {
+      this.initializeCaptureTracking(control, currentTime);
+      return { time: this.captureTime, side: this.captureSide };
+    }
+
+    this.recordCrossings(trackedControl, control, currentTime);
+    trackedControl.set(control);
+    this.trackedTime = currentTime;
+    return { time: this.captureTime, side: this.captureSide };
   }
 
   checkpoint(state: SimulationState, seed: number, force = false): boolean {
@@ -81,6 +114,55 @@ export class HistoryManager {
       historyIndex: this.historyIndex,
       nextHistoryTime: this.nextHistoryTime,
     });
+  }
+
+  private resetCaptureTracking(): void {
+    this.trackedControl = null;
+    this.trackedTime = -Infinity;
+    this.captureTime = new Float32Array(0);
+    this.captureSide = new Int8Array(0);
+  }
+
+  private initializeCaptureTracking(control: Float32Array, currentTime: number): void {
+    this.trackedControl = control.slice();
+    this.trackedTime = currentTime;
+    this.captureTime = new Float32Array(control.length);
+    this.captureTime.fill(Number.NEGATIVE_INFINITY);
+    this.captureSide = new Int8Array(control.length);
+  }
+
+  private rebuildCaptureTracking(size: number, currentTime: number, maxAgeSeconds: number): void {
+    this.captureTime = new Float32Array(size);
+    this.captureTime.fill(Number.NEGATIVE_INFINITY);
+    this.captureSide = new Int8Array(size);
+
+    const firstRelevantTime = currentTime - maxAgeSeconds;
+    let start = 0;
+    while (start + 1 <= this.historyIndex && this.history[start + 1].gameTime < firstRelevantTime) start += 1;
+
+    let previous = this.history[start]?.control ?? null;
+    if (previous) {
+      for (let index = start + 1; index <= this.historyIndex; index++) {
+        const state = this.history[index];
+        if (state.gameTime > currentTime + EPS) break;
+        this.recordCrossings(previous, state.control, state.gameTime);
+        previous = state.control;
+      }
+      this.trackedControl = previous.slice();
+    } else {
+      this.trackedControl = null;
+    }
+    this.trackedTime = currentTime;
+  }
+
+  private recordCrossings(before: Float32Array, after: Float32Array, time: number): void {
+    const size = Math.min(before.length, after.length, this.captureTime.length);
+    for (let i = 0; i < size; i++) {
+      const crossed = (before[i] < 0 && after[i] >= 0) || (before[i] >= 0 && after[i] < 0);
+      if (!crossed) continue;
+      this.captureTime[i] = time;
+      this.captureSide[i] = after[i] >= 0 ? 1 : -1;
+    }
   }
 
   private truncateFuture(): void {
