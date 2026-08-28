@@ -230,23 +230,22 @@ export class AtlasRenderer {
   private drawInstability(snapshot: SimulationSnapshot): void {
     const g = this.instability;
     g.clear();
-    for (let y = 1; y < snapshot.height - 1; y += 2) {
-      for (let x = 1; x < snapshot.width - 1; x += 2) {
-        const i = y * snapshot.width + x;
-        if (Math.abs(snapshot.control[i]) > 0.24) continue;
-        const blue = snapshot.instabilityBlue[i];
-        const red = snapshot.instabilityRed[i];
-        const value = Math.max(blue, red);
-        if (value < 0.08) continue;
-        const color = blue > red ? BLUE_DARK : RED_DARK;
-        const strength = Math.min(1, value);
-        const size = 0.42 + strength * 0.92;
-        const alpha = Math.min(0.62, 0.16 + value * 0.32);
-        const width = 0.13 + strength * 0.13;
-        g.moveTo(x - size, y - size).lineTo(x + size, y + size);
-        g.moveTo(x - size, y + size).lineTo(x + size, y - size);
-        g.stroke({ color, width, alpha });
-      }
+
+    for (const sample of this.frontRenderer.samples(snapshot)) {
+      const i = sample.sampleIndex;
+      const blue = snapshot.instabilityBlue[i];
+      const red = snapshot.instabilityRed[i];
+      const value = Math.max(blue, red);
+      if (value < 0.08) continue;
+
+      const color = blue > red ? BLUE_DARK : RED_DARK;
+      const strength = Math.min(1, value);
+      const size = 0.42 + strength * 0.92;
+      const alpha = Math.min(0.62, 0.16 + value * 0.32);
+      const width = 0.13 + strength * 0.13;
+      g.moveTo(sample.x - size, sample.y - size).lineTo(sample.x + size, sample.y + size);
+      g.moveTo(sample.x - size, sample.y + size).lineTo(sample.x + size, sample.y - size);
+      g.stroke({ color, width, alpha });
     }
   }
 }
