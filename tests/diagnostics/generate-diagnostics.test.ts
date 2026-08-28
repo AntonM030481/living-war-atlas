@@ -100,11 +100,11 @@ function frontPosition1D(sim: Simulation, width: number): number {
   return sim.control[0] < 0 ? 0 : width - 1;
 }
 
-function csv(rows: Array<Record<string, string | number>>): string {
+function csv<T extends object>(rows: T[]): string {
   if (rows.length === 0) return '';
-  const headers = Object.keys(rows[0]);
+  const headers = Object.keys(rows[0]) as Array<keyof T>;
   return [
-    headers.join(','),
+    headers.map(String).join(','),
     ...rows.map((row) => headers.map((header) => String(row[header])).join(',')),
   ].join('\n') + '\n';
 }
