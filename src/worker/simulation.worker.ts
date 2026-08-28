@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-import type { Speed } from '../sim/Config';
+import { CFG, type Speed } from '../sim/Config';
 import { clearPotential, winnerFromState } from '../sim/completion';
 import { forceCityEnclave, seedInitialEnclaves } from '../sim/DebugActions';
 import { Simulation } from '../sim/Simulation';
@@ -30,7 +30,11 @@ function currentWinner() {
 
 function postSnapshot(): void {
   if (!sim) return;
-  post({ type: 'snapshot', snapshot: sim.snapshot(), history: history.info(sim.gameTime), winner: currentWinner() });
+  const snapshot = sim.snapshot();
+  const recentCaptures = history.recentCaptures(snapshot.control, snapshot.gameTime, CFG.recentCaptureFadeSeconds);
+  snapshot.recentCaptureTime = recentCaptures.time;
+  snapshot.recentCaptureSide = recentCaptures.side;
+  post({ type: 'snapshot', snapshot, history: history.info(sim.gameTime), winner: currentWinner() });
 }
 
 function saveHistoryCheckpoint(force = false): void {
