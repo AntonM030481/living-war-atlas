@@ -27,10 +27,7 @@ export const CFG = {
   forestMobilityMultiplier: 0.30, // Multiplies movement/transport mobility inside forest cells.
   forestCapacityMultiplier: 0.42, // Multiplies transport capacity inside forest cells.
 
-  frontCommitmentSafety: 1.60, // Safety multiplier on enemy mass when computing required defensive commitment.
-  frontCommitmentMax: 1.0, // Upper bound on the fraction of local force that may be committed.
-  frontCommitmentFloor: 0.025, // Minimum defensive fraction committed on an opposed front.
-  frontOffensiveCommitmentShare: 0.82, // Fraction of surplus force committed offensively when locally superior.
+  frontCommitmentMax: 1.0, // Fraction of local force committed where opposing force is present.
   frontUnopposedCommitment: 0.82, // Commitment fraction used where a front has no opposing mass.
   collapseCommitmentFactor: 0.28, // Multiplier applied to commitment target while that side is collapsed.
   commitmentEngagePerSecond: 0.85, // Rate at which committed force rises toward its target.
@@ -40,7 +37,7 @@ export const CFG = {
   frontBand: 0.34, // |control| threshold that classifies cells as part of the front band.
   massRadius: 4, // Radius over which nearby force is aggregated for front mass/commitment.
   defenceAdvantage: 1.36, // Baseline defensive combat multiplier; terrain defense multiplies it further.
-  baseProbe: 0.76, // Baseline attacking pressure used both for probing combat and required defence.
+  baseProbe: 0.76, // Baseline attacking pressure used when resolving combat stress.
   emptyFrontMass: 0.08, // Small effective mass used to keep combat/front logic active at nearly empty fronts.
   unopposedTinyMass: 0.025, // Opposing-mass cutoff below which a front is treated as effectively unopposed.
   unopposedUsefulMass: 0.35, // Own mass at which unopposed advance reaches its useful/full regime.
