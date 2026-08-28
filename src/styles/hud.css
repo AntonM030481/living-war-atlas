@@ -134,9 +134,9 @@
 .front-line {
   background: linear-gradient(
     to right,
-    transparent 14px,
-    rgba(47, 43, 36, .9) 14px 16px,
-    transparent 16px
+    transparent 14.5px,
+    rgba(47, 43, 36, .9) 14.5px 15.5px,
+    transparent 15.5px
   );
 }
 
