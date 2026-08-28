@@ -6,7 +6,6 @@ function fmt(value: number): string {
 
 const HELP: Record<string, string> = {
   'x,y': 'Position of the selected point on the rendered front line.',
-  radius: 'Neighbourhood around the selected front point used to smooth the values below. Cells closer to the point have more weight.',
   'avg control': 'Who currently owns the neighbourhood: positive values favour Blue, negative values favour Red, and values near 0 are the active boundary.',
   'avg force': 'Force physically present near this part of the front. This includes both committed and movable reserve.',
   'avg mass': 'Effective local front strength used by combat. It is built from nearby committed force, so this is the main quantity opponents compare at the front.',
@@ -65,7 +64,6 @@ export class FrontProbe {
     this.content.className = '';
     this.content.innerHTML = `
       ${row('x,y', `${info.x.toFixed(1)}, ${info.y.toFixed(1)}`)}
-      ${row('radius', String(info.radius))}
       ${row('avg control', fmt(info.control))}
       <div class="probe-split">
         <b></b><b>Blue</b><b>Red</b>
