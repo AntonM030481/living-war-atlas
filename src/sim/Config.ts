@@ -20,6 +20,13 @@ export const CFG = {
   resourceCongestionStrength: 0.30, // How strongly crowded cells reduce incoming transport flow.
   resourceFlowResponseSeconds: 3.0, // Time constant that smooths transport flow toward its target.
 
+  riverDefenseBonus: 0.20, // Added defense per unit river strength: defense *= 1 + bonus * strength.
+  riverMobilityPenalty: 0.42, // Mobility reduction per unit river strength: mobility *= 1 - penalty * strength.
+  riverCapacityPenalty: 0.40, // Transport-capacity reduction per unit river strength: capacity *= 1 - penalty * strength.
+  forestDefenseMultiplier: 1.55, // Multiplies defensive effectiveness inside forest cells.
+  forestMobilityMultiplier: 0.30, // Multiplies movement/transport mobility inside forest cells.
+  forestCapacityMultiplier: 0.42, // Multiplies transport capacity inside forest cells.
+
   frontCommitmentSafety: 1.60, // Safety multiplier on enemy mass when computing required defensive commitment.
   frontCommitmentMax: 1.0, // Upper bound on the fraction of local force that may be committed.
   frontCommitmentFloor: 0.025, // Minimum defensive fraction committed on an opposed front.
