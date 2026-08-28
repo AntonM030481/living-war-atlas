@@ -12,6 +12,8 @@ import { clientToWorld, worldToScreen, type Point, type ViewTransform } from './
 const BLUE_DARK = 0x164f91;
 const RED_DARK = 0xb12620;
 const TOUCH_CITY_HIT_RADIUS_PX = 24;
+const INSTABILITY_WARNING_THRESHOLD = 0.08;
+const INSTABILITY_WARNING_SPACING = 10;
 
 export { type FrontDebugInfo } from '../diagnostics/types';
 
@@ -68,6 +70,7 @@ export class AtlasRenderer {
   setDebug(value: boolean): void {
     this.debug = value;
     this.potentialContours.visible = value;
+    this.instability.visible = value;
     this.probe.visible = value;
     if (!value) this.potentialContourRenderer.clear();
   }
@@ -230,19 +233,39 @@ export class AtlasRenderer {
   private drawInstability(snapshot: SimulationSnapshot): void {
     const g = this.instability;
     g.clear();
+    if (!this.debug) return;
 
-    for (const sample of this.frontRenderer.samples(snapshot)) {
+    const samples = this.frontRenderer.samples(snapshot).map((sample) => {
       const i = sample.sampleIndex;
       const blue = snapshot.instabilityBlue[i];
       const red = snapshot.instabilityRed[i];
-      const value = Math.max(blue, red);
-      if (value < 0.08) continue;
+      return { sample, blue, red, value: Math.max(blue, red) };
+    });
 
+    const candidates = samples
+      .filter(({ value }) => value >= INSTABILITY_WARNING_THRESHOLD)
+      .filter(({ value }, index) => {
+        const previous = samples[index - 1]?.value ?? -Infinity;
+        const next = samples[index + 1]?.value ?? -Infinity;
+        return value >= previous && value >= next;
+      })
+      .sort((a, b) => b.value - a.value);
+
+    const selected: typeof candidates = [];
+    for (const candidate of candidates) {
+      if (selected.some(({ sample }) => Math.hypot(
+        candidate.sample.x - sample.x,
+        candidate.sample.y - sample.y,
+      ) < INSTABILITY_WARNING_SPACING)) continue;
+      selected.push(candidate);
+    }
+
+    for (const { sample, blue, red, value } of selected) {
       const color = blue > red ? BLUE_DARK : RED_DARK;
       const strength = Math.min(1, value);
-      const size = 0.42 + strength * 0.92;
-      const alpha = Math.min(0.62, 0.16 + value * 0.32);
-      const width = 0.13 + strength * 0.13;
+      const size = 0.75 + strength * 0.75;
+      const alpha = Math.min(0.82, 0.42 + value * 0.35);
+      const width = 0.16 + strength * 0.12;
       g.moveTo(sample.x - size, sample.y - size).lineTo(sample.x + size, sample.y + size);
       g.moveTo(sample.x - size, sample.y + size).lineTo(sample.x + size, sample.y - size);
       g.stroke({ color, width, alpha });
