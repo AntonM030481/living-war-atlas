@@ -197,7 +197,7 @@ export class FrontRenderer {
   }
 
   private frontSideWidth(mass: number): number {
-    const strength = Math.max(0, Math.min(1, mass / 0.7));
+    const strength = Math.max(0, Math.min(2, mass / 0.7));
     return 0.24 + strength * 2.30;
   }
 }
