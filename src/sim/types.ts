@@ -73,6 +73,8 @@ export interface SimulationSnapshot {
   terrainDefense: Float32Array;
   terrainMobility: Float32Array;
   terrainBlocked?: Uint8Array;
+  recentCaptureTime?: Float32Array;
+  recentCaptureSide?: Int8Array;
   cities: City[];
 }
 
