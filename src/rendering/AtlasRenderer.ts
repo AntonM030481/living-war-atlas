@@ -14,7 +14,7 @@ const RED_DARK = 0xb12620;
 const TOUCH_CITY_HIT_RADIUS_PX = 24;
 const INSTABILITY_WARNING_THRESHOLD = 0.08;
 const INSTABILITY_WARNING_SPACING = 10;
-const CAPTURE_HATCH_SPACING = 2;
+const CAPTURE_HATCH_SPACING = 3;
 
 export { type FrontDebugInfo } from '../diagnostics/types';
 
