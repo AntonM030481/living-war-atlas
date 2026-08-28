@@ -1,13 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { updateCommittedAmounts } from '../../src/sim/commitment';
+import { frontCommitment, updateCommittedAmounts } from '../../src/sim/commitment';
 import { createSideFields } from '../../src/sim/sides';
 
 const config = {
-  baseProbe: 0.76,
-  frontCommitmentSafety: 1.6,
-  defenceAdvantage: 1.36,
-  frontCommitmentFloor: 0.025,
-  frontOffensiveCommitmentShare: 0.82,
   frontCommitmentMax: 1,
   frontUnopposedCommitment: 0.82,
   collapseCommitmentFactor: 0.28,
@@ -18,6 +13,19 @@ const config = {
 };
 
 describe('commitment', () => {
+  it('commits all available local force on an opposed front', () => {
+    expect(frontCommitment(12, 7, false, config)).toBe(1);
+    expect(frontCommitment(7, 12, false, config)).toBe(1);
+  });
+
+  it('uses the lower unopposed commitment when no enemy force is present', () => {
+    expect(frontCommitment(12, 0, false, config)).toBe(0.82);
+  });
+
+  it('reduces commitment while collapsed', () => {
+    expect(frontCommitment(12, 7, true, config)).toBeCloseTo(0.28);
+  });
+
   it('engages and releases a side without knowing its id', () => {
     const side = createSideFields(1);
     side.war[0] = 10;
