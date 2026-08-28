@@ -67,7 +67,6 @@ export class AtlasRenderer {
 
   setDebug(value: boolean): void {
     this.debug = value;
-    this.instability.visible = value;
     this.potentialContours.visible = value;
     if (!value) this.potentialContourRenderer.clear();
   }
@@ -153,8 +152,7 @@ export class AtlasRenderer {
     else this.flowRenderer.clear();
 
     this.frontRenderer.draw(snapshot);
-    if (this.debug) this.drawInstability(snapshot);
-    else this.instability.clear();
+    this.drawInstability(snapshot);
     this.frontRenderer.drawProbe(snapshot, this.frontInspector.selectedFrontIndex);
   }
 
