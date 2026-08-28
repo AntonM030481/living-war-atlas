@@ -1,11 +1,11 @@
 import { Graphics } from 'pixi.js';
+import { CFG } from '../sim/Config';
 import type { SimulationSnapshot } from '../sim/types';
 import type { Point } from './coordinates';
 
 const BLUE_DARK = 0x164f91;
 const RED_DARK = 0xb12620;
 const INK = 0x2f2b24;
-const PAPER_LIGHT = 0xf6efd7;
 
 export interface FrontSample extends Point {
   sampleIndex: number;
@@ -78,11 +78,11 @@ export class FrontRenderer {
     if (selectedFrontIndex === null) return;
     const x = selectedFrontIndex % snapshot.width + 0.5;
     const y = Math.floor(selectedFrontIndex / snapshot.width) + 0.5;
-    g.circle(x, y, 1.7).stroke({ color: INK, width: 0.22, alpha: 1 });
-    g.circle(x, y, 1.15).stroke({ color: PAPER_LIGHT, width: 0.24, alpha: 0.95 });
-    g.moveTo(x - 2.1, y).lineTo(x + 2.1, y);
-    g.moveTo(x, y - 2.1).lineTo(x, y + 2.1);
-    g.stroke({ color: INK, width: 0.10, alpha: 0.88 });
+    const radius = CFG.massRadius;
+    g.circle(x, y, radius).stroke({ color: INK, width: 0.18, alpha: 0.9 });
+    g.moveTo(x - 0.8, y).lineTo(x + 0.8, y);
+    g.moveTo(x, y - 0.8).lineTo(x, y + 0.8);
+    g.stroke({ color: INK, width: 0.12, alpha: 0.9 });
   }
 
   clearProbe(): void {
