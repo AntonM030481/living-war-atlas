@@ -1,55 +1,64 @@
 export const RESOURCE_EPS = 1e-4;
 
 export const CFG = {
-  spatialScale: 2,
-  width: 256,
-  height: 160,
-  dt: 0.1,
-  snapshotEverySteps: 2,
-  potentialEverySteps: 10,
-  potentialDecay: 0.988,
-  potentialApproximation: 'coarse-dijkstra',
-  potentialCoarseScale: 2,
-  potentialCoarsePasses: 24,
-  potentialFinePasses: 6,
-  potentialRepairEnabled: true,
-  baseEdgeCapacityPerSecond: 7.0,
-  resourceCellCapacity: 1,
-  resourceCongestionStrength: 0.30,
-  resourceFlowResponseSeconds: 3.0,
-  frontCommitmentSafety: 1.60,
-  frontCommitmentMax: 1.0,
-  frontCommitmentFloor: 0.025,
-  frontOffensiveCommitmentShare: 0.82,
-  frontUnopposedCommitment: 0.82,
-  collapseCommitmentFactor: 0.28,
-  commitmentEngagePerSecond: 0.85,
-  commitmentReleasePerSecond: 0.22,
-  collapseReleaseMultiplier: 3.0,
-  frontBand: 0.34,
-  massRadius: 4,
-  defenceAdvantage: 1.36,
-  baseProbe: 0.76,
-  emptyFrontMass: 0.08,
-  unopposedTinyMass: 0.025,
-  unopposedUsefulMass: 0.35,
-  unopposedAdvance: 2.5,
-  maintenanceRate: 0.004,
-  combatConsumptionRate: 0.045,
-  instabilityGrow: 0.48,
-  instabilityRecover: 0.16,
-  collapseEnter: 1.0,
-  collapseExit: 0.48,
-  collapseAdvanceMultiplier: 3.0,
-  controlSmooth: 0.17,
-  controlRestore: 0.11,
-  controlForce: 0.45,
-  controlClamp: 0.999,
-  cityIntegrationPerSecond: 1 / 70,
-  cityCaptureThreshold: 0.42,
-  noiseAmplitude: 0.02,
-  initialCityResourceSeconds: 12,
-  initialFrontResource: 1,
+  spatialScale: 2, // Map/render scale multiplier used when constructing canonical maps.
+  width: 256, // Default simulation grid width used by map definitions.
+  height: 160, // Default simulation grid height used by map definitions.
+  dt: 0.1, // Simulated seconds per tick; scales all per-second rates.
+  snapshotEverySteps: 2, // UI/diagnostics snapshot cadence in simulation steps.
+
+  potentialEverySteps: 10, // Rebuild transport potential every N simulation ticks.
+  potentialDecay: 0.988, // Attenuates propagated potential with distance during relaxation.
+  potentialApproximation: 'coarse-dijkstra', // Global approximation used to seed the potential field.
+  potentialCoarseScale: 2, // Downsampling factor for the coarse potential grid.
+  potentialCoarsePasses: 24, // Relaxation passes used by coarse approximation modes that iterate.
+  potentialFinePasses: 6, // Full-resolution local relaxation passes after coarse initialization.
+  potentialRepairEnabled: true, // Enables local repair of stale potential near changed/front regions.
+
+  baseEdgeCapacityPerSecond: 7.0, // Base resource throughput across one grid edge per second.
+  resourceCellCapacity: 1, // Nominal resource amount a cell can hold before congestion matters.
+  resourceCongestionStrength: 0.30, // How strongly crowded cells reduce incoming transport flow.
+  resourceFlowResponseSeconds: 3.0, // Time constant that smooths transport flow toward its target.
+
+  frontCommitmentSafety: 1.60, // Safety multiplier on enemy mass when computing required defensive commitment.
+  frontCommitmentMax: 1.0, // Upper bound on the fraction of local force that may be committed.
+  frontCommitmentFloor: 0.025, // Minimum defensive fraction committed on an opposed front.
+  frontOffensiveCommitmentShare: 0.82, // Fraction of surplus force committed offensively when locally superior.
+  frontUnopposedCommitment: 0.82, // Commitment fraction used where a front has no opposing mass.
+  collapseCommitmentFactor: 0.28, // Multiplier applied to commitment target while that side is collapsed.
+  commitmentEngagePerSecond: 0.85, // Rate at which committed force rises toward its target.
+  commitmentReleasePerSecond: 0.22, // Rate at which committed force is released when the target falls.
+  collapseReleaseMultiplier: 3.0, // Extra release-rate multiplier while a cell is collapsed.
+
+  frontBand: 0.34, // |control| threshold that classifies cells as part of the front band.
+  massRadius: 4, // Radius over which nearby force is aggregated for front mass/commitment.
+  defenceAdvantage: 1.36, // Baseline defensive combat multiplier; terrain defense multiplies it further.
+  baseProbe: 0.76, // Baseline attacking pressure used both for probing combat and required defence.
+  emptyFrontMass: 0.08, // Small effective mass used to keep combat/front logic active at nearly empty fronts.
+  unopposedTinyMass: 0.025, // Opposing-mass cutoff below which a front is treated as effectively unopposed.
+  unopposedUsefulMass: 0.35, // Own mass at which unopposed advance reaches its useful/full regime.
+  unopposedAdvance: 2.5, // Base advance forcing when moving into essentially undefended territory.
+
+  maintenanceRate: 0.004, // Continuous resource consumption by fielded force even outside active combat.
+  combatConsumptionRate: 0.045, // Additional resource consumption caused by active front combat.
+
+  instabilityGrow: 0.48, // Rate at which combat stress increases local front instability.
+  instabilityRecover: 0.16, // Rate at which instability decays when pressure is relieved.
+  collapseEnter: 1.0, // Instability threshold for entering collapse.
+  collapseExit: 0.48, // Lower instability threshold for leaving collapse (hysteresis).
+  collapseAdvanceMultiplier: 3.0, // Multiplies enemy advance through a collapsed section of front.
+
+  controlSmooth: 0.17, // Spatial smoothing strength applied when evolving the control field.
+  controlRestore: 0.11, // Tendency of control to restore/retain an established local ownership state.
+  controlForce: 0.45, // Converts combat forcing/pressure into movement of the control field.
+  controlClamp: 0.999, // Absolute clamp for control values, keeping them just inside [-1, +1].
+
+  cityIntegrationPerSecond: 1 / 70, // Rate at which a captured city's production integrates toward its new owner.
+  cityCaptureThreshold: 0.42, // Local control magnitude required for city ownership/capture progression.
+  noiseAmplitude: 0.02, // Deterministic local perturbation added to front forcing to create small-scale turbulence.
+
+  initialCityResourceSeconds: 12, // Initial city stockpile expressed as this many seconds of base production.
+  initialFrontResource: 1, // Initial resource seeded near the starting front, scaled by front proximity.
 } as const;
 
 export function ticks(seconds: number): number {
