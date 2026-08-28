@@ -117,23 +117,11 @@
   align-items: center;
 }
 
-.legend-grid::after {
-  content: "force";
-  grid-column: 1 / -1;
-  min-height: 12px;
-  padding-left: 42px;
-  background:
-    radial-gradient(circle at 10px 50%, rgba(22, 79, 145, .62) 0 3px, rgba(22, 79, 145, .22) 4px, transparent 8px),
-    radial-gradient(circle at 24px 50%, rgba(177, 38, 32, .62) 0 3px, rgba(177, 38, 32, .22) 4px, transparent 8px);
-}
-
 @container (min-width: 520px) {
   .legend-grid {
     grid-template-columns: 34px minmax(0, 1fr) 34px minmax(0, 1fr);
     column-gap: 8px;
   }
-
-  .legend-grid::after { grid-column: span 2; }
 }
 
 .legend-mark {
@@ -141,6 +129,15 @@
   display: inline-block;
   width: 30px;
   height: 12px;
+}
+
+.front-line {
+  background: linear-gradient(
+    to right,
+    transparent 14px,
+    rgba(47, 43, 36, .9) 14px 16px,
+    transparent 16px
+  );
 }
 
 .front-line::before,
@@ -160,6 +157,12 @@
 .front-line::after {
   right: 8px;
   background: #b12620;
+}
+
+.force-mark {
+  background:
+    radial-gradient(circle at 8px 50%, rgba(22, 79, 145, .62) 0 3px, rgba(22, 79, 145, .22) 4px, transparent 8px),
+    radial-gradient(circle at 22px 50%, rgba(177, 38, 32, .62) 0 3px, rgba(177, 38, 32, .22) 4px, transparent 8px);
 }
 
 .old-border::before {
