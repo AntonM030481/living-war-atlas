@@ -212,8 +212,9 @@ export class AtlasRenderer {
 
   private updateRecentCaptures(snapshot: SimulationSnapshot): void {
     const size = snapshot.width * snapshot.height;
-    const reset = !this.previousControl
-      || this.previousControl.length !== size
+    const previousControl = this.previousControl;
+    const reset = !previousControl
+      || previousControl.length !== size
       || snapshot.gameTime < this.previousGameTime;
 
     if (reset) {
@@ -227,7 +228,7 @@ export class AtlasRenderer {
 
     for (let i = 0; i < size; i++) {
       if (snapshot.terrainBlocked?.[i]) continue;
-      const before = this.previousControl[i];
+      const before = previousControl[i];
       const after = snapshot.control[i];
       const crossed = (before < 0 && after >= 0) || (before >= 0 && after < 0);
       if (!crossed) continue;
@@ -235,7 +236,7 @@ export class AtlasRenderer {
       this.captureSide[i] = after >= 0 ? 1 : -1;
     }
 
-    this.previousControl.set(snapshot.control);
+    previousControl.set(snapshot.control);
     this.previousGameTime = snapshot.gameTime;
   }
 
