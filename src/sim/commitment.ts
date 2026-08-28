@@ -12,11 +12,6 @@ function smoothFalloff(distance: number, radius: number): number {
 }
 
 export interface CommitmentConfig {
-  baseProbe: number;
-  frontCommitmentSafety: number;
-  defenceAdvantage: number;
-  frontCommitmentFloor: number;
-  frontOffensiveCommitmentShare: number;
   frontCommitmentMax: number;
   frontUnopposedCommitment: number;
   collapseCommitmentFactor: number;
@@ -29,30 +24,14 @@ export interface CommitmentConfig {
 export function frontCommitment(
   ownMass: number,
   enemyMass: number,
-  terrainDefense: number,
   collapsed: boolean,
   config: CommitmentConfig,
 ): number {
   if (ownMass <= EPS) return 0;
-  if (enemyMass <= EPS) {
-    const commitment = config.frontUnopposedCommitment;
-    return collapsed ? commitment * config.collapseCommitmentFactor : commitment;
-  }
-
-  const requiredMass =
-    (enemyMass * config.baseProbe * config.frontCommitmentSafety) /
-    (config.defenceAdvantage * terrainDefense + EPS);
-  const defensiveAmount = Math.max(ownMass * config.frontCommitmentFloor, requiredMass);
-  const superiority = clamp((ownMass - enemyMass) / (ownMass + enemyMass + EPS), 0, 1);
-  const offensiveAmount = Math.max(0, ownMass - defensiveAmount) *
-    config.frontOffensiveCommitmentShare * superiority;
-  let commitment = clamp(
-    (defensiveAmount + offensiveAmount) / ownMass,
-    0,
-    config.frontCommitmentMax,
-  );
-  if (collapsed) commitment *= config.collapseCommitmentFactor;
-  return commitment;
+  const commitment = enemyMass <= EPS
+    ? config.frontUnopposedCommitment
+    : config.frontCommitmentMax;
+  return collapsed ? commitment * config.collapseCommitmentFactor : commitment;
 }
 
 export function updateCommittedAmounts(
@@ -132,14 +111,12 @@ export function computePairCommitment(
       const firstTarget = frontCommitment(
         firstAvailable,
         secondAvailable,
-        grid.terrainDefense[i],
         first.collapse[i] === 1,
         config,
       );
       const secondTarget = frontCommitment(
         secondAvailable,
         firstAvailable,
-        grid.terrainDefense[i],
         second.collapse[i] === 1,
         config,
       );
