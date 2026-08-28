@@ -77,6 +77,7 @@ export class Hud {
       <summary>MAP LEGEND</summary>
       <div class="legend-grid">
         <span class="legend-mark front-line"></span><span>front line</span>
+        <span class="legend-mark force-mark"></span><span>force</span>
         <span class="legend-mark old-border"></span><span>prewar border</span>
         <span class="legend-mark recent-capture-mark"></span><span>recently captured</span>
         <span class="legend-mark blue-flow debug-only"></span><span class="debug-only">Blue flow arrows</span>
