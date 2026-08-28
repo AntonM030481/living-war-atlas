@@ -1,3 +1,4 @@
+import { CFG } from '../sim/Config';
 import type { SimulationSnapshot } from '../sim/types';
 import type { FrontRenderer, FrontSample } from '../rendering/FrontRenderer';
 import type { FrontDebugInfo, Point } from './types';
@@ -33,7 +34,7 @@ export class FrontInspector {
     }
 
     const i = best.sampleIndex;
-    const radius = Math.round(5 * this.mapScale());
+    const radius = CFG.massRadius;
     this.selectedIndex = i;
     return {
       x: best.x,
