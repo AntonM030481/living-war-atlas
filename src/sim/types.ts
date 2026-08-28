@@ -45,7 +45,6 @@ export interface SimulationSnapshot {
   gameTime: number;
   stats: SimulationStats;
   control: Float32Array;
-  recentCaptureStep: Int32Array;
   warBlue: Float32Array;
   warRed: Float32Array;
   committedBlue: Float32Array;
@@ -83,7 +82,6 @@ export interface SimulationState {
   step: number;
   gameTime: number;
   control: Float32Array;
-  recentCaptureStep?: Int32Array;
   warBlue: Float32Array;
   warRed: Float32Array;
   committedBlue: Float32Array;
