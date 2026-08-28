@@ -68,6 +68,7 @@ export class AtlasRenderer {
   setDebug(value: boolean): void {
     this.debug = value;
     this.potentialContours.visible = value;
+    this.probe.visible = value;
     if (!value) this.potentialContourRenderer.clear();
   }
 
@@ -131,11 +132,11 @@ export class AtlasRenderer {
     clientX: number,
     clientY: number,
   ): FrontDebugInfo | null {
-    return this.frontInspector.inspect(snapshot, this.clientToWorld(clientX, clientY));
+    return this.inspectFront(snapshot, this.clientToWorld(clientX, clientY));
   }
 
   inspectFrontAtWorldPoint(snapshot: SimulationSnapshot, point: Point): FrontDebugInfo | null {
-    return this.frontInspector.inspect(snapshot, point);
+    return this.inspectFront(snapshot, point);
   }
 
   render(snapshot: SimulationSnapshot): void {
@@ -153,6 +154,16 @@ export class AtlasRenderer {
 
     this.frontRenderer.draw(snapshot);
     this.drawInstability(snapshot);
+    this.updateFrontProbe(snapshot);
+  }
+
+  private inspectFront(snapshot: SimulationSnapshot, point: Point): FrontDebugInfo | null {
+    const info = this.frontInspector.inspect(snapshot, point);
+    this.updateFrontProbe(snapshot);
+    return info;
+  }
+
+  private updateFrontProbe(snapshot: SimulationSnapshot): void {
     this.frontRenderer.drawProbe(snapshot, this.frontInspector.selectedFrontIndex);
   }
 
