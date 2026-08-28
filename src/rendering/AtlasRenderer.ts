@@ -14,6 +14,7 @@ const RED_DARK = 0xb12620;
 const TOUCH_CITY_HIT_RADIUS_PX = 24;
 const INSTABILITY_WARNING_THRESHOLD = 0.08;
 const INSTABILITY_WARNING_SPACING = 10;
+const CAPTURE_HATCH_SPACING = 4;
 
 export { type FrontDebugInfo } from '../diagnostics/types';
 
@@ -24,6 +25,7 @@ export class AtlasRenderer {
   private readonly historicalBorder = new Graphics();
   private readonly territory = new Graphics();
   private readonly resourceDensity = new Graphics();
+  private readonly recentCapture = new Graphics();
   private readonly potentialContours = new Graphics();
   private readonly flows = new Graphics();
   private readonly front = new Graphics();
@@ -38,6 +40,10 @@ export class AtlasRenderer {
 
   private debug = false;
   private showFlows = false;
+  private previousControl: Float32Array | null = null;
+  private previousGameTime = -Infinity;
+  private captureTime = new Float32Array(0);
+  private captureSide = new Int8Array(0);
 
   constructor(
     private readonly app: Application,
@@ -55,6 +61,7 @@ export class AtlasRenderer {
       this.historicalBorder,
       this.territory,
       this.resourceDensity,
+      this.recentCapture,
       this.potentialContours,
       this.flows,
       this.front,
@@ -144,7 +151,9 @@ export class AtlasRenderer {
 
   render(snapshot: SimulationSnapshot): void {
     this.territory.clear();
+    this.updateRecentCaptures(snapshot);
     this.drawResourceDensity(snapshot);
+    this.drawRecentCaptures(snapshot);
 
     if (this.debug) {
       this.potentialContourRenderer.draw(snapshot);
@@ -199,6 +208,61 @@ export class AtlasRenderer {
     this.world.scale.set(scale);
     this.world.x = (availableWidth - this.map.width * scale) / 2;
     this.world.y = (this.app.screen.height - this.map.height * scale) / 2;
+  }
+
+  private updateRecentCaptures(snapshot: SimulationSnapshot): void {
+    const size = snapshot.width * snapshot.height;
+    const reset = !this.previousControl
+      || this.previousControl.length !== size
+      || snapshot.gameTime < this.previousGameTime;
+
+    if (reset) {
+      this.previousControl = snapshot.control.slice();
+      this.previousGameTime = snapshot.gameTime;
+      this.captureTime = new Float32Array(size);
+      this.captureTime.fill(Number.NEGATIVE_INFINITY);
+      this.captureSide = new Int8Array(size);
+      return;
+    }
+
+    for (let i = 0; i < size; i++) {
+      if (snapshot.terrainBlocked?.[i]) continue;
+      const before = this.previousControl[i];
+      const after = snapshot.control[i];
+      const crossed = (before < 0 && after >= 0) || (before >= 0 && after < 0);
+      if (!crossed) continue;
+      this.captureTime[i] = snapshot.gameTime;
+      this.captureSide[i] = after >= 0 ? 1 : -1;
+    }
+
+    this.previousControl.set(snapshot.control);
+    this.previousGameTime = snapshot.gameTime;
+  }
+
+  private drawRecentCaptures(snapshot: SimulationSnapshot): void {
+    const g = this.recentCapture;
+    g.clear();
+    if (this.captureTime.length !== snapshot.width * snapshot.height) return;
+
+    for (let y = 0; y < snapshot.height; y++) {
+      for (let x = 0; x < snapshot.width; x++) {
+        if ((x - y) % CAPTURE_HATCH_SPACING !== 0) continue;
+        const i = y * snapshot.width + x;
+        const capturedAt = this.captureTime[i];
+        if (!Number.isFinite(capturedAt)) continue;
+
+        const age = snapshot.gameTime - capturedAt;
+        if (age < 0 || age >= CFG.recentCaptureFadeSeconds) continue;
+        const side = this.captureSide[i];
+        if ((snapshot.control[i] >= 0 ? 1 : -1) !== side) continue;
+
+        const fade = 1 - age / CFG.recentCaptureFadeSeconds;
+        const alpha = 0.10 + 0.32 * Math.pow(fade, 0.7);
+        const color = side > 0 ? BLUE_DARK : RED_DARK;
+        g.moveTo(x, y).lineTo(x + 1, y + 1);
+        g.stroke({ color, width: 0.18, alpha });
+      }
+    }
   }
 
   private drawResourceDensity(snapshot: SimulationSnapshot): void {
