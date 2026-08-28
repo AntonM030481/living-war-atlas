@@ -59,6 +59,7 @@ export const CFG = {
   controlRestore: 0.11, // Tendency of control to restore/retain an established local ownership state.
   controlForce: 0.45, // Converts combat forcing/pressure into movement of the control field.
   controlClamp: 0.999, // Absolute clamp for control values, keeping them just inside [-1, +1].
+  recentCaptureFadeSeconds: 60, // How long recently captured territory remains hatched on the map.
 
   cityIntegrationPerSecond: 1 / 70, // Rate at which a captured city's production integrates toward its new owner.
   cityCaptureThreshold: 0.42, // Local control magnitude required for city ownership/capture progression.
