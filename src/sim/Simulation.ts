@@ -341,15 +341,15 @@ export class Simulation {
 
         const riverStrength = river.strength[i];
         if (riverStrength > 0) {
-          this.terrainDefense[i] *= 1 + 0.20 * riverStrength;
-          this.terrainMobility[i] *= 1 - 0.42 * riverStrength;
-          this.terrainCapacity[i] *= 1 - 0.40 * riverStrength;
+          this.terrainDefense[i] *= 1 + CFG.riverDefenseBonus * riverStrength;
+          this.terrainMobility[i] *= 1 - CFG.riverMobilityPenalty * riverStrength;
+          this.terrainCapacity[i] *= 1 - CFG.riverCapacityPenalty * riverStrength;
         }
 
         if (this.terrainForest[i]) {
-          this.terrainDefense[i] *= 1.55;
-          this.terrainMobility[i] *= 0.30;
-          this.terrainCapacity[i] *= 0.42;
+          this.terrainDefense[i] *= CFG.forestDefenseMultiplier;
+          this.terrainMobility[i] *= CFG.forestMobilityMultiplier;
+          this.terrainCapacity[i] *= CFG.forestCapacityMultiplier;
         }
       }
     }
