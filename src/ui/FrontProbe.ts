@@ -6,21 +6,16 @@ function fmt(value: number): string {
 
 const HELP: Record<string, string> = {
   'x,y': 'Position of the selected point on the rendered front line.',
-  'avg control': 'Who currently owns the neighbourhood: positive values favour Blue, negative values favour Red, and values near 0 are the active boundary.',
-  'avg force': 'Force physically present near this part of the front. This includes both committed and movable reserve.',
-  'avg mass': 'Effective local front strength used by combat. It is built from nearby committed force, so this is the main quantity opponents compare at the front.',
-  'avg incoming': 'Force currently arriving from the rear. High incoming flow means this front sector is being reinforced now.',
-  'avg drain': 'Force lost this tick to maintenance and combat exposure near the front. Compare it with incoming to see whether the sector is being replenished faster than it is consumed.',
-  'advance raw': 'This side’s local tendency to advance before Blue and Red are combined. It grows when the enemy is overstressed, undefended, or collapsing.',
-  'stress raw': 'Enemy attack divided by this side’s effective defence. Above 1 instability grows; below 1 the sector tends to recover.',
-  'avg instab': 'Accumulated instability of this side. Sustained stress pushes it upward toward collapse; adequate mass and incoming reinforcements reduce it.',
-  'avg flow': 'Magnitude of force transport through the area. It shows how much logistics traffic is moving here, regardless of direction.',
-  'sum force': 'Weighted total force inside the sampled neighbourhood. Unlike avg force, this reflects how much force is concentrated in the whole local sector.',
-  'sum drain': 'Weighted total force lost inside the sampled neighbourhood this tick.',
-  'avg raw force': 'Net front-driving tendency: Blue advance minus Red advance, before the safety clamp. Positive pushes toward Red territory; negative pushes toward Blue territory.',
-  'avg clamped force': 'Net front-driving tendency after limiting extreme values. This is the value actually fed into territorial control movement.',
-  'avg pressure': 'Simple local balance of front mass: (Blue − Red) / (Blue + Red). Positive means Blue has more mass, negative means Red has more.',
-  'avg terrain def/mob': 'Terrain effect around this front sector. Defence above 1 makes the defender harder to stress; mobility below 1 slows territorial movement and logistics.',
+  'available force': 'Total force physically available inside the sampled front sector, including committed force and local reserve.',
+  'combat mass': 'Effective local fighting strength used by combat. It is already aggregated from nearby committed force, so the probe shows its average rather than summing overlapping mass fields.',
+  reinforcement: 'Total force arriving into the sampled sector this tick. Compare with loss to see whether the sector is being replenished faster than it is consumed.',
+  loss: 'Total force consumed in the sampled sector this tick by maintenance and combat exposure.',
+  stress: 'Enemy attack divided by this side’s effective defence. Above 1 instability grows; below 1 the sector tends to recover.',
+  instability: 'Accumulated loss of front stability. Sustained stress pushes it toward collapse; lower stress allows recovery.',
+  'transport flow': 'Average magnitude of resource transport through the sector, regardless of direction. This is logistics traffic, not necessarily reinforcement delivered to the front.',
+  'raw drive': 'Net tendency of the front to move before the safety clamp. Positive favours Blue advance; negative favours Red.',
+  'front drive': 'Net front-moving signal after clamping. This is the value actually used to push territorial control: positive favours Blue, negative favours Red.',
+  'terrain def/mob': 'Average terrain modifiers in the sector. Defence above 1 strengthens resistance to stress; mobility below 1 slows movement and transport.',
 };
 
 export class FrontProbe {
@@ -46,16 +41,13 @@ export class FrontProbe {
     }
 
     const splitRows = [
-      ['avg force', info.warBlue, info.warRed],
-      ['avg mass', info.frontMassBlue, info.frontMassRed],
-      ['avg incoming', info.incomingBlue, info.incomingRed],
-      ['avg drain', info.drainBlue, info.drainRed],
-      ['advance raw', info.advanceBlue, info.advanceRed],
-      ['stress raw', info.stressBlue, info.stressRed],
-      ['avg instab', info.instabilityBlue, info.instabilityRed],
-      ['avg flow', info.flowBlue, info.flowRed],
-      ['sum force', info.localWarBlue, info.localWarRed],
-      ['sum drain', info.localDrainBlue, info.localDrainRed],
+      ['available force', info.availableForceBlue, info.availableForceRed],
+      ['combat mass', info.combatMassBlue, info.combatMassRed],
+      ['reinforcement', info.reinforcementBlue, info.reinforcementRed],
+      ['loss', info.lossBlue, info.lossRed],
+      ['stress', info.stressBlue, info.stressRed],
+      ['instability', info.instabilityBlue, info.instabilityRed],
+      ['transport flow', info.transportFlowBlue, info.transportFlowRed],
     ] as const;
 
     const row = (label: string, value: string) =>
@@ -64,17 +56,15 @@ export class FrontProbe {
     this.content.className = '';
     this.content.innerHTML = `
       ${row('x,y', `${info.x.toFixed(1)}, ${info.y.toFixed(1)}`)}
-      ${row('avg control', fmt(info.control))}
       <div class="probe-split">
         <b></b><b>Blue</b><b>Red</b>
         ${splitRows.map(([label, blue, red]) =>
           `<span title="${HELP[label]}">${label}</span><code title="${HELP[label]}">${fmt(blue)}</code><code title="${HELP[label]}">${fmt(red)}</code>`,
         ).join('')}
       </div>
-      ${row('avg raw force', fmt(info.rawForcing))}
-      ${row('avg clamped force', fmt(info.forcing))}
-      ${row('avg pressure', fmt(info.pressure))}
-      ${row('avg terrain def/mob', `${fmt(info.terrainDefense)} / ${fmt(info.terrainMobility)}`)}
+      ${row('raw drive', fmt(info.rawFrontDrive))}
+      ${row('front drive', fmt(info.frontDrive))}
+      ${row('terrain def/mob', `${fmt(info.terrainDefense)} / ${fmt(info.terrainMobility)}`)}
     `;
   }
 }
