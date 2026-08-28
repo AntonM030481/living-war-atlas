@@ -41,7 +41,7 @@ export class Hud {
       </div>
       <div class="action-row">
         <button id="reset" title="Start a new game with a new seed">New game</button>
-        <button id="debug" title="Show city force diagnostics">Diag</button>
+        <button id="debug" title="Show debug overlays and diagnostics">Debug</button>
       </div>
     `;
 
@@ -78,12 +78,13 @@ export class Hud {
       <div class="legend-grid">
         <span class="legend-mark front-line"></span><span>front line</span>
         <span class="legend-mark old-border"></span><span>prewar border</span>
-        <span class="legend-mark blue-flow"></span><span>Blue flow arrows (Diag)</span>
-        <span class="legend-mark red-flow"></span><span>Red flow arrows (Diag)</span>
+        <span class="legend-mark recent-capture-mark"></span><span>recently captured</span>
+        <span class="legend-mark blue-flow debug-only"></span><span class="debug-only">Blue flow arrows</span>
+        <span class="legend-mark red-flow debug-only"></span><span class="debug-only">Red flow arrows</span>
         <span class="legend-mark city-pair"></span><span>city</span>
         <span class="legend-mark river-mark"></span><span>river</span>
         <span class="legend-mark forest-mark"></span><span>forest</span>
-        <span class="legend-mark stress-mark"></span><span>front instability</span>
+        <span class="legend-mark stress-mark debug-only"></span><span class="debug-only">front instability</span>
       </div>
       <div class="legend-note">${cityControls}${keyboardControls}</div>
     `;
@@ -115,10 +116,10 @@ export class Hud {
   }
 
   setDiagnostics(enabled: boolean): void {
-    this.debugButton.textContent = enabled ? 'Diag on' : 'Diag';
+    this.debugButton.textContent = enabled ? 'Debug on' : 'Debug';
     this.debugButton.title = enabled
-      ? 'Hide flow arrows and city force diagnostics'
-      : 'Show flow arrows and city force diagnostics';
+      ? 'Hide debug overlays and diagnostics'
+      : 'Show debug overlays and diagnostics';
     this.debugButton.classList.toggle('active', enabled);
   }
 
