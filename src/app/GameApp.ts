@@ -224,13 +224,13 @@ export class GameApp {
       return;
     }
     if (!this.diagnosticsEnabled || !this.latestSnapshot) return;
-    this.selectedProbe = this.renderer.inspectFrontAtClientPoint(this.latestSnapshot, event.clientX, event.clientY);
-    this.probe.render(this.selectedProbe);
+    this.setFrontProbeAtClient(event.clientX, event.clientY);
   }
 
   private handlePrimaryDrag(event: PointerEvent): void {
     if (!this.diagnosticsEnabled || !this.latestSnapshot || event.ctrlKey) return;
     this.setPointProbeAtClient(event.clientX, event.clientY);
+    this.setFrontProbeAtClient(event.clientX, event.clientY);
   }
 
   private setPointProbeAtClient(clientX: number, clientY: number): void {
@@ -240,6 +240,12 @@ export class GameApp {
     this.selectedPoint = inspectPoint(this.latestSnapshot, point.x, point.y);
     this.pointProbe.render(this.selectedPoint);
     this.updatePointMarker();
+  }
+
+  private setFrontProbeAtClient(clientX: number, clientY: number): void {
+    if (!this.latestSnapshot) return;
+    this.selectedProbe = this.renderer.inspectFrontAtClientPoint(this.latestSnapshot, clientX, clientY);
+    this.probe.render(this.selectedProbe);
   }
 
   private updatePointMarker(): void {
