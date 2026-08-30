@@ -1,7 +1,6 @@
 import { forceCityEnclave } from '../../sim/DebugActions';
 import type { Simulation } from '../../sim/Simulation';
-import { winnerFromState } from '../../sim/completion';
-import type { MetaGame, MetaGameStatus } from '../MetaGame';
+import type { MetaGame } from '../MetaGame';
 
 export type SandboxAction =
   | { type: 'toggleCity'; cityId: string }
@@ -25,17 +24,6 @@ export class SandboxMetaGame implements MetaGame<SandboxAction, SandboxMetaState
       return;
     }
     forceCityEnclave(simulation, action.cityId);
-  }
-
-  status(simulation: Simulation): MetaGameStatus {
-    return {
-      winner: winnerFromState(
-        simulation.control,
-        simulation.terrainBlocked,
-        simulation.cities,
-        simulation.sides,
-      ),
-    };
   }
 
   saveState(): SandboxMetaState {
