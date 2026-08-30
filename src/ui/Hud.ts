@@ -18,18 +18,27 @@ export class Hud {
   readonly legend: HTMLDetailsElement;
   private readonly time: HTMLSpanElement;
   private readonly status: HTMLSpanElement;
+  private readonly modeStatus: HTMLSpanElement;
   private readonly historyStatus: HTMLSpanElement;
   private readonly pauseButton: HTMLButtonElement;
   private readonly debugButton: HTMLButtonElement;
   private readonly historyBackButton: HTMLButtonElement;
   private readonly historyForwardButton: HTMLButtonElement;
 
-  constructor(title: string, initialSpeed: Speed, handlers: HudHandlers) {
+  constructor(
+    title: string,
+    modeName: string,
+    interactionNote: string,
+    initialSpeed: Speed,
+    handlers: HudHandlers,
+  ) {
     this.element = document.createElement('div');
     this.element.className = 'hud';
     this.element.innerHTML = `
       <strong>${title}</strong>
+      <span class="mode-name">${modeName}</span>
       <div class="time-row"><span id="time">0:00</span><span id="status" hidden></span></div>
+      <span id="mode-status"></span>
       <span id="history-status">history --/--</span>
       <div class="speed-row">
         ${SPEEDS.map((speed) => `<button data-speed="${speed}" class="${speed === initialSpeed ? 'active' : ''}" title="Set simulation speed to ${speed}×">${speed}×</button>`).join('')}
@@ -40,13 +49,14 @@ export class Hud {
         <button id="history-forward" disabled title="Forward 5 seconds">+5s</button>
       </div>
       <div class="action-row">
-        <button id="reset" title="Start a new game with a new seed">New game</button>
+        <button id="reset" title="Choose a game mode and map">New game</button>
         <button id="debug" title="Show debug overlays and diagnostics">Debug</button>
       </div>
     `;
 
     this.time = this.element.querySelector('#time')!;
     this.status = this.element.querySelector('#status')!;
+    this.modeStatus = this.element.querySelector('#mode-status')!;
     this.historyStatus = this.element.querySelector('#history-status')!;
     this.pauseButton = this.element.querySelector('#pause')!;
     this.debugButton = this.element.querySelector('#debug')!;
@@ -62,11 +72,7 @@ export class Hud {
     this.element.querySelector<HTMLButtonElement>('#reset')!.addEventListener('click', handlers.onReset);
     this.debugButton.addEventListener('click', handlers.onDiagnosticsToggle);
 
-    const touchControls = usesTouchControls();
-    const cityControls = touchControls
-      ? 'City short press: production on/off<br>City long press: switch side'
-      : 'City left click: production on/off<br>City right click: switch side';
-    const keyboardControls = touchControls
+    const keyboardControls = usesTouchControls()
       ? ''
       : '<br>Space: pause · ←/→: rewind · ↑/↓: speed';
 
@@ -87,7 +93,7 @@ export class Hud {
         <span class="legend-mark forest-mark"></span><span>forest</span>
         <span class="legend-mark stress-mark debug-only"></span><span class="debug-only">front instability</span>
       </div>
-      <div class="legend-note">${cityControls}${keyboardControls}</div>
+      <div class="legend-note">${interactionNote}${keyboardControls}</div>
     `;
   }
 
@@ -98,6 +104,10 @@ export class Hud {
   setStatus(text: string | null): void {
     this.status.textContent = text ?? '';
     this.status.hidden = text === null;
+  }
+
+  setModeStatus(text: string): void {
+    this.modeStatus.textContent = text;
   }
 
   setSpeed(speed: Speed): void {
