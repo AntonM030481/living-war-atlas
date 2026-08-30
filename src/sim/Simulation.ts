@@ -262,7 +262,7 @@ export class Simulation {
       this.pressureDebug,
       this.tmpControl,
     ]);
-    this.potentialDirty = true;
+    this.potentialDirty = false;
   }
 
   private side(side: Side): SideFields {
