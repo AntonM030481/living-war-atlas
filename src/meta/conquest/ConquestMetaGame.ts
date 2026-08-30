@@ -1,7 +1,7 @@
 import type { Side } from '../../sim/Config';
 import type { Simulation } from '../../sim/Simulation';
 import type { MapDefinition, RegionId } from '../../sim/types';
-import type { MetaGame, MetaGameStatus } from '../MetaGame';
+import type { MetaGame } from '../MetaGame';
 
 export type ConquestAction =
   | { type: 'activate'; regionId: RegionId }
@@ -106,14 +106,6 @@ export class ConquestMetaGame implements MetaGame<ConquestAction, ConquestMetaSt
     for (const neighborId of attackFrom) {
       simulation.setRegionBorderOpen(neighborId, action.regionId, true);
     }
-  }
-
-  status(_simulation: Simulation): MetaGameStatus {
-    const values = [...this.countries.values()];
-    if (values.every((country) => country.owner === this.playerSide)) return { winner: this.playerSide };
-    const enemySide: Side = this.playerSide === 'blue' ? 'red' : 'blue';
-    if (values.every((country) => country.owner === enemySide)) return { winner: enemySide };
-    return { winner: null };
   }
 
   saveState(): ConquestMetaState {
