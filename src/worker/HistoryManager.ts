@@ -1,4 +1,6 @@
-import type { HistoryInfo, SimulationState } from '../sim/types';
+import type { GameModeId } from '../game/GameMode';
+import type { GameSessionState } from '../game/GameSession';
+import type { HistoryInfo, MapId } from '../sim/types';
 import { HistoryStorage, type PersistedHistory } from './HistoryStorage';
 
 const EPS = 1e-6;
@@ -11,7 +13,7 @@ export interface RecentCaptures {
 }
 
 export class HistoryManager {
-  private history: SimulationState[] = [];
+  private history: GameSessionState[] = [];
   private historyIndex = -1;
   private nextHistoryTime = 0;
   private trackedControl: Float32Array | null = null;
@@ -39,7 +41,7 @@ export class HistoryManager {
     this.resetCaptureTracking();
   }
 
-  currentState(): SimulationState | null {
+  currentState(): GameSessionState | null {
     return this.historyIndex >= 0 ? this.history[this.historyIndex] : null;
   }
 
@@ -76,30 +78,37 @@ export class HistoryManager {
     return { time: this.captureTime, side: this.captureSide };
   }
 
-  checkpoint(state: SimulationState, seed: number, force = false): boolean {
-    if (!force && state.gameTime + EPS < this.nextHistoryTime) return false;
+  checkpoint(
+    state: GameSessionState,
+    seed: number,
+    mapId: MapId,
+    modeId: GameModeId,
+    force = false,
+  ): boolean {
+    const gameTime = state.simulation.gameTime;
+    if (!force && gameTime + EPS < this.nextHistoryTime) return false;
     this.truncateFuture();
     const last = this.history[this.history.length - 1];
-    if (force && last && Math.abs(last.gameTime - state.gameTime) < EPS) {
+    if (force && last && Math.abs(last.simulation.gameTime - gameTime) < EPS) {
       this.history[this.history.length - 1] = state;
     } else {
       this.history.push(state);
     }
     this.historyIndex = this.history.length - 1;
     this.trimOld();
-    while (this.nextHistoryTime <= state.gameTime + EPS) {
+    while (this.nextHistoryTime <= gameTime + EPS) {
       this.nextHistoryTime += HISTORY_INTERVAL_SECONDS;
     }
-    this.persist(seed);
+    this.persist(seed, mapId, modeId);
     return true;
   }
 
-  step(delta: -1 | 1, seed: number): SimulationState | null {
+  step(delta: -1 | 1, seed: number, mapId: MapId, modeId: GameModeId): GameSessionState | null {
     if (this.history.length === 0) return null;
     this.historyIndex = Math.max(0, Math.min(this.history.length - 1, this.historyIndex + delta));
     const state = this.history[this.historyIndex];
-    this.scheduleNext(state.gameTime);
-    this.persist(seed);
+    this.scheduleNext(state.simulation.gameTime);
+    this.persist(seed, mapId, modeId);
     return state;
   }
 
@@ -107,9 +116,11 @@ export class HistoryManager {
     this.nextHistoryTime = (Math.floor(fromTime / HISTORY_INTERVAL_SECONDS) + 1) * HISTORY_INTERVAL_SECONDS;
   }
 
-  persist(seed: number): void {
+  persist(seed: number, mapId: MapId, modeId: GameModeId): void {
     this.storage.schedule({
       seed,
+      mapId,
+      modeId,
       history: this.history.slice(),
       historyIndex: this.historyIndex,
       nextHistoryTime: this.nextHistoryTime,
@@ -138,12 +149,15 @@ export class HistoryManager {
 
     const firstRelevantTime = currentTime - maxAgeSeconds;
     let start = 0;
-    while (start + 1 <= this.historyIndex && this.history[start + 1].gameTime < firstRelevantTime) start += 1;
+    while (
+      start + 1 <= this.historyIndex
+      && this.history[start + 1].simulation.gameTime < firstRelevantTime
+    ) start += 1;
 
-    let previous = this.history[start]?.control ?? null;
+    let previous = this.history[start]?.simulation.control ?? null;
     if (previous) {
       for (let index = start + 1; index <= this.historyIndex; index++) {
-        const state = this.history[index];
+        const state = this.history[index].simulation;
         if (state.gameTime > currentTime + EPS) break;
         this.recordCrossings(previous, state.control, state.gameTime);
         previous = state.control;
