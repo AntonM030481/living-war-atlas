@@ -6,7 +6,12 @@ import { flipCityOwner, generateCityResource, toggleCityEnabled, updateCities } 
 import { updateControlField } from './control';
 import { initializeControl } from './initialControl';
 import { seedInitialResource } from './initialResource';
-import { assertStateDimensions, clearArrays, cloneCities } from './state';
+import {
+  assertStateDimensions,
+  clearDerivedFields,
+  cloneCities,
+  restoreSimulationFields,
+} from './state';
 import {
   CURRENT_SIDE_IDS,
   createSideFieldMap,
@@ -208,54 +213,20 @@ export class Simulation {
 
   restoreState(state: SimulationState): void {
     assertStateDimensions(state, this.width, this.height);
-    const blue = this.side('blue');
-    const red = this.side('red');
     this.stepCount = state.step;
     this.time = state.gameTime;
-    this.cities.splice(0, this.cities.length, ...cloneCities(state.cities));
-    this.control.set(state.control);
-    blue.war.set(state.warBlue);
-    red.war.set(state.warRed);
-    blue.committed.set(state.committedBlue);
-    red.committed.set(state.committedRed);
-    blue.instability.set(state.instabilityBlue);
-    red.instability.set(state.instabilityRed);
-    blue.potential.set(state.potentialBlue);
-    red.potential.set(state.potentialRed);
-    blue.collapse.set(state.collapseBlue);
-    red.collapse.set(state.collapseRed);
-    this.clearDerivedFields();
-  }
-
-  private side(side: Side): SideFields {
-    return requireSide(this.sides, side);
-  }
-
-  private clearDerivedFields(): void {
-    const derived: Float32Array[] = [
+    restoreSimulationFields(state, this.cities, this.control, this.sides);
+    clearDerivedFields(this.sides, [
       this.forcing,
       this.frontConsumption,
       this.rawForcingDebug,
       this.pressureDebug,
       this.tmpControl,
-    ];
-    for (const sideId of CURRENT_SIDE_IDS) {
-      const side = this.side(sideId);
-      derived.push(
-        side.flow.x,
-        side.flow.y,
-        side.need,
-        side.mass,
-        side.commitmentTarget,
-        side.availableMass,
-        side.incoming,
-        side.delta,
-        side.drain,
-        side.advanceDebug,
-        side.stressDebug,
-      );
-    }
-    clearArrays(derived);
+    ]);
+  }
+
+  private side(side: Side): SideFields {
+    return requireSide(this.sides, side);
   }
 
   private index(x: number, y: number): number {
