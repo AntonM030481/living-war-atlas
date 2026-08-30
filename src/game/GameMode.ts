@@ -95,9 +95,9 @@ export function createGameModeRuntime(
     const meta = new SandboxMetaGame();
     return {
       id: modeId,
-      initialize: (simulation) => meta.initialize?.(simulation),
-      beforeTick: (simulation) => meta.beforeTick?.(simulation),
-      afterTick: (simulation) => meta.afterTick?.(simulation),
+      initialize: () => {},
+      beforeTick: () => {},
+      afterTick: () => {},
       availableActions: (simulation) => meta.availableActions(simulation).map((action) =>
         action.type === 'toggleCity'
           ? { type: 'sandboxToggleCity' as const, cityId: action.cityId }
@@ -121,9 +121,9 @@ export function createGameModeRuntime(
     const meta = new PartisanMetaGame(playerSide);
     return {
       id: modeId,
-      initialize: (simulation) => meta.initialize?.(simulation),
-      beforeTick: (simulation) => meta.beforeTick?.(simulation),
-      afterTick: (simulation) => meta.afterTick?.(simulation),
+      initialize: () => {},
+      beforeTick: () => {},
+      afterTick: () => {},
       availableActions: (simulation) => meta.availableActions(simulation)
         .map((action) => ({ type: 'partisanCaptureSource' as const, cityId: action.cityId })),
       apply: (action, simulation) => {
@@ -143,9 +143,9 @@ export function createGameModeRuntime(
   const meta = new ConquestMetaGame(map, playerSide);
   return {
     id: modeId,
-    initialize: (simulation) => meta.initialize?.(simulation),
-    beforeTick: (simulation) => meta.beforeTick?.(simulation),
-    afterTick: (simulation) => meta.afterTick?.(simulation),
+    initialize: (simulation) => meta.initialize(simulation),
+    beforeTick: () => {},
+    afterTick: (simulation) => meta.afterTick(simulation),
     availableActions: (simulation) => meta.availableActions(simulation).map((action) =>
       action.type === 'activate'
         ? { type: 'conquestActivate' as const, regionId: action.regionId }
