@@ -43,7 +43,7 @@ export class ConquestMetaGame implements MetaGame<ConquestAction, ConquestMetaSt
   }
 
   initialize(simulation: Simulation): void {
-    simulation.resetToRegionalPeace(
+    simulation.initializeRegionalControl(
       [...this.countries.values()].map((country) => [country.regionId, country.owner] as const),
     );
     this.closePoliticalBorders(simulation);
