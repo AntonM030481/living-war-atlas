@@ -44,8 +44,8 @@ export const GAME_MODE_OPTIONS: readonly GameModeOption[] = [
   {
     id: 'partisan',
     name: 'Partisans',
-    description: 'Periodically convert one enemy production source and let the front react on its own.',
-    interactionNote: 'When the partisan action is ready, click an enemy city to convert its source.',
+    description: 'Periodically create a friendly enclave around one enemy production source and let the front react on its own.',
+    interactionNote: 'When the partisan action is ready, primary or secondary click / long press an enemy city.',
     requiresRegions: false,
   },
   {
