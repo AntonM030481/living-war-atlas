@@ -1,4 +1,5 @@
 import type { Side } from '../../sim/Config';
+import { forceCityEnclave } from '../../sim/DebugActions';
 import type { Simulation } from '../../sim/Simulation';
 import type { MetaGame, MetaGameStatus } from '../MetaGame';
 
@@ -35,7 +36,9 @@ export class PartisanMetaGame implements MetaGame<PartisanAction, PartisanMetaSt
     if (!city) throw new Error(`Unknown city: ${action.cityId}`);
     if (city.owner === this.playerSide) throw new Error(`City ${action.cityId} is already owned by ${this.playerSide}`);
 
-    simulation.setCityOwner(action.cityId, this.playerSide, 1);
+    if (!forceCityEnclave(simulation, action.cityId)) {
+      throw new Error(`Could not capture city ${action.cityId}`);
+    }
     this.nextActionTime = simulation.gameTime + this.actionIntervalSeconds;
   }
 
