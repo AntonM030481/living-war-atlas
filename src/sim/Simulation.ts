@@ -1,8 +1,9 @@
 import { CFG, type Side } from './Config';
 import type { City, MapDefinition, SimulationSnapshot, SimulationState, SimulationStats } from './types';
-import { applyFrontConsumption, clamp, resolvePairCombat } from './combat';
+import { applyFrontConsumption, resolvePairCombat } from './combat';
 import { computePairCommitment } from './commitment';
 import { flipCityOwner, generateCityResource, toggleCityEnabled, updateCities } from './cities';
+import { updateControlField } from './control';
 import { initializeControlFromCities } from './initialControl';
 import { rasterizeTerrainRegions } from '../map/terrain';
 import { rasterizeRivers } from './rivers';
@@ -15,8 +16,6 @@ import {
   type SideFields,
 } from './sides';
 import { rebuildPotential, sideAccess, transportResource } from './transport';
-
-const EPS = 1e-6;
 
 export class Simulation {
   readonly width: number;
@@ -109,7 +108,13 @@ export class Simulation {
     for (const side of CURRENT_SIDE_IDS) this.transportResource(side);
 
     this.resolveCombatAndInstability();
-    this.updateControl();
+    updateControlField(this.control, this.tmpControl, this.forcing, {
+      width: this.width,
+      height: this.height,
+      terrainMobility: this.terrainMobility,
+      isBlocked: (index) => this.isBlocked(index),
+      edgeFactor: (x, y, dx, dy) => this.edgeFactor(x, y, dx, dy),
+    });
     this.stepCount += 1;
     this.time += CFG.dt;
   }
@@ -479,48 +484,5 @@ export class Simulation {
         this.frontConsumption[i] += ratePerSecond * weight;
       }
     }
-  }
-
-  private updateControl(): void {
-    for (let y = 0; y < this.height; y++) {
-      for (let x = 0; x < this.width; x++) {
-        const i = this.index(x, y);
-        const control = this.control[i];
-        if (this.isBlocked(i)) {
-          this.tmpControl[i] = control;
-          continue;
-        }
-
-        const leftIndex = i - 1;
-        const rightIndex = i + 1;
-        const upIndex = i - this.width;
-        const downIndex = i + this.width;
-        const hasLeft = x > 0 && !this.isBlocked(leftIndex);
-        const hasRight = x + 1 < this.width && !this.isBlocked(rightIndex);
-        const hasUp = y > 0 && !this.isBlocked(upIndex);
-        const hasDown = y + 1 < this.height && !this.isBlocked(downIndex);
-        const wl = hasLeft ? this.edgeFactor(x, y, -1, 0) : 0;
-        const wr = hasRight ? this.edgeFactor(x, y, 1, 0) : 0;
-        const wu = hasUp ? this.edgeFactor(x, y, 0, -1) : 0;
-        const wd = hasDown ? this.edgeFactor(x, y, 0, 1) : 0;
-        const left = hasLeft ? this.control[leftIndex] : control;
-        const right = hasRight ? this.control[rightIndex] : control;
-        const up = hasUp ? this.control[upIndex] : control;
-        const down = hasDown ? this.control[downIndex] : control;
-        const weightSum = wl + wr + wu + wd + EPS;
-        const lap = (wl * left + wr * right + wu * up + wd * down) - weightSum * control;
-        const interfaceWeight = Math.max(0, 1 - control * control);
-        const mobility = this.terrainMobility[i];
-        const smoothing = CFG.controlSmooth * lap * mobility;
-        const restoring = CFG.controlRestore * control * interfaceWeight;
-        const forcing = CFG.controlForce * this.forcing[i] * interfaceWeight * mobility;
-        this.tmpControl[i] = clamp(
-          control + (smoothing + restoring + forcing) * CFG.dt,
-          -CFG.controlClamp,
-          CFG.controlClamp,
-        );
-      }
-    }
-    this.control.set(this.tmpControl);
   }
 }
