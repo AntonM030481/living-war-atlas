@@ -51,7 +51,7 @@ The diagnostics suite generates CSV/SVG artifacts and checks a few high-level pr
 **Expectations**
 - The scenario produces recovery samples.
 - The Blue city is still Blue at the end of the run.
-- After restoration, local Blue front mass (committed + reserve) reaches more than 20.
+- Local Blue front mass after restoration rises above its level at the moment production is restored. This is intentionally a relative check: local mass depends on transport capacity, cell capacity, and `massRadius`.
 
 **Artifacts**
 - `recovery-success.csv`
@@ -60,9 +60,9 @@ The diagnostics suite generates CSV/SVG artifacts and checks a few high-level pr
 
 The charts mark production restoration, city-owner changes, and Blue collapse/recovery transitions when they occur.
 
-## Long production outage
+## Longer production outage
 
-### `loses the blue city after an unrecoverable outage`
+### `leaves more territorial loss after the longer outage`
 
 **Setup**
 - Same 1D map and 75 s warm-up as the recoverable-outage scenario.
@@ -73,14 +73,13 @@ The charts mark production restoration, city-owner changes, and Blue collapse/re
 - Simulation continues for another 220 s.
 
 **Expectation**
-- The historical expectation is that the Blue city has become Red by the end of the scenario.
+- The 150 s outage leaves the final front farther toward Blue territory than the 60 s outage.
+- City capture is not assumed. Whether and when capture occurs is an emergent outcome of the current model and is better inspected through the tipping curve and generated timelines.
 
 **Artifacts**
 - `recovery-failed.csv`
 - `recovery-failed-mass.svg`
 - `recovery-failed-front.svg`
-
-This expectation is currently known to be stale for some simulation versions: the scenario is still useful diagnostically even when the city remains Blue. The charts should be treated as the primary evidence when tuning this behavior.
 
 ## Outage tipping curve
 
