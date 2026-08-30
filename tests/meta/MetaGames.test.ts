@@ -67,6 +67,20 @@ describe('game modes', () => {
     expect(simulation.control[cityIndex]).toBeGreaterThan(0);
     expect(simulation.warBlue[cityIndex]).toBeGreaterThan(0);
     expect(session.availableActions()).toEqual([]);
+  });
+
+  it('does not defeat a side while residual force remains', () => {
+    const map = partisanMap();
+    const simulation = new Simulation(map, 1);
+    const session = new GameSession(simulation, createGameModeRuntime('partisan', map));
+
+    simulation.warRed[0] = 0.5;
+    session.apply({ type: 'partisanCaptureSource', cityId: 'red' });
+
+    expect(simulation.cities.every((city) => city.owner === 'blue')).toBe(true);
+    expect(session.status().winner).toBeNull();
+
+    simulation.warRed.fill(0);
     expect(session.status().winner).toBe('blue');
   });
 
