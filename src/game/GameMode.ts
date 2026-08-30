@@ -1,9 +1,10 @@
 import type { Side } from '../sim/Config';
 import type { MapDefinition } from '../sim/types';
+import { winnerFromState } from '../sim/completion';
 import { ConquestMetaGame, type ConquestMetaState } from '../meta/conquest/ConquestMetaGame';
 import { PartisanMetaGame, type PartisanMetaState } from '../meta/partisan/PartisanMetaGame';
 import { SandboxMetaGame, type SandboxMetaState } from '../meta/sandbox/SandboxMetaGame';
-import type { MetaGameStatus } from '../meta/MetaGame';
+import type { MetaGame, MetaGameStatus } from '../meta/MetaGame';
 import type { Simulation } from '../sim/Simulation';
 
 export type GameModeId = 'sandbox' | 'partisan' | 'conquest';
@@ -84,6 +85,24 @@ export interface GameModeRuntime {
   restoreState(state: GameModeState): void;
 }
 
+function defaultCompletionStatus(simulation: Simulation): MetaGameStatus {
+  return {
+    winner: winnerFromState(
+      simulation.control,
+      simulation.terrainBlocked,
+      simulation.cities,
+      simulation.sides,
+    ),
+  };
+}
+
+function completionStatus<Action, State>(
+  meta: MetaGame<Action, State>,
+  simulation: Simulation,
+): MetaGameStatus {
+  return meta.completionStatus?.(simulation) ?? defaultCompletionStatus(simulation);
+}
+
 export function createGameModeRuntime(
   modeId: GameModeId,
   map: MapDefinition,
@@ -107,7 +126,7 @@ export function createGameModeRuntime(
         else if (action.type === 'sandboxFlipCity') meta.apply({ type: 'flipCity', cityId: action.cityId }, simulation);
         else throw new Error(`Action ${action.type} is not valid in sandbox mode`);
       },
-      status: (simulation) => meta.status(simulation),
+      status: (simulation) => completionStatus(meta, simulation),
       view: () => ({ mode: 'sandbox' }),
       saveState: () => ({ id: modeId, state: meta.saveState() }),
       restoreState: (state) => {
@@ -130,7 +149,7 @@ export function createGameModeRuntime(
         if (action.type !== 'partisanCaptureSource') throw new Error(`Action ${action.type} is not valid in partisan mode`);
         meta.apply({ type: 'captureSource', cityId: action.cityId }, simulation);
       },
-      status: (simulation) => meta.status(simulation),
+      status: (simulation) => completionStatus(meta, simulation),
       view: () => ({ mode: 'partisan', nextActionTime: meta.saveState().nextActionTime }),
       saveState: () => ({ id: modeId, state: meta.saveState() }),
       restoreState: (state) => {
@@ -155,7 +174,7 @@ export function createGameModeRuntime(
       else if (action.type === 'conquestInvade') meta.apply({ type: 'invade', regionId: action.regionId }, simulation);
       else throw new Error(`Action ${action.type} is not valid in conquest mode`);
     },
-    status: (simulation) => meta.status(simulation),
+    status: (simulation) => completionStatus(meta, simulation),
     view: () => ({ mode: 'conquest', countries: meta.saveState().countries }),
     saveState: () => ({ id: modeId, state: meta.saveState() }),
     restoreState: (state) => {
