@@ -54,6 +54,7 @@ export interface SimulationSnapshot {
   gameTime: number;
   stats: SimulationStats;
   control: Float32Array;
+  frontMask?: Uint8Array;
   warBlue: Float32Array;
   warRed: Float32Array;
   committedBlue: Float32Array;
