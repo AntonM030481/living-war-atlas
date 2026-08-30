@@ -1,3 +1,4 @@
+import type { GameAction, GameModeId, GameModeView } from '../game/GameMode';
 import type { Side, Speed } from './Config';
 
 export type MapId = 'theatre' | 'island' | 'linear';
@@ -134,15 +135,21 @@ export interface HistoryInfo {
 }
 
 export type WorkerInMessage =
-  | { type: 'start'; seed: number; mapId: MapId; loadSavedState: boolean }
+  | { type: 'start'; seed: number; mapId: MapId; modeId: GameModeId; loadSavedState: boolean }
   | { type: 'speed'; speed: Speed }
-  | { type: 'reset'; seed: number; mapId: MapId }
-  | { type: 'toggleCity'; cityId: string }
-  | { type: 'flipCityOwner'; cityId: string }
+  | { type: 'reset'; seed: number; mapId: MapId; modeId: GameModeId }
+  | { type: 'gameAction'; action: GameAction }
   | { type: 'pause'; paused: boolean }
   | { type: 'historyStep'; delta: -1 | 1 };
 
 export type WorkerOutMessage =
-  | { type: 'ready'; seed: number; mapId: MapId }
-  | { type: 'snapshot'; snapshot: SimulationSnapshot; history: HistoryInfo; winner: Side | null }
+  | { type: 'ready'; seed: number; mapId: MapId; modeId: GameModeId }
+  | {
+      type: 'snapshot';
+      snapshot: SimulationSnapshot;
+      history: HistoryInfo;
+      winner: Side | null;
+      actions: readonly GameAction[];
+      modeView: GameModeView;
+    }
   | { type: 'stats'; fps: number };
