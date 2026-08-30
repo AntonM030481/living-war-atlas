@@ -5,6 +5,7 @@ import { computePairCommitment } from './commitment';
 import { flipCityOwner, generateCityResource, toggleCityEnabled, updateCities } from './cities';
 import { updateControlField } from './control';
 import { initializeControlFromCities } from './initialControl';
+import { seedInitialResource } from './initialResource';
 import { assertStateDimensions, clearArrays, cloneCities } from './state';
 import {
   CURRENT_SIDE_IDS,
@@ -76,7 +77,9 @@ export class Simulation {
       riverCrossingY: this.riverCrossingY,
     });
     this.initializeControl();
-    if (this.map.seedInitialResource !== false) this.seedInitialResource();
+    if (this.map.seedInitialResource !== false) {
+      seedInitialResource(this.cities, this.width, this.control, this.terrainBlocked, this.sides);
+    }
   }
 
   get warBlue(): Float32Array { return this.side('blue').war; }
@@ -265,25 +268,6 @@ export class Simulation {
       for (let x = 0; x < this.width; x++) {
         this.control[this.index(x, y)] = Math.tanh((frontX - x) / 2.4);
       }
-    }
-  }
-
-  private seedInitialResource(): void {
-    for (const city of this.cities) {
-      const i = this.index(city.x, city.y);
-      if (this.isBlocked(i)) continue;
-      this.side(city.owner).war[i] += city.baseProduction * CFG.initialCityResourceSeconds;
-    }
-
-    const blue = this.side('blue');
-    const red = this.side('red');
-    for (let i = 0; i < this.size; i++) {
-      if (this.isBlocked(i)) continue;
-      const control = this.control[i];
-      const proximity = Math.max(0, 1 - Math.abs(control) / 0.82);
-      if (proximity <= 0) continue;
-      const amount = CFG.initialFrontResource * proximity;
-      (control >= 0 ? blue : red).war[i] += amount;
     }
   }
 
