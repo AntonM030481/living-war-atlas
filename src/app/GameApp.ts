@@ -47,7 +47,6 @@ export class GameApp {
   private latestSnapshot: SimulationSnapshot | null = null;
   private latestHistory: HistoryInfo | null = null;
   private latestActions: readonly GameAction[] = [];
-  private latestModeView: GameModeView | null = null;
   private selectedProbe: FrontDebugInfo | null = null;
   private selectedPoint: PointDebugInfo | null = null;
   private suppressNextPrimaryClickUntil = 0;
@@ -366,7 +365,6 @@ export class GameApp {
     this.latestSnapshot = message.snapshot;
     this.latestHistory = message.history;
     this.latestActions = message.actions;
-    this.latestModeView = message.modeView;
     this.hud.setHistory(message.history);
     this.hud.setModeStatus(this.modeStatusText(message.snapshot, message.modeView, message.actions));
     this.renderer.render(message.snapshot);
