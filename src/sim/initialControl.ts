@@ -1,5 +1,5 @@
-import type { City } from './types';
 import type { Side } from './Config';
+import type { City, MapDefinition } from './types';
 
 const INF = Number.POSITIVE_INFINITY;
 const SQRT2 = Math.SQRT2;
@@ -187,4 +187,24 @@ export function initializeControlFromCities(
   }
 
   smoothControl(control, width, height, blocked, cities);
+}
+
+export function initializeControl(
+  control: Float32Array,
+  map: MapDefinition,
+  blocked: Uint8Array,
+  cities: City[],
+): void {
+  if (map.initialControl === 'city-distance') {
+    initializeControlFromCities(control, map.width, map.height, blocked, cities);
+    return;
+  }
+
+  if (!map.initialFrontX) throw new Error('Map must define initialFrontX or initialControl');
+  for (let y = 0; y < map.height; y++) {
+    const frontX = map.initialFrontX(y);
+    for (let x = 0; x < map.width; x++) {
+      control[y * map.width + x] = Math.tanh((frontX - x) / 2.4);
+    }
+  }
 }
