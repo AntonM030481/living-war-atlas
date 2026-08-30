@@ -1,6 +1,7 @@
 import type { MapDefinition, MapId } from '../sim/types';
 import { islandMap } from './islandMap';
 import { linearMap } from './linearMap';
+import { generateMapRegions } from './regionGeneration';
 import { testMap } from './testMap';
 
 export interface MapOption {
@@ -10,24 +11,28 @@ export interface MapOption {
   map: MapDefinition;
 }
 
+const theatreWithRegions = generateMapRegions(testMap, 0x41a7c2d1);
+const islandWithRegions = generateMapRegions(islandMap, 0x73b51e29);
+const linearWithRegions = generateMapRegions(linearMap, 0x19f24bc3);
+
 export const MAP_OPTIONS: readonly MapOption[] = [
   {
     id: 'theatre',
     name: 'Full playground map',
     description: '256x160 map with 10 cities, river and forests.',
-    map: testMap,
+    map: theatreWithRegions,
   },
   {
     id: 'island',
     name: 'Mountain theatre',
     description: '256x160 map with 10 cities, mountains, foothill forests and a branched river network.',
-    map: islandMap,
+    map: islandWithRegions,
   },
   {
     id: 'linear',
     name: 'Linear test map',
     description: '256x24 map with 2 cities and no obstacles.',
-    map: linearMap,
+    map: linearWithRegions,
   },
 ];
 
