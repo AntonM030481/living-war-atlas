@@ -27,24 +27,29 @@ function regionMap(): MapDefinition {
 }
 
 describe('RegionTopology', () => {
-  it('keeps inter-region borders closed until explicitly opened', () => {
+  it('keeps region borders passive until a meta-game explicitly closes them', () => {
     const regions = new RegionTopology(regionMap());
 
     expect(regions.neighbors('west')).toEqual(['east']);
+    expect(regions.edgeFactor(1, 2)).toBe(1);
+    expect(regions.isPotentialFront(1)).toBe(false);
+    expect(regions.openBorders()).toEqual([['east', 'west']]);
+
+    regions.setBorderOpen('west', 'east', false);
+
     expect(regions.edgeFactor(1, 2)).toBe(0);
     expect(regions.isPotentialFront(1)).toBe(true);
     expect(regions.isPotentialFront(2)).toBe(true);
 
     regions.setBorderOpen('west', 'east', true);
-
     expect(regions.edgeFactor(1, 2)).toBe(1);
     expect(regions.isPotentialFront(1)).toBe(false);
-    expect(regions.openBorders()).toEqual([['east', 'west']]);
   });
 
   it('does not classify opposing control across a closed border as an actual front', () => {
     const map = regionMap();
     const regions = new RegionTopology(map);
+    regions.setBorderOpen('west', 'east', false);
     const control = new Float32Array([1, 1, -1, -1]);
     const blocked = new Uint8Array(4);
     const riverX = new Float32Array(4); riverX.fill(1);
