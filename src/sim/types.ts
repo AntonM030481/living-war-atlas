@@ -2,6 +2,7 @@ import type { Side, Speed } from './Config';
 
 export type MapId = 'theatre' | 'island' | 'linear';
 export type TerrainType = 'open' | 'blocked' | 'sea' | 'mountain';
+export type RegionId = string;
 
 export interface City {
   id: string;
@@ -12,6 +13,11 @@ export interface City {
   owner: Side;
   integration: number;
   enabled?: boolean;
+}
+
+export interface MapRegion {
+  id: RegionId;
+  cityId: string;
 }
 
 export interface MapPoint {
@@ -31,6 +37,8 @@ export interface MapDefinition {
   initialFrontX?: (y: number) => number;
   initialControl?: 'city-distance';
   cities: City[];
+  regions?: readonly MapRegion[];
+  regionAt?: (x: number, y: number) => RegionId | null;
   forests: TerrainRegion[];
   mountains?: TerrainRegion[];
   rivers: MapPoint[][];
@@ -95,6 +103,7 @@ export interface SimulationState {
   collapseBlue: Uint8Array;
   collapseRed: Uint8Array;
   cities: City[];
+  openRegionBorders?: Array<[RegionId, RegionId]>;
 }
 
 export interface SimulationStats {

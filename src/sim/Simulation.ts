@@ -1,11 +1,19 @@
 import { CFG, type Side } from './Config';
-import type { City, MapDefinition, SimulationSnapshot, SimulationState } from './types';
+import type { City, MapDefinition, RegionId, SimulationSnapshot, SimulationState } from './types';
 import { applyFrontConsumption, resolvePairCombat } from './combat';
 import { computePairCommitment } from './commitment';
-import { flipCityOwner, generateCityResource, toggleCityEnabled, updateCities } from './cities';
+import {
+  flipCityOwner,
+  generateCityResource,
+  setCityEnabled,
+  setCityOwner,
+  toggleCityEnabled,
+  updateCities,
+} from './cities';
 import { updateControlField } from './control';
 import { initializeControl } from './initialControl';
 import { seedInitialResource } from './initialResource';
+import { RegionTopology } from './regions';
 import {
   assertStateDimensions,
   clearDerivedFields,
@@ -45,10 +53,12 @@ export class Simulation {
   private readonly rawForcingDebug: Float32Array;
   private readonly pressureDebug: Float32Array;
   private readonly tmpControl: Float32Array;
+  private readonly regions: RegionTopology;
   private readonly topology: SimulationTopology;
 
   private stepCount = 0;
   private time = 0;
+  private potentialDirty = true;
 
   constructor(
     private readonly map: MapDefinition,
@@ -83,6 +93,7 @@ export class Simulation {
       riverCrossingX: this.riverCrossingX,
       riverCrossingY: this.riverCrossingY,
     });
+    this.regions = new RegionTopology(this.map);
     this.topology = new SimulationTopology({
       width: this.width,
       height: this.height,
@@ -90,7 +101,7 @@ export class Simulation {
       blocked: this.terrainBlocked,
       riverCrossingX: this.riverCrossingX,
       riverCrossingY: this.riverCrossingY,
-    });
+    }, this.regions);
     initializeControl(this.control, this.map, this.terrainBlocked, this.cities);
     if (this.map.seedInitialResource !== false) {
       seedInitialResource(this.cities, this.width, this.control, this.terrainBlocked, this.sides);
@@ -115,8 +126,33 @@ export class Simulation {
     toggleCityEnabled(this.cities, cityId);
   }
 
+  setCityEnabled(cityId: string, enabled: boolean): void {
+    setCityEnabled(this.cities, cityId, enabled);
+  }
+
+  setCityOwner(cityId: string, owner: Side, integration = 1): void {
+    setCityOwner(this.cities, cityId, owner, integration);
+  }
+
   flipCityOwner(cityId: string): void {
     flipCityOwner(this.cities, cityId);
+  }
+
+  regionIdAt(x: number, y: number): RegionId | null {
+    if (x < 0 || x >= this.width || y < 0 || y >= this.height) return null;
+    return this.regions.regionIdAt(y * this.width + x);
+  }
+
+  regionNeighbors(regionId: RegionId): readonly RegionId[] {
+    return this.regions.neighbors(regionId);
+  }
+
+  setRegionBorderOpen(first: RegionId, second: RegionId, open: boolean): void {
+    if (this.regions.setBorderOpen(first, second, open)) this.potentialDirty = true;
+  }
+
+  isRegionBorderOpen(first: RegionId, second: RegionId): boolean {
+    return this.regions.isBorderOpen(first, second);
   }
 
   tick(): void {
@@ -128,8 +164,9 @@ export class Simulation {
     generateCityResource(this.cities, this.width, this.sides, CFG.dt);
     this.computeFrontMassAndNeed();
 
-    if (this.stepCount % CFG.potentialEverySteps === 0) {
+    if (this.potentialDirty || this.stepCount % CFG.potentialEverySteps === 0) {
       for (const side of CURRENT_SIDE_IDS) this.rebuildPotential(side);
+      this.potentialDirty = false;
     }
     for (const side of CURRENT_SIDE_IDS) this.transportResource(side);
 
@@ -208,6 +245,7 @@ export class Simulation {
       collapseBlue: blue.collapse.slice(),
       collapseRed: red.collapse.slice(),
       cities: cloneCities(this.cities),
+      openRegionBorders: this.regions.openBorders(),
     };
   }
 
@@ -215,6 +253,7 @@ export class Simulation {
     assertStateDimensions(state, this.width, this.height);
     this.stepCount = state.step;
     this.time = state.gameTime;
+    this.regions.restoreOpenBorders(state.openRegionBorders ?? []);
     restoreSimulationFields(state, this.cities, this.control, this.sides);
     clearDerivedFields(this.sides, [
       this.forcing,
@@ -223,6 +262,7 @@ export class Simulation {
       this.pressureDebug,
       this.tmpControl,
     ]);
+    this.potentialDirty = true;
   }
 
   private side(side: Side): SideFields {
@@ -257,6 +297,7 @@ export class Simulation {
       terrainMobility: this.terrainMobility,
       terrainCapacity: this.terrainCapacity,
       isFront: (index: number) => this.topology.isFront(index),
+      potentialDemand: (index: number) => this.topology.potentialDemand(index),
       access: (index: number) => this.topology.sideAccess(side, index),
       edgeFactor: (x: number, y: number, dx: number, dy: number) => this.topology.edgeFactor(x, y, dx, dy),
     };

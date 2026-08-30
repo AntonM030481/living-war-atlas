@@ -22,6 +22,7 @@ export interface TransportGrid {
   terrainMobility: Float32Array;
   terrainCapacity: Float32Array;
   isFront: (index: number) => boolean;
+  potentialDemand?: (index: number) => number;
   access: (index: number) => number;
   edgeFactor: (x: number, y: number, dx: number, dy: number) => number;
 }
