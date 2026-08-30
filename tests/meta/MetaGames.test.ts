@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { createGameModeRuntime } from '../../src/game/GameMode';
 import { GameSession } from '../../src/game/GameSession';
-import { ConquestMetaGame } from '../../src/meta/conquest/ConquestMetaGame';
-import { PartisanMetaGame } from '../../src/meta/partisan/PartisanMetaGame';
 import { Simulation } from '../../src/sim/Simulation';
 import type { MapDefinition } from '../../src/sim/types';
 
@@ -40,14 +39,24 @@ function conquestMap(): MapDefinition {
   };
 }
 
-describe('meta games', () => {
-  it('implements the minimal partisan source-capture loop above Simulation', () => {
+describe('game modes', () => {
+  it('keeps sandbox controls as a first-class mode', () => {
     const simulation = new Simulation(partisanMap(), 1);
-    const session = new GameSession(simulation, new PartisanMetaGame('blue', 10));
+    const session = new GameSession(simulation, createGameModeRuntime('sandbox', partisanMap()));
 
-    expect(session.availableActions()).toEqual([{ type: 'captureSource', cityId: 'red' }]);
+    expect(session.availableActions()).toContainEqual({ type: 'sandboxToggleCity', cityId: 'blue' });
+    session.apply({ type: 'sandboxToggleCity', cityId: 'blue' });
+    expect(simulation.cities.find((city) => city.id === 'blue')?.enabled).toBe(false);
+  });
 
-    session.apply({ type: 'captureSource', cityId: 'red' });
+  it('implements the minimal partisan source-capture loop above Simulation', () => {
+    const map = partisanMap();
+    const simulation = new Simulation(map, 1);
+    const session = new GameSession(simulation, createGameModeRuntime('partisan', map));
+
+    expect(session.availableActions()).toEqual([{ type: 'partisanCaptureSource', cityId: 'red' }]);
+
+    session.apply({ type: 'partisanCaptureSource', cityId: 'red' });
 
     expect(simulation.cities.find((city) => city.id === 'red')?.owner).toBe('blue');
     expect(session.availableActions()).toEqual([]);
@@ -57,31 +66,37 @@ describe('meta games', () => {
   it('keeps inactive countries quiet and opens their border only on invasion', () => {
     const map = conquestMap();
     const simulation = new Simulation(map, 1);
-    const session = new GameSession(simulation, new ConquestMetaGame(map, 'blue', ['a']));
+    const session = new GameSession(simulation, createGameModeRuntime('conquest', map));
+
+    expect(simulation.cities.find((city) => city.id === 'a-city')?.enabled).toBe(false);
+    expect(simulation.cities.find((city) => city.id === 'b-city')?.enabled).toBe(false);
+    expect(session.availableActions()).toContainEqual({ type: 'conquestActivate', regionId: 'a' });
+
+    session.apply({ type: 'conquestActivate', regionId: 'a' });
 
     expect(simulation.cities.find((city) => city.id === 'a-city')?.enabled).toBe(true);
-    expect(simulation.cities.find((city) => city.id === 'b-city')?.enabled).toBe(false);
     expect(simulation.isRegionBorderOpen('a', 'b')).toBe(false);
-    expect(session.availableActions()).toContainEqual({ type: 'invade', regionId: 'b' });
+    expect(session.availableActions()).toContainEqual({ type: 'conquestInvade', regionId: 'b' });
 
-    session.apply({ type: 'invade', regionId: 'b' });
+    session.apply({ type: 'conquestInvade', regionId: 'b' });
 
     expect(simulation.cities.find((city) => city.id === 'b-city')?.enabled).toBe(true);
     expect(simulation.isRegionBorderOpen('a', 'b')).toBe(true);
-    expect(session.availableActions()).not.toContainEqual({ type: 'invade', regionId: 'b' });
+    expect(session.availableActions()).not.toContainEqual({ type: 'conquestInvade', regionId: 'b' });
   });
 
-  it('saves meta state together with simulation state', () => {
-    const simulation = new Simulation(partisanMap(), 1);
-    const session = new GameSession(simulation, new PartisanMetaGame('blue', 10));
-    session.apply({ type: 'captureSource', cityId: 'red' });
+  it('saves mode state together with simulation state', () => {
+    const map = partisanMap();
+    const simulation = new Simulation(map, 1);
+    const session = new GameSession(simulation, createGameModeRuntime('partisan', map));
+    session.apply({ type: 'partisanCaptureSource', cityId: 'red' });
     const saved = session.saveState();
 
-    const restoredSimulation = new Simulation(partisanMap(), 1);
-    const restored = new GameSession(restoredSimulation, new PartisanMetaGame('blue', 10));
+    const restoredSimulation = new Simulation(map, 1);
+    const restored = new GameSession(restoredSimulation, createGameModeRuntime('partisan', map));
     restored.restoreState(saved);
 
     expect(restoredSimulation.cities.find((city) => city.id === 'red')?.owner).toBe('blue');
-    expect(restored.saveState().meta).toEqual(saved.meta);
+    expect(restored.saveState().mode).toEqual(saved.mode);
   });
 });
