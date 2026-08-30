@@ -12,7 +12,7 @@ export interface MetaGame<Action, State> {
   afterTick?(simulation: Simulation): void;
   availableActions(simulation: Simulation): readonly Action[];
   apply(action: Action, simulation: Simulation): void;
-  status(simulation: Simulation): MetaGameStatus;
+  completionStatus?(simulation: Simulation): MetaGameStatus;
   saveState(): State;
   restoreState(state: State): void;
 }
