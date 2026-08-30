@@ -11,7 +11,7 @@ import { clientToWorld, worldToScreen, type Point, type ViewTransform } from './
 
 const BLUE_DARK = 0x164f91;
 const RED_DARK = 0xb12620;
-const COUNTRY_BORDER = 0x4e4537;
+const COUNTRY_BORDER = 0x2f2b24;
 const TOUCH_CITY_HIT_RADIUS_PX = 24;
 const INSTABILITY_WARNING_THRESHOLD = 0.08;
 const INSTABILITY_WARNING_SPACING = 10;
@@ -57,10 +57,10 @@ export class AtlasRenderer {
       this.terrain,
       this.grid,
       this.historicalBorder,
-      this.countryBorders,
       this.territory,
       this.resourceDensity,
       this.recentCapture,
+      this.countryBorders,
       this.potentialContours,
       this.flows,
       this.front,
@@ -91,6 +91,10 @@ export class AtlasRenderer {
 
   setShowCountryBorders(value: boolean): void {
     this.countryBorders.visible = value;
+  }
+
+  setShowHistoricalBorder(value: boolean): void {
+    this.historicalBorder.visible = value;
   }
 
   toggleDebug(): boolean {
@@ -217,18 +221,17 @@ export class AtlasRenderer {
         if (x + 1 < this.map.width) {
           const right = this.map.regionAt(x + 1, y);
           if (right !== null && right !== regionId) {
-            g.moveTo(x + 1, y).lineTo(x + 1, y + 1);
+            g.circle(x + 1, y + 0.5, 0.14).fill({ color: COUNTRY_BORDER, alpha: 0.52 });
           }
         }
         if (y + 1 < this.map.height) {
           const down = this.map.regionAt(x, y + 1);
           if (down !== null && down !== regionId) {
-            g.moveTo(x, y + 1).lineTo(x + 1, y + 1);
+            g.circle(x + 0.5, y + 1, 0.14).fill({ color: COUNTRY_BORDER, alpha: 0.52 });
           }
         }
       }
     }
-    g.stroke({ color: COUNTRY_BORDER, width: 0.26, alpha: 0.58 });
   }
 
   private fit(): void {
