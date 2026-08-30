@@ -1,52 +1,109 @@
-# Living War Atlas
+# Living War Atlas — M0
 
-Autonomous fronts. Emergent warfare.
+First runnable prototype of the **living military atlas** concept.
 
-Living War Atlas is a simulation playground for continuous front-line warfare. Cities generate a single force resource, that resource physically flows through controlled territory toward active or potential fronts, and the front evolves from local pressure, terrain, commitment, attrition, instability, and collapse.
+## What is implemented
 
-## Game modes
+- two autonomous sides;
+- continuous control field on a hidden square grid;
+- smooth front derived from the control field;
+- 10 cities with unequal production;
+- one War Resource;
+- physical resource transport through controlled territory;
+- finite route capacity / bottlenecks;
+- rivers and forests affecting mobility, defence and throughput;
+- front mass emerging from accumulated War Resource;
+- battle commitment: mass needed to hold an active fight cannot freely drain back into the rear; only local excess remains mobile, while collapse releases commitment;
+- defensive advantage, instability and local collapse;
+- seeded local fluctuations;
+- city capture and gradual integration;
+- AI-vs-AI baseline behaviour (local autonomous adaptation; strategic operations come in M1/M2);
+- 1x / 2x / 4x speed, pause, instability debug overlay.
 
-A new game selects a game mode first and then a compatible map.
+## Run
 
-- **Sandbox** — direct production toggle and city-side switching for experimentation.
-- **Partisans** — periodically convert one enemy production source and observe the autonomous response.
-- **Conquest** — activate countries and choose neighboring countries to invade; combat and force allocation remain autonomous. Conquest requires a map with one-city regions.
-
-All modes share the same `Simulation` physics through `GameSession`; mode-specific rules and UI actions live above the simulation layer.
-
-## Development
+Requires Node.js compatible with current Vite (Vite currently documents Node 20.19+ or 22.12+).
 
 ```bash
-npm ci
+npm install
 npm run dev
 ```
 
-Useful commands:
+Build/tests:
 
 ```bash
 npm run build
 npm test
 npm run diagnostics
-npm run bench:sim
 ```
 
-Diagnostics are intentionally outside blocking CI.
+## Deploy with Cloudflare Wrangler
 
-## Architecture
+The Cloudflare Worker is configured in `wrangler.json` to serve the production build from `./dist`.
 
-- `src/sim/` — deterministic front / force simulation.
-- `src/game/` — `GameSession` and game-mode runtime contract.
-- `src/meta/` — Sandbox, Partisans, and Conquest meta-game rules.
-- `src/map/` — authored maps and optional region definitions.
-- `src/app/` — shared application host and input routing.
-- `src/worker/` — worker loop plus session-aware history/persistence.
-
-Closed inter-region borders block resource/control crossing while still acting as weak potential-front demand. Opening a border through Conquest turns that boundary into ordinary simulation space; the actual combat front then emerges from the shared simulation.
-
-## Deployment
+Build first, then deploy:
 
 ```bash
-npm run deploy
+npm run build
+npx wrangler deploy
 ```
 
-The web build is produced with Vite and can also be wrapped for iOS through Capacitor.
+If Wrangler is installed globally, the deploy command can also be run as:
+
+```bash
+wrangler deploy
+```
+
+`npm run build` must be run before deployment so that `dist/` contains the latest Vite output. A Git commit is not required for a manual Wrangler deploy; Wrangler uploads the files currently present in the local `dist/` directory.
+
+Static files placed in `public/` are copied into `dist/` by Vite during the build. For example, `public/privacy.html` is deployed as `/privacy.html`.
+
+## iOS / App Store
+
+The web build is configured for an iOS wrapper through Capacitor 8.5.0. Capacitor 8 requires Node.js 22+; iOS development requires macOS with Xcode 26+.
+
+First-time native setup on a Mac:
+
+```bash
+npm install
+npm run ios:init
+```
+
+This builds the Vite app, creates `ios/`, copies `dist/` into the native project, and opens the project in Xcode.
+
+After web-code changes:
+
+```bash
+npm run ios:open
+```
+
+`ios:open` rebuilds the web app, synchronizes it into the native project, and opens Xcode.
+
+The initial bundle identifier is:
+
+```text
+io.github.antonm030481.livingwaratlas
+```
+
+Change it in `capacitor.config.ts` before registering the final App ID in Apple Developer if a different identifier is preferred.
+
+After running `npm run ios:init`, commit the generated `ios/` project and the refreshed `package-lock.json` so native builds are reproducible.
+
+## Controls
+
+- `1`, `2`, `4` — simulation speed
+- `Space` — debug pause
+- `F3` — instability overlay
+- **New seed** — restart with a reproducibly different seed
+
+## M0 question
+
+Do the autonomous fronts look like a system that tends to stabilise, while still producing visible local tension and occasional nonlinear retreats?
+
+Do not tune this into a full game yet. If the answer is no, change the simulation before adding strategic arrows.
+
+## Committed vs reserve diagnostics
+
+`npm run diagnostics` regenerates deterministic CSV and SVG plots under `diagnostics/`.
+
+See `docs/TEST_RESULTS.md` for the current committed/reserve regression checklist.
