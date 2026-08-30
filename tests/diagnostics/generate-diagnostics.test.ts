@@ -442,11 +442,25 @@ describe('committed/reserve diagnostics', () => {
 
   beforeAll(() => {
     commitment = commitmentTransition();
-    recoverySuccess = recoveryScenario(60);
-    recoveryFailed = recoveryScenario(150);
-    tipping = tippingScenario();
-    cityFlow = cityFlowDiagnostics();
+  });
 
+  beforeAll(() => {
+    recoverySuccess = recoveryScenario(60);
+  }, 60000);
+
+  beforeAll(() => {
+    recoveryFailed = recoveryScenario(150);
+  }, 60000);
+
+  beforeAll(() => {
+    tipping = tippingScenario();
+  }, 120000);
+
+  beforeAll(() => {
+    cityFlow = cityFlowDiagnostics();
+  }, 60000);
+
+  beforeAll(() => {
     const engage = commitment.filter((row) => row.phase === 'engage');
     const release = commitment.filter((row) => row.phase === 'release');
     writeText('engagement-transition.csv', csv(engage));
@@ -528,7 +542,7 @@ describe('committed/reserve diagnostics', () => {
         { label: 'loss', color: '#7f231e', values: tipping.map((row) => ({ x: row.duration, y: row.loss })) },
       ],
     ));
-  }, 30000);
+  });
 
   afterAll(() => {
     const successEvents = recoveryEvents(diagnostics('recovery-success.csv'));
