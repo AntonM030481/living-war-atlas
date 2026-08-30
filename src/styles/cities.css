@@ -70,6 +70,10 @@
   background: rgba(246, 239, 215, .72);
 }
 
+.city-power-label.actionable {
+  box-shadow: 0 0 0 2px rgba(47, 43, 36, .42), 0 1px 5px rgba(60, 45, 20, .18);
+}
+
 .city-name-label {
   position: absolute;
   z-index: 9;
@@ -93,4 +97,8 @@
 .city-name-label.disabled {
   opacity: .50;
   text-decoration: line-through;
+}
+
+.city-name-label.actionable {
+  box-shadow: 0 0 0 1px rgba(47, 43, 36, .34), 0 1px 4px rgba(60, 45, 20, .12);
 }
