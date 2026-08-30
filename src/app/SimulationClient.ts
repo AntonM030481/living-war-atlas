@@ -1,8 +1,10 @@
+import type { GameAction, GameModeId } from '../game/GameMode';
 import type { Speed } from '../sim/Config';
 import type { MapId, WorkerInMessage, WorkerOutMessage } from '../sim/types';
 import { showAppError } from '../ui/AppError';
 
 const NEW_GAME_MAP_KEY = 'living-war-atlas:new-game-map';
+const NEW_GAME_MODE_KEY = 'living-war-atlas:new-game-mode';
 const WORKER_START_TIMEOUT_MS = 15_000;
 
 export class SimulationClient {
@@ -35,13 +37,17 @@ export class SimulationClient {
     };
   }
 
-  start(mapId: MapId, seed: number): void {
+  start(mapId: MapId, modeId: GameModeId, seed: number): void {
     this.workerResponded = false;
     this.armStartupTimer();
     const pendingMapId = sessionStorage.getItem(NEW_GAME_MAP_KEY);
-    const loadSavedState = pendingMapId !== mapId;
-    if (!loadSavedState) sessionStorage.removeItem(NEW_GAME_MAP_KEY);
-    this.send({ type: 'start', mapId, seed, loadSavedState });
+    const pendingModeId = sessionStorage.getItem(NEW_GAME_MODE_KEY);
+    const loadSavedState = pendingMapId !== mapId || pendingModeId !== modeId;
+    if (!loadSavedState) {
+      sessionStorage.removeItem(NEW_GAME_MAP_KEY);
+      sessionStorage.removeItem(NEW_GAME_MODE_KEY);
+    }
+    this.send({ type: 'start', mapId, modeId, seed, loadSavedState });
   }
 
   setSpeed(speed: Speed): void {
@@ -52,16 +58,12 @@ export class SimulationClient {
     this.send({ type: 'pause', paused });
   }
 
-  reset(mapId: MapId, seed: number): void {
-    this.send({ type: 'reset', mapId, seed });
+  reset(mapId: MapId, modeId: GameModeId, seed: number): void {
+    this.send({ type: 'reset', mapId, modeId, seed });
   }
 
-  toggleCity(cityId: string): void {
-    this.send({ type: 'toggleCity', cityId });
-  }
-
-  flipCityOwner(cityId: string): void {
-    this.send({ type: 'flipCityOwner', cityId });
+  applyGameAction(action: GameAction): void {
+    this.send({ type: 'gameAction', action });
   }
 
   stepHistory(delta: -1 | 1): void {
