@@ -32,6 +32,11 @@ import { initializeTerrainFields } from './terrain';
 import { SimulationTopology } from './topology';
 import { rebuildPotential, transportResource } from './transport';
 
+export interface SimulationInitialization {
+  initializeControl?: boolean;
+  seedInitialResource?: boolean;
+}
+
 export class Simulation {
   readonly width: number;
   readonly height: number;
@@ -63,6 +68,7 @@ export class Simulation {
   constructor(
     private readonly map: MapDefinition,
     private readonly seed: number,
+    initialization: SimulationInitialization = {},
   ) {
     this.width = map.width;
     this.height = map.height;
@@ -102,8 +108,11 @@ export class Simulation {
       riverCrossingX: this.riverCrossingX,
       riverCrossingY: this.riverCrossingY,
     }, this.regions);
-    initializeControl(this.control, this.map, this.terrainBlocked, this.cities);
-    if (this.map.seedInitialResource !== false) {
+
+    if (initialization.initializeControl !== false) {
+      initializeControl(this.control, this.map, this.terrainBlocked, this.cities);
+    }
+    if (initialization.seedInitialResource !== false && this.map.seedInitialResource !== false) {
       seedInitialResource(this.cities, this.width, this.control, this.terrainBlocked, this.sides);
     }
   }
@@ -155,7 +164,7 @@ export class Simulation {
     return this.regions.isBorderOpen(first, second);
   }
 
-  resetToRegionalPeace(regionOwners: readonly (readonly [RegionId, Side])[]): void {
+  initializeRegionalControl(regionOwners: readonly (readonly [RegionId, Side])[]): void {
     const ownerByRegion = new Map<RegionId, Side>(regionOwners);
     for (let i = 0; i < this.size; i++) {
       if (this.terrainBlocked[i]) {
@@ -171,22 +180,6 @@ export class Simulation {
       if (!owner) throw new Error(`Missing owner for region ${regionId}`);
       this.control[i] = owner === 'blue' ? 1 : -1;
     }
-
-    for (const sideId of CURRENT_SIDE_IDS) {
-      const side = this.side(sideId);
-      side.war.fill(0);
-      side.committed.fill(0);
-      side.instability.fill(0);
-      side.potential.fill(0);
-      side.collapse.fill(0);
-    }
-    clearDerivedFields(this.sides, [
-      this.forcing,
-      this.frontConsumption,
-      this.rawForcingDebug,
-      this.pressureDebug,
-      this.tmpControl,
-    ]);
     this.potentialDirty = true;
   }
 
