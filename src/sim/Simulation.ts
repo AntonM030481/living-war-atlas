@@ -4,7 +4,7 @@ import { applyFrontConsumption, resolvePairCombat } from './combat';
 import { computePairCommitment } from './commitment';
 import { flipCityOwner, generateCityResource, toggleCityEnabled, updateCities } from './cities';
 import { updateControlField } from './control';
-import { initializeControlFromCities } from './initialControl';
+import { initializeControl } from './initialControl';
 import { seedInitialResource } from './initialResource';
 import { assertStateDimensions, clearArrays, cloneCities } from './state';
 import {
@@ -76,7 +76,7 @@ export class Simulation {
       riverCrossingX: this.riverCrossingX,
       riverCrossingY: this.riverCrossingY,
     });
-    this.initializeControl();
+    initializeControl(this.control, this.map, this.terrainBlocked, this.cities);
     if (this.map.seedInitialResource !== false) {
       seedInitialResource(this.cities, this.width, this.control, this.terrainBlocked, this.sides);
     }
@@ -254,21 +254,6 @@ export class Simulation {
 
   private isBlocked(index: number): boolean {
     return this.terrainBlocked[index] !== 0;
-  }
-
-  private initializeControl(): void {
-    if (this.map.initialControl === 'city-distance') {
-      initializeControlFromCities(this.control, this.width, this.height, this.terrainBlocked, this.cities);
-      return;
-    }
-
-    if (!this.map.initialFrontX) throw new Error('Map must define initialFrontX or initialControl');
-    for (let y = 0; y < this.height; y++) {
-      const frontX = this.map.initialFrontX(y);
-      for (let x = 0; x < this.width; x++) {
-        this.control[this.index(x, y)] = Math.tanh((frontX - x) / 2.4);
-      }
-    }
   }
 
   private sideAccess(side: Side, index: number): number {
