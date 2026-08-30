@@ -1,20 +1,32 @@
 import type { MapId } from '../sim/types';
-import { MAP_OPTIONS } from '../map/maps';
+import { MAP_OPTIONS, type MapOption } from '../map/maps';
 
-export function chooseMap(currentMapId: MapId, allowCancel: boolean): Promise<MapId | null> {
+export function chooseMap(
+  currentMapId: MapId,
+  allowCancel: boolean,
+  options: readonly MapOption[] = MAP_OPTIONS,
+): Promise<MapId | null> {
   return new Promise((resolve) => {
+    if (options.length === 0) {
+      resolve(null);
+      return;
+    }
+
+    const selectedDefault = options.some((option) => option.id === currentMapId)
+      ? currentMapId
+      : options[0].id;
     const dialog = document.createElement('dialog');
     dialog.className = 'map-picker';
     dialog.innerHTML = `
       <form>
         <div class="map-picker-title">Choose map</div>
         <div class="map-picker-options">
-          ${MAP_OPTIONS.map((option) => `
+          ${options.map((option) => `
             <button
               type="button"
-              class="map-picker-option${option.id === currentMapId ? ' selected' : ''}"
+              class="map-picker-option${option.id === selectedDefault ? ' selected' : ''}"
               data-map-id="${option.id}"
-              aria-pressed="${option.id === currentMapId}"
+              aria-pressed="${option.id === selectedDefault}"
             >
               <strong>${option.name}</strong>
               <span>${option.description}</span>
@@ -29,7 +41,7 @@ export function chooseMap(currentMapId: MapId, allowCancel: boolean): Promise<Ma
     `;
 
     let settled = false;
-    let selectedMapId = currentMapId;
+    let selectedMapId = selectedDefault;
     const finish = (mapId: MapId | null) => {
       if (settled) return;
       settled = true;
