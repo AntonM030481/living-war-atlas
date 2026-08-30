@@ -5,8 +5,6 @@ import { computePairCommitment } from './commitment';
 import { flipCityOwner, generateCityResource, toggleCityEnabled, updateCities } from './cities';
 import { updateControlField } from './control';
 import { initializeControlFromCities } from './initialControl';
-import { rasterizeTerrainRegions } from '../map/terrain';
-import { rasterizeRivers } from './rivers';
 import { assertStateDimensions, clearArrays, cloneCities } from './state';
 import {
   CURRENT_SIDE_IDS,
@@ -16,6 +14,7 @@ import {
   type SideFields,
 } from './sides';
 import { computeSimulationStats } from './stats';
+import { initializeTerrainFields } from './terrain';
 import { rebuildPotential, sideAccess, transportResource } from './transport';
 
 export class Simulation {
@@ -67,7 +66,15 @@ export class Simulation {
     this.pressureDebug = new Float32Array(this.size);
     this.tmpControl = new Float32Array(this.size);
 
-    this.initializeTerrain();
+    initializeTerrainFields(this.map, {
+      defense: this.terrainDefense,
+      mobility: this.terrainMobility,
+      capacity: this.terrainCapacity,
+      blocked: this.terrainBlocked,
+      forest: this.terrainForest,
+      riverCrossingX: this.riverCrossingX,
+      riverCrossingY: this.riverCrossingY,
+    });
     this.initializeControl();
     if (this.map.seedInitialResource !== false) this.seedInitialResource();
   }
@@ -257,43 +264,6 @@ export class Simulation {
       const frontX = this.map.initialFrontX(y);
       for (let x = 0; x < this.width; x++) {
         this.control[this.index(x, y)] = Math.tanh((frontX - x) / 2.4);
-      }
-    }
-  }
-
-  private initializeTerrain(): void {
-    this.terrainDefense.fill(1);
-    this.terrainMobility.fill(1);
-    this.terrainCapacity.fill(1);
-
-    const river = rasterizeRivers(this.width, this.height, this.map.rivers);
-    this.riverCrossingX.set(river.crossingX);
-    this.riverCrossingY.set(river.crossingY);
-    this.terrainForest.set(rasterizeTerrainRegions(this.width, this.height, this.map.forests));
-
-    for (let y = 0; y < this.height; y++) {
-      for (let x = 0; x < this.width; x++) {
-        const i = this.index(x, y);
-        const terrain = this.map.terrainAt?.(x, y) ?? 'open';
-        if (terrain !== 'open') {
-          this.terrainBlocked[i] = 1;
-          this.terrainMobility[i] = 0;
-          this.terrainCapacity[i] = 0;
-          continue;
-        }
-
-        const riverStrength = river.strength[i];
-        if (riverStrength > 0) {
-          this.terrainDefense[i] *= 1 + CFG.riverDefenseBonus * riverStrength;
-          this.terrainMobility[i] *= 1 - CFG.riverMobilityPenalty * riverStrength;
-          this.terrainCapacity[i] *= 1 - CFG.riverCapacityPenalty * riverStrength;
-        }
-
-        if (this.terrainForest[i]) {
-          this.terrainDefense[i] *= CFG.forestDefenseMultiplier;
-          this.terrainMobility[i] *= CFG.forestMobilityMultiplier;
-          this.terrainCapacity[i] *= CFG.forestCapacityMultiplier;
-        }
       }
     }
   }
