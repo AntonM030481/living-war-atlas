@@ -1,4 +1,6 @@
-import type { SimulationState } from '../sim/types';
+import type { GameModeId } from '../game/GameMode';
+import type { GameSessionState } from '../game/GameSession';
+import type { MapId } from '../sim/types';
 
 const DB_NAME = 'living-war-atlas';
 const DB_VERSION = 1;
@@ -8,8 +10,10 @@ export const HISTORY_STATE_KEY = 'history' as const;
 export interface PersistedHistory {
   key: typeof HISTORY_STATE_KEY;
   seed: number;
+  mapId: MapId;
+  modeId: GameModeId;
   savedAt: number;
-  history: SimulationState[];
+  history: GameSessionState[];
   historyIndex: number;
   nextHistoryTime: number;
 }
@@ -24,7 +28,14 @@ export class HistoryStorage {
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(STATE_STORE, 'readonly');
       const request = transaction.objectStore(STATE_STORE).get(HISTORY_STATE_KEY);
-      request.onsuccess = () => resolve((request.result as PersistedHistory | undefined) ?? null);
+      request.onsuccess = () => {
+        const record = request.result as Partial<PersistedHistory> | undefined;
+        if (!record || typeof record.modeId !== 'string' || typeof record.mapId !== 'string') {
+          resolve(null);
+          return;
+        }
+        resolve(record as PersistedHistory);
+      };
       request.onerror = () => reject(request.error);
     });
   }
