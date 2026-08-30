@@ -337,14 +337,17 @@ export class GameApp {
   }
 
   private handleSecondaryCityClick(event: MouseEvent | PointerEvent, force = false): void {
-    if (this.modeId !== 'sandbox') return;
+    if (this.modeId !== 'sandbox' && this.modeId !== 'partisan') return;
     const secondary = force || event.button === 2 || (event.button === 0 && event.ctrlKey);
     if (!secondary) return;
     const cityId = this.renderer.cityIdAtClientPoint(event.clientX, event.clientY);
     if (!cityId) return;
-    const action = this.latestActions.find(
-      (candidate) => candidate.type === 'sandboxFlipCity' && candidate.cityId === cityId,
-    );
+    const action = this.latestActions.find((candidate) => {
+      if (this.modeId === 'sandbox') {
+        return candidate.type === 'sandboxFlipCity' && candidate.cityId === cityId;
+      }
+      return candidate.type === 'partisanCaptureSource' && candidate.cityId === cityId;
+    });
     if (!action) return;
     event.preventDefault();
     event.stopPropagation();
