@@ -16,7 +16,8 @@ import {
 } from './sides';
 import { computeSimulationStats } from './stats';
 import { initializeTerrainFields } from './terrain';
-import { rebuildPotential, sideAccess, transportResource } from './transport';
+import { SimulationTopology } from './topology';
+import { rebuildPotential, transportResource } from './transport';
 
 export class Simulation {
   readonly width: number;
@@ -39,6 +40,7 @@ export class Simulation {
   private readonly rawForcingDebug: Float32Array;
   private readonly pressureDebug: Float32Array;
   private readonly tmpControl: Float32Array;
+  private readonly topology: SimulationTopology;
 
   private stepCount = 0;
   private time = 0;
@@ -73,6 +75,14 @@ export class Simulation {
       capacity: this.terrainCapacity,
       blocked: this.terrainBlocked,
       forest: this.terrainForest,
+      riverCrossingX: this.riverCrossingX,
+      riverCrossingY: this.riverCrossingY,
+    });
+    this.topology = new SimulationTopology({
+      width: this.width,
+      height: this.height,
+      control: this.control,
+      blocked: this.terrainBlocked,
       riverCrossingX: this.riverCrossingX,
       riverCrossingY: this.riverCrossingY,
     });
@@ -123,8 +133,8 @@ export class Simulation {
       width: this.width,
       height: this.height,
       terrainMobility: this.terrainMobility,
-      isBlocked: (index) => this.isBlocked(index),
-      edgeFactor: (x, y, dx, dy) => this.edgeFactor(x, y, dx, dy),
+      isBlocked: (index) => this.topology.isBlocked(index),
+      edgeFactor: (x, y, dx, dy) => this.topology.edgeFactor(x, y, dx, dy),
     });
     this.stepCount += 1;
     this.time += CFG.dt;
@@ -139,7 +149,7 @@ export class Simulation {
       height: this.height,
       step: this.stepCount,
       gameTime: this.time,
-      stats: computeSimulationStats(this.size, this.cities, blue, red, (index) => this.isFront(index)),
+      stats: computeSimulationStats(this.size, this.cities, blue, red, (index) => this.topology.isFront(index)),
       control: this.control.slice(),
       warBlue: blue.war.slice(),
       warRed: red.war.slice(),
@@ -252,37 +262,6 @@ export class Simulation {
     return y * this.width + x;
   }
 
-  private isBlocked(index: number): boolean {
-    return this.terrainBlocked[index] !== 0;
-  }
-
-  private sideAccess(side: Side, index: number): number {
-    if (this.isBlocked(index)) return 0;
-    return sideAccess(side, this.control[index]);
-  }
-
-  private isFront(index: number): boolean {
-    if (this.isBlocked(index)) return false;
-    const control = this.control[index];
-    const x = index % this.width;
-    const y = Math.floor(index / this.width);
-    if (Math.abs(control) <= CFG.frontBand) return true;
-    if (x > 0 && !this.isBlocked(index - 1) && control * this.control[index - 1] <= 0) return true;
-    if (x + 1 < this.width && !this.isBlocked(index + 1) && control * this.control[index + 1] <= 0) return true;
-    if (y > 0 && !this.isBlocked(index - this.width) && control * this.control[index - this.width] <= 0) return true;
-    if (y + 1 < this.height && !this.isBlocked(index + this.width) && control * this.control[index + this.width] <= 0) return true;
-    return false;
-  }
-
-  private edgeFactor(x: number, y: number, dx: number, dy: number): number {
-    const i = this.index(x, y);
-    if (dx === 1) return this.riverCrossingX[i];
-    if (dx === -1) return this.riverCrossingX[i - 1];
-    if (dy === 1) return this.riverCrossingY[i];
-    if (dy === -1) return this.riverCrossingY[i - this.width];
-    return 1;
-  }
-
   private computeFrontMassAndNeed(): void {
     computePairCommitment(
       this.side('blue'),
@@ -292,9 +271,9 @@ export class Simulation {
         height: this.height,
         radius: CFG.massRadius,
         terrainDefense: this.terrainDefense,
-        isFront: (index) => this.isFront(index),
-        firstAccess: (index) => this.sideAccess('blue', index),
-        secondAccess: (index) => this.sideAccess('red', index),
+        isFront: (index) => this.topology.isFront(index),
+        firstAccess: (index) => this.topology.sideAccess('blue', index),
+        secondAccess: (index) => this.topology.sideAccess('red', index),
       },
       CFG,
     );
@@ -306,9 +285,9 @@ export class Simulation {
       height: this.height,
       terrainMobility: this.terrainMobility,
       terrainCapacity: this.terrainCapacity,
-      isFront: (index: number) => this.isFront(index),
-      access: (index: number) => this.sideAccess(side, index),
-      edgeFactor: (x: number, y: number, dx: number, dy: number) => this.edgeFactor(x, y, dx, dy),
+      isFront: (index: number) => this.topology.isFront(index),
+      access: (index: number) => this.topology.sideAccess(side, index),
+      edgeFactor: (x: number, y: number, dx: number, dy: number) => this.topology.edgeFactor(x, y, dx, dy),
     };
   }
 
@@ -334,7 +313,7 @@ export class Simulation {
         width: this.width,
         height: this.height,
         terrainDefense: this.terrainDefense,
-        isFront: (index) => this.isFront(index),
+        isFront: (index) => this.topology.isFront(index),
         addConsumption: (x, y, intensity) => this.accumulateFrontConsumption(x, y, intensity),
       },
       this.time,
@@ -356,7 +335,7 @@ export class Simulation {
         const xx = x + dx;
         if (xx < 0 || xx >= this.width) continue;
         const i = this.index(xx, yy);
-        if (this.isBlocked(i)) continue;
+        if (this.topology.isBlocked(i)) continue;
         const weight = 1 / (1 + Math.hypot(dx, dy));
         this.frontConsumption[i] += ratePerSecond * weight;
       }
