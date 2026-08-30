@@ -5,7 +5,7 @@ import { ConquestMetaGame, type ConquestMetaState } from '../meta/conquest/Conqu
 import { PartisanMetaGame, type PartisanMetaState } from '../meta/partisan/PartisanMetaGame';
 import { SandboxMetaGame, type SandboxMetaState } from '../meta/sandbox/SandboxMetaGame';
 import type { MetaGame, MetaGameStatus } from '../meta/MetaGame';
-import type { Simulation } from '../sim/Simulation';
+import { Simulation } from '../sim/Simulation';
 
 export type GameModeId = 'sandbox' | 'partisan' | 'conquest';
 
@@ -70,6 +70,17 @@ export function getGameModeOption(id: GameModeId): GameModeOption {
 
 export function mapSupportsMode(map: MapDefinition, modeId: GameModeId): boolean {
   return modeId !== 'conquest' || Boolean(map.regions?.length && map.regionAt);
+}
+
+export function createSimulationForMode(modeId: GameModeId, map: MapDefinition, seed: number): Simulation {
+  if (!mapSupportsMode(map, modeId)) throw new Error(`${modeId} is not supported by this map`);
+  return new Simulation(
+    map,
+    seed,
+    modeId === 'conquest'
+      ? { initializeControl: false, seedInitialResource: false }
+      : undefined,
+  );
 }
 
 export interface GameModeRuntime {
