@@ -43,6 +43,7 @@ export class ConquestMetaGame implements MetaGame<ConquestAction, ConquestMetaSt
   }
 
   initialize(simulation: Simulation): void {
+    this.closePoliticalBorders(simulation);
     for (const country of this.countries.values()) {
       simulation.setCityEnabled(this.capital(country.regionId), country.active);
     }
@@ -124,6 +125,15 @@ export class ConquestMetaGame implements MetaGame<ConquestAction, ConquestMetaSt
       seen.add(restored.regionId);
     }
     if (seen.size !== this.countries.size) throw new Error('Incomplete conquest meta-game state');
+  }
+
+  private closePoliticalBorders(simulation: Simulation): void {
+    for (const country of this.countries.values()) {
+      for (const neighborId of simulation.regionNeighbors(country.regionId)) {
+        if (country.regionId >= neighborId) continue;
+        simulation.setRegionBorderOpen(country.regionId, neighborId, false);
+      }
+    }
   }
 
   private openFriendlyBorders(simulation: Simulation): void {
