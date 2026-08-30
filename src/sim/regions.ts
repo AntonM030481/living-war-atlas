@@ -130,6 +130,8 @@ export class RegionTopology {
     if (first === null || second === null || first === second) return;
     this.adjacency.get(first)?.add(second);
     this.adjacency.get(second)?.add(first);
+    // Regions are passive geography. Political closure is imposed by a meta-game.
+    this.openBorderKeys.add(borderKey(first, second));
   }
 
   private requireRegion(regionId: RegionId): void {
