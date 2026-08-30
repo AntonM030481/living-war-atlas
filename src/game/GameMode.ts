@@ -103,15 +103,6 @@ function completionStatus<Action, State>(
   return meta.completionStatus?.(simulation) ?? defaultCompletionStatus(simulation);
 }
 
-function openAllRegionBorders(simulation: Simulation, map: MapDefinition): void {
-  for (const region of map.regions ?? []) {
-    for (const neighborId of simulation.regionNeighbors(region.id)) {
-      if (region.id >= neighborId) continue;
-      simulation.setRegionBorderOpen(region.id, neighborId, true);
-    }
-  }
-}
-
 export function createGameModeRuntime(
   modeId: GameModeId,
   map: MapDefinition,
@@ -123,7 +114,7 @@ export function createGameModeRuntime(
     const meta = new SandboxMetaGame();
     return {
       id: modeId,
-      initialize: (simulation) => openAllRegionBorders(simulation, map),
+      initialize: () => {},
       beforeTick: () => {},
       afterTick: () => {},
       availableActions: (simulation) => meta.availableActions(simulation).map((action) =>
@@ -149,7 +140,7 @@ export function createGameModeRuntime(
     const meta = new PartisanMetaGame(playerSide);
     return {
       id: modeId,
-      initialize: (simulation) => openAllRegionBorders(simulation, map),
+      initialize: () => {},
       beforeTick: () => {},
       afterTick: () => {},
       availableActions: (simulation) => meta.availableActions(simulation)
