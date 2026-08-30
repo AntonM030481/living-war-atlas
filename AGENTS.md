@@ -59,6 +59,14 @@ Before changing code:
 
 When asked to review, analyze, inspect, or propose changes, remain read-only unless the user explicitly asks to implement or modify files.
 
+When changing repository files:
+
+1. Never commit directly to `main`.
+2. Create a dedicated branch for each change.
+3. Open a pull request into `main`.
+4. Do not merge until the required `ci` check passes.
+5. Keep diagnostics out of blocking CI; run them explicitly with `npm run diagnostics`.
+
 ## Explicitly out of scope for MVP v0.1
 
 Do not add any of the following unless explicitly requested:

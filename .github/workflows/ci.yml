@@ -27,4 +27,4 @@ jobs:
         run: npm run build
 
       - name: Test
-        run: npm test -- --exclude 'tests/diagnostics/**' --testNamePattern '^(?!exhausts front-supporting mass when city production is cut$).*'
+        run: npm test -- --exclude 'tests/diagnostics/**'
