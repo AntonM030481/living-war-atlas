@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { mapSupportsMode } from '../../src/game/GameMode';
+import { createGameModeRuntime, mapSupportsMode } from '../../src/game/GameMode';
+import { GameSession } from '../../src/game/GameSession';
 import { MAP_OPTIONS } from '../../src/map/maps';
 import { generateMapRegions } from '../../src/map/regionGeneration';
+import { Simulation } from '../../src/sim/Simulation';
 import type { MapDefinition } from '../../src/sim/types';
 
 function simpleMap(): MapDefinition {
@@ -51,6 +53,19 @@ describe('automatic country regions', () => {
         const region = option.map.regions!.find((candidate) => candidate.cityId === city.id)!;
         expect(option.map.regionAt!(city.x, city.y), `${option.id}:${city.id}`).toBe(region.id);
       }
+    }
+  });
+
+  it('keeps generated political borders transparent to Sandbox and Partisans', () => {
+    const map = generateMapRegions(simpleMap(), 12345);
+    const [firstRegion] = map.regions!;
+
+    for (const modeId of ['sandbox', 'partisan'] as const) {
+      const simulation = new Simulation(map, 1);
+      new GameSession(simulation, createGameModeRuntime(modeId, map));
+      const neighbor = simulation.regionNeighbors(firstRegion.id)[0];
+      expect(neighbor).toBeDefined();
+      expect(simulation.isRegionBorderOpen(firstRegion.id, neighbor), modeId).toBe(true);
     }
   });
 });
