@@ -1,11 +1,10 @@
 /// <reference lib="webworker" />
 
-import { createGameModeRuntime, type GameModeId } from '../game/GameMode';
+import { createGameModeRuntime, createSimulationForMode, type GameModeId } from '../game/GameMode';
 import { GameSession, type GameSessionState } from '../game/GameSession';
 import { CFG, type Speed } from '../sim/Config';
 import { clearPotential } from '../sim/completion';
 import { seedInitialEnclaves } from '../sim/DebugActions';
-import { Simulation } from '../sim/Simulation';
 import type { MapDefinition, MapId, WorkerInMessage, WorkerOutMessage } from '../sim/types';
 import { getMapDefinition } from '../map/maps';
 import { HistoryManager } from './HistoryManager';
@@ -70,7 +69,7 @@ function finishIfDecided(): boolean {
 }
 
 function createFreshSession(map: MapDefinition, nextModeId: GameModeId, nextSeed: number): GameSession {
-  const simulation = new Simulation(map, nextSeed);
+  const simulation = createSimulationForMode(nextModeId, map, nextSeed);
   const game = new GameSession(simulation, createGameModeRuntime(nextModeId, map));
   if (nextModeId === 'sandbox' && mapId === 'theatre') seedInitialEnclaves(simulation, map, nextSeed);
   return game;
@@ -102,7 +101,7 @@ async function createSession(
       ) {
         seed = persisted.seed >>> 0 || fallbackSeed;
         session = new GameSession(
-          new Simulation(map, seed),
+          createSimulationForMode(nextModeId, map, seed),
           createGameModeRuntime(nextModeId, map),
         );
         session.restoreState(savedState);
