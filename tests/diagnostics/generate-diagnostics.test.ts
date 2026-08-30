@@ -135,7 +135,13 @@ function total(field: Float32Array): number {
   return sum;
 }
 
-function localWeightedSum(snapshot: SimulationSnapshot, field: Float32Array, cx: number, cy: number, radius = 5): number {
+function localWeightedSum(
+  snapshot: SimulationSnapshot,
+  field: Float32Array,
+  cx: number,
+  cy: number,
+  radius = 5 * CFG.spatialScale,
+): number {
   let sum = 0;
   for (let dy = -radius; dy <= radius; dy++) {
     const y = cy + dy;
@@ -152,7 +158,14 @@ function localWeightedSum(snapshot: SimulationSnapshot, field: Float32Array, cx:
   return sum;
 }
 
-function localVectorMagnitudeSum(snapshot: SimulationSnapshot, flowX: Float32Array, flowY: Float32Array, cx: number, cy: number, radius = 5): number {
+function localVectorMagnitudeSum(
+  snapshot: SimulationSnapshot,
+  flowX: Float32Array,
+  flowY: Float32Array,
+  cx: number,
+  cy: number,
+  radius = 5 * CFG.spatialScale,
+): number {
   let sum = 0;
   for (let dy = -radius; dy <= radius; dy++) {
     const y = cy + dy;
