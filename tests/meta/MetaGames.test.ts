@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createGameModeRuntime } from '../../src/game/GameMode';
+import { createGameModeRuntime, createSimulationForMode } from '../../src/game/GameMode';
 import { GameSession } from '../../src/game/GameSession';
 import { Simulation } from '../../src/sim/Simulation';
 import type { MapDefinition } from '../../src/sim/types';
@@ -35,7 +35,6 @@ function conquestMap(): MapDefinition {
     regionAt: (x) => x < 2 ? 'a' : 'b',
     forests: [],
     rivers: [],
-    seedInitialResource: false,
   };
 }
 
@@ -84,9 +83,23 @@ describe('game modes', () => {
     expect(session.status().winner).toBe('blue');
   });
 
+  it('starts Conquest with country control but no initial front or Force', () => {
+    const map = conquestMap();
+    const simulation = createSimulationForMode('conquest', map, 1);
+    const session = new GameSession(simulation, createGameModeRuntime('conquest', map));
+    const snapshot = simulation.snapshot();
+
+    expect([...simulation.control]).toEqual([1, 1, -1, -1]);
+    expect(snapshot.stats.frontCells).toBe(0);
+    expect([...snapshot.frontMask ?? []].some(Boolean)).toBe(false);
+    expect([...simulation.warBlue].some((value) => value !== 0)).toBe(false);
+    expect([...simulation.warRed].some((value) => value !== 0)).toBe(false);
+    expect(simulation.isRegionBorderOpen('a', 'b')).toBe(false);
+  });
+
   it('keeps inactive countries quiet and opens their border only on invasion', () => {
     const map = conquestMap();
-    const simulation = new Simulation(map, 1);
+    const simulation = createSimulationForMode('conquest', map, 1);
     const session = new GameSession(simulation, createGameModeRuntime('conquest', map));
 
     expect(simulation.cities.find((city) => city.id === 'a-city')?.enabled).toBe(false);
@@ -104,6 +117,7 @@ describe('game modes', () => {
     expect(simulation.cities.find((city) => city.id === 'b-city')?.enabled).toBe(true);
     expect(simulation.isRegionBorderOpen('a', 'b')).toBe(true);
     expect(session.availableActions()).not.toContainEqual({ type: 'conquestInvade', regionId: 'b' });
+    expect(simulation.snapshot().stats.frontCells).toBeGreaterThan(0);
   });
 
   it('saves mode state together with simulation state', () => {
