@@ -1,7 +1,7 @@
 import type { Side } from '../../sim/Config';
 import { forceCityEnclave } from '../../sim/DebugActions';
 import type { Simulation } from '../../sim/Simulation';
-import type { MetaGame, MetaGameStatus } from '../MetaGame';
+import type { MetaGame } from '../MetaGame';
 
 export interface PartisanAction {
   type: 'captureSource';
@@ -40,11 +40,6 @@ export class PartisanMetaGame implements MetaGame<PartisanAction, PartisanMetaSt
       throw new Error(`Could not capture city ${action.cityId}`);
     }
     this.nextActionTime = simulation.gameTime + this.actionIntervalSeconds;
-  }
-
-  status(simulation: Simulation): MetaGameStatus {
-    const hasEnemySource = simulation.cities.some((city) => city.owner !== this.playerSide);
-    return { winner: hasEnemySource ? null : this.playerSide };
   }
 
   saveState(): PartisanMetaState {
