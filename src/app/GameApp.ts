@@ -76,6 +76,8 @@ export class GameApp {
     this.renderer = new AtlasRenderer(this.pixi, this.map);
     this.renderer.setDebug(false);
     this.renderer.setShowFlows(false);
+    this.renderer.setShowCountryBorders(this.modeId === 'conquest');
+    this.renderer.setShowHistoricalBorder(this.modeId !== 'conquest');
 
     this.overlays = new CityOverlays(this.map, this.renderer, this.mapStage);
     this.createUi();
