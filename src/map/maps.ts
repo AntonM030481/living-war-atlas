@@ -11,30 +11,40 @@ export interface MapOption {
   map: MapDefinition;
 }
 
-const theatreWithRegions = generateMapRegions(testMap, 0x41a7c2d1);
-const islandWithRegions = generateMapRegions(islandMap, 0x73b51e29);
-const linearWithRegions = generateMapRegions(linearMap, 0x19f24bc3);
+function seedFromMapId(id: MapId): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) {
+    hash ^= id.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+}
 
-export const MAP_OPTIONS: readonly MapOption[] = [
+const RAW_MAP_OPTIONS: readonly MapOption[] = [
   {
     id: 'theatre',
     name: 'Full playground map',
     description: '256x160 map with 10 cities, river and forests.',
-    map: theatreWithRegions,
+    map: testMap,
   },
   {
     id: 'island',
     name: 'Mountain theatre',
     description: '256x160 map with 10 cities, mountains, foothill forests and a branched river network.',
-    map: islandWithRegions,
+    map: islandMap,
   },
   {
     id: 'linear',
     name: 'Linear test map',
     description: '256x24 map with 2 cities and no obstacles.',
-    map: linearWithRegions,
+    map: linearMap,
   },
 ];
+
+export const MAP_OPTIONS: readonly MapOption[] = RAW_MAP_OPTIONS.map((option) => ({
+  ...option,
+  map: generateMapRegions(option.map, seedFromMapId(option.id)),
+}));
 
 export function isMapId(value: string): value is MapId {
   return MAP_OPTIONS.some((option) => option.id === value);
