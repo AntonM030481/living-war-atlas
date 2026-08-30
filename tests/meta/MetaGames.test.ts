@@ -49,16 +49,23 @@ describe('game modes', () => {
     expect(simulation.cities.find((city) => city.id === 'blue')?.enabled).toBe(false);
   });
 
-  it('implements the minimal partisan source-capture loop above Simulation', () => {
+  it('makes a partisan capture the same full enclave action as sandbox secondary click', () => {
     const map = partisanMap();
     const simulation = new Simulation(map, 1);
     const session = new GameSession(simulation, createGameModeRuntime('partisan', map));
+    const redCity = simulation.cities.find((city) => city.id === 'red')!;
+    const cityIndex = redCity.y * simulation.width + redCity.x;
 
+    expect(simulation.control[cityIndex]).toBeLessThan(0);
     expect(session.availableActions()).toEqual([{ type: 'partisanCaptureSource', cityId: 'red' }]);
 
     session.apply({ type: 'partisanCaptureSource', cityId: 'red' });
 
-    expect(simulation.cities.find((city) => city.id === 'red')?.owner).toBe('blue');
+    expect(redCity.owner).toBe('blue');
+    expect(redCity.enabled).toBe(true);
+    expect(redCity.integration).toBe(1);
+    expect(simulation.control[cityIndex]).toBeGreaterThan(0);
+    expect(simulation.warBlue[cityIndex]).toBeGreaterThan(0);
     expect(session.availableActions()).toEqual([]);
     expect(session.status().winner).toBe('blue');
   });
