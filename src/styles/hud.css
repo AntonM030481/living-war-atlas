@@ -24,6 +24,16 @@
   opacity: .82;
 }
 
+.hud .mode-name {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+.hud #mode-status {
+  min-height: 1.2em;
+}
+
 .time-row {
   display: flex;
   align-items: baseline;
