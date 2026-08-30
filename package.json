@@ -11,7 +11,7 @@
     "bench": "vitest bench",
     "bench:sim": "node scripts/bench-sim.mjs",
     "bench:sim:raw": "vitest bench tests/perf --no-file-parallelism",
-    "diagnostics": "vitest run tests/diagnostics/generate-diagnostics.test.ts",
+    "diagnostics": "vitest run tests/diagnostics",
     "deploy": "npm run build && wrangler deploy",
     "ios:init": "npm run build && npx cap add ios && npx cap open ios",
     "ios:sync": "npm run build && npx cap sync ios",

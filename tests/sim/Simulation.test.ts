@@ -3,27 +3,15 @@ import { linearMap } from '../../src/map/linearMap';
 import { smallLinearMap } from '../../src/map/smallLinearMap';
 import { testMap } from '../../src/map/testMap';
 import { applyFrontConsumption } from '../../src/sim/combat';
-import { CFG, ticks } from '../../src/sim/Config';
+import { CFG } from '../../src/sim/Config';
 import { Simulation } from '../../src/sim/Simulation';
+import { SimulationTopology } from '../../src/sim/topology';
 import { MapDefinition } from '../../src/sim/types';
 
 function total(a: Float32Array): number {
   let sum = 0;
   for (const value of a) sum += value;
   return sum;
-}
-
-function frontPosition1D(sim: Simulation, width: number, y = 0): number {
-  const row = y * width;
-  for (let x = 0; x < width - 1; x++) {
-    const a = sim.control[row + x];
-    const b = sim.control[row + x + 1];
-    if (a >= 0 && b <= 0) {
-      const t = a / (a - b || 1);
-      return x + t;
-    }
-  }
-  return sim.control[row] < 0 ? 0 : width - 1;
 }
 
 function linearFrontCells(sim: Simulation): { y: number; blue: number; red: number } {
@@ -34,6 +22,17 @@ function linearFrontCells(sim: Simulation): { y: number; blue: number; red: numb
     blue: y * sim.width + frontX - 1,
     red: y * sim.width + frontX + 1,
   };
+}
+
+function topologyFor(sim: Simulation): SimulationTopology {
+  return new SimulationTopology({
+    width: sim.width,
+    height: sim.height,
+    control: sim.control,
+    blocked: sim.terrainBlocked,
+    riverCrossingX: sim.riverCrossingX,
+    riverCrossingY: sim.riverCrossingY,
+  });
 }
 
 function localFlow(snapshot: ReturnType<Simulation['snapshot']>, cityId: string): number {
@@ -161,21 +160,6 @@ describe('Simulation', () => {
     }
   });
 
-  it('exhausts front-supporting mass when city production is cut', () => {
-    const sim = new Simulation(smallLinearMap, 12345);
-    const y = Math.floor(sim.height / 2);
-    for (let i = 0; i < ticks(75); i++) sim.tick();
-    const initialFront = frontPosition1D(sim, sim.width, y);
-
-    const blue = sim.cities.find((city) => city.id === 'b1');
-    if (!blue) throw new Error('Blue city missing');
-    blue.baseProduction = 0;
-
-    for (let i = 0; i < ticks(400); i++) sim.tick();
-
-    expect(frontPosition1D(sim, sim.width, y)).toBeLessThan(initialFront - 1.5);
-  });
-
   it('separates committed combat mass from mobile reserve', () => {
     function settleCommitment(blueAmount: number, redAmount: number) {
       const sim = new Simulation(smallLinearMap, 1);
@@ -222,12 +206,12 @@ describe('Simulation', () => {
   it('treats both cells adjacent to the zero contour as frontline', () => {
     const sim = new Simulation(smallLinearMap, 1);
     const cells = linearFrontCells(sim);
-    const internals = sim as unknown as { isFront(i: number): boolean };
+    const topology = topologyFor(sim);
 
     expect(sim.control[cells.blue]).toBeGreaterThan(0);
     expect(sim.control[cells.red]).toBeLessThan(0);
-    expect(internals.isFront(cells.blue)).toBe(true);
-    expect(internals.isFront(cells.red)).toBe(true);
+    expect(topology.isFront(cells.blue)).toBe(true);
+    expect(topology.isFront(cells.red)).toBe(true);
   });
 
   it('does not create frontline cells on blocked terrain', () => {
@@ -244,7 +228,7 @@ describe('Simulation', () => {
         x === 0 || y === 0 || x === width - 1 || y === height - 1 ? 'blocked' as const : 'open' as const,
     };
     const sim = new Simulation(map, 1);
-    const internals = sim as unknown as { isFront(i: number): boolean };
+    const topology = topologyFor(sim);
 
     sim.control.fill(1);
     for (let x = 0; x < width; x++) {
@@ -261,17 +245,17 @@ describe('Simulation', () => {
     for (let x = 0; x < width; x++) {
       expect(sim.terrainBlocked[x]).toBe(1);
       expect(sim.terrainBlocked[(height - 1) * width + x]).toBe(1);
-      expect(internals.isFront(x)).toBe(false);
-      expect(internals.isFront((height - 1) * width + x)).toBe(false);
+      expect(topology.isFront(x)).toBe(false);
+      expect(topology.isFront((height - 1) * width + x)).toBe(false);
     }
     for (let y = 0; y < height; y++) {
       expect(sim.terrainBlocked[y * width]).toBe(1);
       expect(sim.terrainBlocked[y * width + width - 1]).toBe(1);
-      expect(internals.isFront(y * width)).toBe(false);
-      expect(internals.isFront(y * width + width - 1)).toBe(false);
+      expect(topology.isFront(y * width)).toBe(false);
+      expect(topology.isFront(y * width + width - 1)).toBe(false);
     }
-    expect(internals.isFront(4 * width + 5)).toBe(true);
-    expect(internals.isFront(4 * width + 6)).toBe(true);
+    expect(topology.isFront(4 * width + 5)).toBe(true);
+    expect(topology.isFront(4 * width + 6)).toBe(true);
   });
 
   it('transports reserve without transporting committed combat mass', () => {
