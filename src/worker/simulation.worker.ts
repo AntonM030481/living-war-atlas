@@ -1,19 +1,22 @@
 /// <reference lib="webworker" />
 
+import { createGameModeRuntime, type GameModeId } from '../game/GameMode';
+import { GameSession, type GameSessionState } from '../game/GameSession';
 import { CFG, type Speed } from '../sim/Config';
-import { clearPotential, winnerFromState } from '../sim/completion';
-import { forceCityEnclave, seedInitialEnclaves } from '../sim/DebugActions';
+import { clearPotential } from '../sim/completion';
+import { seedInitialEnclaves } from '../sim/DebugActions';
 import { Simulation } from '../sim/Simulation';
-import type { MapDefinition, MapId, SimulationState, WorkerInMessage, WorkerOutMessage } from '../sim/types';
+import type { MapDefinition, MapId, WorkerInMessage, WorkerOutMessage } from '../sim/types';
 import { getMapDefinition } from '../map/maps';
 import { HistoryManager } from './HistoryManager';
 import { HistoryStorage } from './HistoryStorage';
 
-let sim: Simulation | null = null;
+let session: GameSession | null = null;
 let speed: Speed = 1;
 let paused = false;
 let seed = 1;
 let mapId: MapId = 'theatre';
+let modeId: GameModeId = 'sandbox';
 let timer: ReturnType<typeof setInterval> | null = null;
 let launchToken = 0;
 
@@ -24,87 +27,118 @@ function post(message: WorkerOutMessage): void {
 }
 
 function currentWinner() {
-  if (!sim) return null;
-  return winnerFromState(sim.control, sim.terrainBlocked, sim.cities, sim.sides);
+  return session?.status().winner ?? null;
 }
 
 function postSnapshot(): void {
-  if (!sim) return;
-  const snapshot = sim.snapshot();
+  if (!session) return;
+  const snapshot = session.simulation.snapshot();
   const recentCaptures = history.recentCaptures(snapshot.control, snapshot.gameTime, CFG.recentCaptureFadeSeconds);
   snapshot.recentCaptureTime = recentCaptures.time;
   snapshot.recentCaptureSide = recentCaptures.side;
-  post({ type: 'snapshot', snapshot, history: history.info(sim.gameTime), winner: currentWinner() });
+  post({
+    type: 'snapshot',
+    snapshot,
+    history: history.info(session.simulation.gameTime),
+    winner: currentWinner(),
+    actions: session.availableActions(),
+    modeView: session.view(),
+  });
 }
 
 function saveHistoryCheckpoint(force = false): void {
-  if (!sim) return;
-  history.checkpoint(sim.saveState(), seed, force);
+  if (!session) return;
+  history.checkpoint(session.saveState(), seed, mapId, modeId, force);
 }
 
-function isStateCompatible(state: SimulationState, map: MapDefinition): boolean {
-  return state.width === map.width
-    && state.height === map.height
-    && state.cities.length === map.cities.length
-    && state.cities.every((city, index) => city.id === map.cities[index]?.id);
+function isStateCompatible(state: GameSessionState, map: MapDefinition, expectedModeId: GameModeId): boolean {
+  const simulation = state.simulation;
+  return state.mode.id === expectedModeId
+    && simulation.width === map.width
+    && simulation.height === map.height
+    && simulation.cities.length === map.cities.length
+    && simulation.cities.every((city, index) => city.id === map.cities[index]?.id);
 }
 
 function finishIfDecided(): boolean {
   const winner = currentWinner();
-  if (!sim || !winner) return false;
-  clearPotential(sim.sides);
+  if (!session || !winner) return false;
+  clearPotential(session.simulation.sides);
   paused = true;
   saveHistoryCheckpoint(true);
   return true;
 }
 
-async function createSimulation(nextMapId: MapId, nextSeed: number, loadSavedState: boolean): Promise<void> {
+function createFreshSession(map: MapDefinition, nextModeId: GameModeId, nextSeed: number): GameSession {
+  const simulation = new Simulation(map, nextSeed);
+  const game = new GameSession(simulation, createGameModeRuntime(nextModeId, map));
+  if (nextModeId === 'sandbox' && mapId === 'theatre') seedInitialEnclaves(simulation, map, nextSeed);
+  return game;
+}
+
+async function createSession(
+  nextMapId: MapId,
+  nextModeId: GameModeId,
+  nextSeed: number,
+  loadSavedState: boolean,
+): Promise<void> {
   const token = ++launchToken;
   const fallbackSeed = nextSeed >>> 0 || 1;
   const map = getMapDefinition(nextMapId);
   mapId = nextMapId;
+  modeId = nextModeId;
 
   if (loadSavedState) {
     try {
       const persisted = await history.load();
       if (token !== launchToken) return;
       const savedState = history.currentState();
-      if (persisted && savedState && isStateCompatible(savedState, map)) {
+      if (
+        persisted
+        && persisted.mapId === nextMapId
+        && persisted.modeId === nextModeId
+        && savedState
+        && isStateCompatible(savedState, map, nextModeId)
+      ) {
         seed = persisted.seed >>> 0 || fallbackSeed;
-        sim = new Simulation(map, seed);
-        sim.restoreState(savedState);
-        if (persisted.nextHistoryTime <= sim.gameTime) history.scheduleNext(sim.gameTime);
+        session = new GameSession(
+          new Simulation(map, seed),
+          createGameModeRuntime(nextModeId, map),
+        );
+        session.restoreState(savedState);
+        if (persisted.nextHistoryTime <= session.simulation.gameTime) {
+          history.scheduleNext(session.simulation.gameTime);
+        }
         if (currentWinner()) {
-          clearPotential(sim.sides);
+          clearPotential(session.simulation.sides);
           paused = true;
         }
-        post({ type: 'ready', seed, mapId });
+        post({ type: 'ready', seed, mapId, modeId });
         postSnapshot();
         return;
       }
     } catch (error) {
       if (token !== launchToken) return;
-      console.warn('Could not restore latest simulation state', error);
+      console.warn('Could not restore latest game session', error);
     }
   }
 
   if (token !== launchToken) return;
   seed = fallbackSeed;
-  sim = new Simulation(map, seed);
-  if (nextMapId === 'theatre') seedInitialEnclaves(sim, map, seed);
+  session = createFreshSession(map, nextModeId, seed);
   paused = false;
-  history.reset(sim.gameTime);
+  history.reset(session.simulation.gameTime);
   saveHistoryCheckpoint(true);
-  post({ type: 'ready', seed, mapId });
+  post({ type: 'ready', seed, mapId, modeId });
   postSnapshot();
 }
 
 function ensureLoop(): void {
   if (timer) return;
   timer = setInterval(() => {
-    if (!sim || paused) return;
+    if (!session || paused) return;
     for (let i = 0; i < speed; i++) {
-      sim.tick();
+      session.tick();
       saveHistoryCheckpoint();
       if (finishIfDecided()) break;
     }
@@ -116,22 +150,18 @@ self.onmessage = (event: MessageEvent<WorkerInMessage>) => {
   const message = event.data;
   switch (message.type) {
     case 'start':
-      void createSimulation(message.mapId, message.seed, message.loadSavedState);
+      void createSession(message.mapId, message.modeId, message.seed, message.loadSavedState);
       ensureLoop();
       break;
     case 'speed':
       speed = message.speed;
       break;
     case 'reset':
-      void createSimulation(message.mapId, message.seed, false);
+      void createSession(message.mapId, message.modeId, message.seed, false);
       break;
-    case 'toggleCity':
-      sim?.toggleCityEnabled(message.cityId);
-      saveHistoryCheckpoint(true);
-      postSnapshot();
-      break;
-    case 'flipCityOwner':
-      if (sim) forceCityEnclave(sim, message.cityId);
+    case 'gameAction':
+      if (!session) break;
+      session.apply(message.action);
       saveHistoryCheckpoint(true);
       postSnapshot();
       break;
@@ -139,10 +169,10 @@ self.onmessage = (event: MessageEvent<WorkerInMessage>) => {
       paused = message.paused;
       break;
     case 'historyStep': {
-      if (!sim) break;
-      const state = history.step(message.delta, seed);
+      if (!session) break;
+      const state = history.step(message.delta, seed, mapId, modeId);
       if (!state) break;
-      sim.restoreState(state);
+      session.restoreState(state);
       postSnapshot();
       break;
     }
