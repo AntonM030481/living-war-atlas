@@ -1,56 +1,55 @@
 import type { Simulation } from '../sim/Simulation';
 import type { SimulationState } from '../sim/types';
-import type { MetaGame, MetaGameStatus } from '../meta/MetaGame';
+import type { GameAction, GameModeRuntime, GameModeState, GameModeView } from './GameMode';
+import type { MetaGameStatus } from '../meta/MetaGame';
 
-export interface GameSessionState<MetaState> {
+export interface GameSessionState {
   simulation: SimulationState;
-  meta: {
-    id: string;
-    state: MetaState;
-  };
+  mode: GameModeState;
 }
 
-export class GameSession<Action, MetaState> {
+export class GameSession {
   constructor(
     readonly simulation: Simulation,
-    readonly metaGame: MetaGame<Action, MetaState>,
+    readonly mode: GameModeRuntime,
   ) {
-    this.metaGame.initialize?.(this.simulation);
+    this.mode.initialize(this.simulation);
   }
 
   tick(): void {
-    this.metaGame.beforeTick?.(this.simulation);
+    this.mode.beforeTick(this.simulation);
     this.simulation.tick();
-    this.metaGame.afterTick?.(this.simulation);
+    this.mode.afterTick(this.simulation);
   }
 
-  availableActions(): readonly Action[] {
-    return this.metaGame.availableActions(this.simulation);
+  availableActions(): readonly GameAction[] {
+    return this.mode.availableActions(this.simulation);
   }
 
-  apply(action: Action): void {
-    this.metaGame.apply(action, this.simulation);
+  apply(action: GameAction): void {
+    this.mode.apply(action, this.simulation);
   }
 
   status(): MetaGameStatus {
-    return this.metaGame.status(this.simulation);
+    return this.mode.status(this.simulation);
   }
 
-  saveState(): GameSessionState<MetaState> {
+  view(): GameModeView {
+    return this.mode.view(this.simulation);
+  }
+
+  saveState(): GameSessionState {
     return {
       simulation: this.simulation.saveState(),
-      meta: {
-        id: this.metaGame.id,
-        state: this.metaGame.saveState(),
-      },
+      mode: this.mode.saveState(),
     };
   }
 
-  restoreState(state: GameSessionState<MetaState>): void {
-    if (state.meta.id !== this.metaGame.id) {
-      throw new Error(`Cannot restore ${state.meta.id} state into ${this.metaGame.id}`);
+  restoreState(state: GameSessionState): void {
+    if (state.mode.id !== this.mode.id) {
+      throw new Error(`Cannot restore ${state.mode.id} state into ${this.mode.id}`);
     }
     this.simulation.restoreState(state.simulation);
-    this.metaGame.restoreState(state.meta.state);
+    this.mode.restoreState(state.mode);
   }
 }
