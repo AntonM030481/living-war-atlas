@@ -155,6 +155,41 @@ export class Simulation {
     return this.regions.isBorderOpen(first, second);
   }
 
+  resetToRegionalPeace(regionOwners: readonly (readonly [RegionId, Side])[]): void {
+    const ownerByRegion = new Map<RegionId, Side>(regionOwners);
+    for (let i = 0; i < this.size; i++) {
+      if (this.terrainBlocked[i]) {
+        this.control[i] = 0;
+        continue;
+      }
+      const regionId = this.regions.regionIdAt(i);
+      if (regionId === null) {
+        this.control[i] = 0;
+        continue;
+      }
+      const owner = ownerByRegion.get(regionId);
+      if (!owner) throw new Error(`Missing owner for region ${regionId}`);
+      this.control[i] = owner === 'blue' ? 1 : -1;
+    }
+
+    for (const sideId of CURRENT_SIDE_IDS) {
+      const side = this.side(sideId);
+      side.war.fill(0);
+      side.committed.fill(0);
+      side.instability.fill(0);
+      side.potential.fill(0);
+      side.collapse.fill(0);
+    }
+    clearDerivedFields(this.sides, [
+      this.forcing,
+      this.frontConsumption,
+      this.rawForcingDebug,
+      this.pressureDebug,
+      this.tmpControl,
+    ]);
+    this.potentialDirty = true;
+  }
+
   tick(): void {
     updateCities(this.cities, this.control, this.width, {
       captureThreshold: CFG.cityCaptureThreshold,
@@ -186,13 +221,15 @@ export class Simulation {
     this.computeFrontMassAndNeed();
     const blue = this.side('blue');
     const red = this.side('red');
+    const frontMask = this.actualFrontMask();
     return {
       width: this.width,
       height: this.height,
       step: this.stepCount,
       gameTime: this.time,
-      stats: computeSimulationStats(this.size, this.cities, blue, red, (index) => this.topology.isFront(index)),
+      stats: computeSimulationStats(this.size, this.cities, blue, red, (index) => frontMask[index] !== 0),
       control: this.control.slice(),
+      frontMask,
       warBlue: blue.war.slice(),
       warRed: red.war.slice(),
       committedBlue: blue.committed.slice(),
@@ -271,6 +308,14 @@ export class Simulation {
 
   private index(x: number, y: number): number {
     return y * this.width + x;
+  }
+
+  private actualFrontMask(): Uint8Array {
+    const mask = new Uint8Array(this.size);
+    for (let i = 0; i < this.size; i++) {
+      if (this.topology.isFront(i)) mask[i] = 1;
+    }
+    return mask;
   }
 
   private computeFrontMassAndNeed(): void {
