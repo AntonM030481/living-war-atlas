@@ -1,55 +1,89 @@
 import './style.css';
 import { GameApp } from './app/GameApp';
+import {
+  getGameModeOption,
+  isGameModeId,
+  mapSupportsMode,
+  type GameModeId,
+} from './game/GameMode';
 import { getMapOption, isMapId, MAP_OPTIONS } from './map/maps';
-import { chooseMap } from './ui/MapPicker';
 import { showAppError } from './ui/AppError';
-import type { MapId, SimulationState } from './sim/types';
+import { chooseMap } from './ui/MapPicker';
+import { chooseMode } from './ui/ModePicker';
+import type { MapId } from './sim/types';
 import { HistoryStorage } from './worker/HistoryStorage';
 
-function mapIdForState(state: SimulationState): MapId | null {
-  const option = MAP_OPTIONS.find(({ map }) =>
-    state.width === map.width
-    && state.height === map.height
-    && state.cities.length === map.cities.length
-    && state.cities.every((city, index) => city.id === map.cities[index]?.id),
-  );
-  return option?.id ?? null;
+const NEW_GAME_MAP_KEY = 'living-war-atlas:new-game-map';
+const NEW_GAME_MODE_KEY = 'living-war-atlas:new-game-mode';
+
+export interface GameSelection {
+  modeId: GameModeId;
+  mapId: MapId;
 }
 
-async function savedMapId(): Promise<MapId | null> {
+function compatibleMaps(modeId: GameModeId) {
+  return MAP_OPTIONS.filter((option) => mapSupportsMode(option.map, modeId));
+}
+
+async function savedGame(): Promise<GameSelection | null> {
   try {
     const persisted = await new HistoryStorage().load();
-    if (!persisted || persisted.history.length === 0) return null;
-    const index = Math.max(0, Math.min(persisted.history.length - 1, persisted.historyIndex));
-    return mapIdForState(persisted.history[index]);
+    if (!persisted || !isMapId(persisted.mapId) || !isGameModeId(persisted.modeId)) return null;
+    const map = getMapOption(persisted.mapId).map;
+    if (!mapSupportsMode(map, persisted.modeId)) return null;
+    return { mapId: persisted.mapId, modeId: persisted.modeId };
   } catch (error) {
-    console.warn('Could not inspect saved simulation history', error);
+    console.warn('Could not inspect saved game history', error);
     return null;
   }
+}
+
+async function chooseNewGame(
+  currentModeId: GameModeId,
+  currentMapId: MapId,
+  allowCancel: boolean,
+): Promise<GameSelection | null> {
+  const modeId = await chooseMode(currentModeId, allowCancel);
+  if (!modeId) return null;
+  const maps = compatibleMaps(modeId);
+  const preferredMapId = maps.some((option) => option.id === currentMapId)
+    ? currentMapId
+    : maps[0]?.id;
+  if (!preferredMapId) throw new Error(`No maps support ${getGameModeOption(modeId).name}`);
+  const mapId = await chooseMap(preferredMapId, allowCancel, maps);
+  return mapId ? { modeId, mapId } : null;
 }
 
 async function main(): Promise<void> {
   const root = document.querySelector<HTMLDivElement>('#app');
   if (!root) throw new Error('Missing #app');
 
-  const pendingMapId = sessionStorage.getItem('living-war-atlas:new-game-map');
+  const pendingMapId = sessionStorage.getItem(NEW_GAME_MAP_KEY);
+  const pendingModeId = sessionStorage.getItem(NEW_GAME_MODE_KEY);
 
-  let initialMapId: MapId;
-  if (pendingMapId && isMapId(pendingMapId)) {
-    initialMapId = pendingMapId;
-  } else {
-    initialMapId = await savedMapId()
-      ?? await chooseMap('theatre', false)
-      ?? 'theatre';
+  let initial: GameSelection | null = null;
+  if (
+    pendingMapId
+    && pendingModeId
+    && isMapId(pendingMapId)
+    && isGameModeId(pendingModeId)
+    && mapSupportsMode(getMapOption(pendingMapId).map, pendingModeId)
+  ) {
+    initial = { mapId: pendingMapId, modeId: pendingModeId };
   }
 
-  const initialMap = getMapOption(initialMapId);
+  initial ??= await savedGame();
+  initial ??= await chooseNewGame('sandbox', 'theatre', false);
+  initial ??= { modeId: 'sandbox', mapId: 'theatre' };
+
+  const initialMap = getMapOption(initial.mapId);
 
   await new GameApp(
     root,
+    initial.modeId,
     initialMap.id,
     initialMap.map,
-    (currentMapId) => chooseMap(currentMapId, true),
+    (currentModeId, currentMapId) => chooseNewGame(currentModeId, currentMapId, true),
   ).start();
 }
 
