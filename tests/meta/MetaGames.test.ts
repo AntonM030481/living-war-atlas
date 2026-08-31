@@ -38,6 +38,10 @@ function conquestMap(): MapDefinition {
   };
 }
 
+function tick(session: GameSession, count: number): void {
+  for (let i = 0; i < count; i++) session.tick();
+}
+
 describe('game modes', () => {
   it('keeps sandbox controls as a first-class mode', () => {
     const simulation = new Simulation(partisanMap(), 1);
@@ -48,16 +52,35 @@ describe('game modes', () => {
     expect(simulation.cities.find((city) => city.id === 'blue')?.enabled).toBe(false);
   });
 
-  it('makes a partisan capture the same full enclave action as sandbox secondary click', () => {
+  it('accumulates independent guerrilla points and unlocks a Production 1 capture at 100', () => {
+    const map = partisanMap();
+    const simulation = new Simulation(map, 1);
+    const session = new GameSession(simulation, createGameModeRuntime('partisan', map));
+
+    expect(session.availableActions()).toEqual([]);
+    expect(session.view()).toMatchObject({
+      mode: 'partisan',
+      points: { blue: 0, red: 0 },
+      maxPoints: 300,
+      thresholds: [100, 200, 300],
+    });
+
+    tick(session, 99);
+    expect(session.availableActions()).toEqual([]);
+
+    tick(session, 1);
+    expect(session.availableActions()).toEqual([{ type: 'partisanCaptureSource', cityId: 'red' }]);
+    expect(session.view()).toMatchObject({ points: { blue: 100, red: 100 } });
+  });
+
+  it('spends guerrilla points on the captured city production value', () => {
     const map = partisanMap();
     const simulation = new Simulation(map, 1);
     const session = new GameSession(simulation, createGameModeRuntime('partisan', map));
     const redCity = simulation.cities.find((city) => city.id === 'red')!;
     const cityIndex = redCity.y * simulation.width + redCity.x;
 
-    expect(simulation.control[cityIndex]).toBeLessThan(0);
-    expect(session.availableActions()).toEqual([{ type: 'partisanCaptureSource', cityId: 'red' }]);
-
+    tick(session, 100);
     session.apply({ type: 'partisanCaptureSource', cityId: 'red' });
 
     expect(redCity.owner).toBe('blue');
@@ -65,6 +88,7 @@ describe('game modes', () => {
     expect(redCity.integration).toBe(1);
     expect(simulation.control[cityIndex]).toBeGreaterThan(0);
     expect(simulation.warBlue[cityIndex]).toBeGreaterThan(0);
+    expect(session.view()).toMatchObject({ points: { blue: 0, red: 100 } });
     expect(session.availableActions()).toEqual([]);
   });
 
@@ -73,6 +97,7 @@ describe('game modes', () => {
     const simulation = new Simulation(map, 1);
     const session = new GameSession(simulation, createGameModeRuntime('partisan', map));
 
+    tick(session, 100);
     simulation.warRed[0] = 0.5;
     session.apply({ type: 'partisanCaptureSource', cityId: 'red' });
 
@@ -124,6 +149,7 @@ describe('game modes', () => {
     const map = partisanMap();
     const simulation = new Simulation(map, 1);
     const session = new GameSession(simulation, createGameModeRuntime('partisan', map));
+    tick(session, 100);
     session.apply({ type: 'partisanCaptureSource', cityId: 'red' });
     const saved = session.saveState();
 
