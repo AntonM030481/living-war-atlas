@@ -12,6 +12,8 @@ import { SandboxMetaGame, type SandboxMetaState } from '../meta/sandbox/SandboxM
 import type { MetaGame, MetaGameStatus } from '../meta/MetaGame';
 import { applyInitialOwnership, type InitialOwnershipPolicy } from '../sim/initialOwnership';
 import { Simulation } from '../sim/Simulation';
+import { GreedyPartisanOpponent } from './opponents/GreedyPartisanOpponent';
+import type { OpponentStrategyId } from './opponents/GameOpponent';
 
 export type GameModeId = 'sandbox' | 'partisan' | 'conquest';
 
@@ -153,12 +155,25 @@ function completionStatus<Action, State>(
   return meta.completionStatus?.(simulation) ?? defaultCompletionStatus(simulation);
 }
 
+function oppositeSide(side: Side): Side {
+  return side === 'blue' ? 'red' : 'blue';
+}
+
+function defaultOpponentStrategy(modeId: GameModeId): OpponentStrategyId | null {
+  return modeId === 'partisan' ? 'greedy' : null;
+}
+
 export function createGameModeRuntime(
   modeId: GameModeId,
   map: MapDefinition,
   playerSide: Side = 'blue',
+  seed = 1,
+  opponentStrategy: OpponentStrategyId | null = defaultOpponentStrategy(modeId),
 ): GameModeRuntime {
   if (!mapSupportsMode(map, modeId)) throw new Error(`${modeId} is not supported by this map`);
+  if (opponentStrategy && modeId !== 'partisan') {
+    throw new Error(`Opponent ${opponentStrategy} is not implemented for ${modeId}`);
+  }
 
   if (modeId === 'sandbox') {
     const meta = new SandboxMetaGame();
@@ -188,10 +203,16 @@ export function createGameModeRuntime(
 
   if (modeId === 'partisan') {
     const meta = new PartisanMetaGame(playerSide);
+    const opponent = opponentStrategy === 'greedy'
+      ? new GreedyPartisanOpponent(meta, oppositeSide(playerSide), seed)
+      : null;
     return {
       id: modeId,
       initialize: () => {},
-      beforeTick: () => meta.beforeTick(),
+      beforeTick: (simulation) => {
+        meta.beforeTick();
+        opponent?.act(simulation);
+      },
       afterTick: () => {},
       availableActions: (simulation) => meta.availableActions(simulation)
         .map((action) => ({ type: 'partisanCaptureSource' as const, cityId: action.cityId })),
