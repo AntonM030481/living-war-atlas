@@ -5,6 +5,7 @@ import { ConquestMetaGame, type ConquestMetaState } from '../meta/conquest/Conqu
 import { PartisanMetaGame, type PartisanMetaState } from '../meta/partisan/PartisanMetaGame';
 import { SandboxMetaGame, type SandboxMetaState } from '../meta/sandbox/SandboxMetaGame';
 import type { MetaGame, MetaGameStatus } from '../meta/MetaGame';
+import { applyInitialOwnership, type InitialOwnershipPolicy } from '../sim/initialOwnership';
 import { Simulation } from '../sim/Simulation';
 
 export type GameModeId = 'sandbox' | 'partisan' | 'conquest';
@@ -32,6 +33,7 @@ export interface GameModeOption {
   description: string;
   interactionNote: string;
   requiresRegions: boolean;
+  initialOwnership: InitialOwnershipPolicy;
 }
 
 export const GAME_MODE_OPTIONS: readonly GameModeOption[] = [
@@ -41,6 +43,7 @@ export const GAME_MODE_OPTIONS: readonly GameModeOption[] = [
     description: 'Directly toggle production and switch city ownership while the autonomous front keeps running.',
     interactionNote: 'City click: production on/off · secondary click / long press: switch side',
     requiresRegions: false,
+    initialOwnership: 'balanced-random',
   },
   {
     id: 'partisan',
@@ -48,6 +51,7 @@ export const GAME_MODE_OPTIONS: readonly GameModeOption[] = [
     description: 'Periodically create a friendly enclave around one enemy production source and let the front react on its own.',
     interactionNote: 'When the partisan action is ready, primary or secondary click / long press an enemy city.',
     requiresRegions: false,
+    initialOwnership: 'balanced-random',
   },
   {
     id: 'conquest',
@@ -55,6 +59,7 @@ export const GAME_MODE_OPTIONS: readonly GameModeOption[] = [
     description: 'Activate your countries and choose which neighboring country to invade; the war itself stays autonomous.',
     interactionNote: 'Click your inactive region to activate it · click an available enemy region to invade.',
     requiresRegions: true,
+    initialOwnership: 'balanced-random',
   },
 ];
 
@@ -72,10 +77,34 @@ export function mapSupportsMode(map: MapDefinition, modeId: GameModeId): boolean
   return modeId !== 'conquest' || Boolean(map.regions?.length && map.regionAt);
 }
 
-export function createSimulationForMode(modeId: GameModeId, map: MapDefinition, seed: number): Simulation {
+export function prepareMapForMode(
+  modeId: GameModeId,
+  map: MapDefinition,
+  seed: number,
+  ownership: InitialOwnershipPolicy = getGameModeOption(modeId).initialOwnership,
+): MapDefinition {
+  const cities = applyInitialOwnership(map.cities, ownership, seed);
+  return {
+    ...map,
+    cities,
+    // Randomized source ownership needs a matching initial territorial field.
+    // Conquest skips ordinary control initialization and replaces it with countries.
+    initialControl: modeId === 'conquest' || ownership === 'authored'
+      ? map.initialControl
+      : 'city-distance',
+  };
+}
+
+export function createSimulationForMode(
+  modeId: GameModeId,
+  map: MapDefinition,
+  seed: number,
+  ownership?: InitialOwnershipPolicy,
+): Simulation {
   if (!mapSupportsMode(map, modeId)) throw new Error(`${modeId} is not supported by this map`);
+  const preparedMap = prepareMapForMode(modeId, map, seed, ownership);
   return new Simulation(
-    map,
+    preparedMap,
     seed,
     modeId === 'conquest'
       ? { initializeControl: false, seedInitialResource: false }
