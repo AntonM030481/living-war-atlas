@@ -372,7 +372,7 @@ export class GameApp {
     this.latestActions = message.actions;
     this.hud.setHistory(message.history);
     this.hud.setModeStatus(this.modeStatusText(message.modeView, message.actions));
-    this.hud.setGuerrillaPoints(
+    this.overlays.setGuerrillaPoints(
       message.modeView.mode === 'partisan' ? message.modeView.points : null,
       message.modeView.mode === 'partisan' ? message.modeView.maxPoints : undefined,
     );
