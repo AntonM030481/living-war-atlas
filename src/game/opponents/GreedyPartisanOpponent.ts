@@ -3,6 +3,8 @@ import type { Simulation } from '../../sim/Simulation';
 import { PartisanMetaGame } from '../../meta/partisan/PartisanMetaGame';
 import type { GameOpponent } from './GameOpponent';
 
+const TARGET_PRIORITY = [2, 3, 1] as const;
+
 function deterministicIndex(seed: number, tick: number, count: number): number {
   let value = (seed ^ Math.imul(tick + 1, 0x9e3779b1)) >>> 0;
   value ^= value << 13;
@@ -21,23 +23,20 @@ export class GreedyPartisanOpponent implements GameOpponent {
   ) {}
 
   act(simulation: Simulation): void {
-    const affordable = this.meta.availableActionsForSide(simulation, this.side);
-    if (affordable.length === 0) return;
-
-    let cheapestProduction = Number.POSITIVE_INFINITY;
-    const cityById = new Map(simulation.cities.map((city) => [city.id, city] as const));
-    for (const action of affordable) {
-      const city = cityById.get(action.cityId);
-      if (city) cheapestProduction = Math.min(cheapestProduction, city.baseProduction);
-    }
-
-    const cheapest = affordable.filter((action) =>
-      cityById.get(action.cityId)?.baseProduction === cheapestProduction,
+    const enemyCities = simulation.cities.filter((city) => city.owner !== this.side);
+    const targetProduction = TARGET_PRIORITY.find((production) =>
+      enemyCities.some((city) => city.baseProduction === production),
     );
-    if (cheapest.length === 0) return;
+    if (targetProduction === undefined) return;
+
+    const affordable = this.meta.availableActionsForSide(simulation, this.side);
+    const candidates = affordable.filter((action) =>
+      enemyCities.find((city) => city.id === action.cityId)?.baseProduction === targetProduction,
+    );
+    if (candidates.length === 0) return;
 
     const tick = Math.round(simulation.gameTime / CFG.dt);
-    const selected = cheapest[deterministicIndex(this.seed, tick, cheapest.length)];
+    const selected = candidates[deterministicIndex(this.seed, tick, candidates.length)];
     this.meta.applyForSide(selected, simulation, this.side);
   }
 }
