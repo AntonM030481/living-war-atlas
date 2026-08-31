@@ -1,4 +1,4 @@
-import type { Side } from '../../sim/Config';
+import { CFG, type Side } from '../../sim/Config';
 import type { Simulation } from '../../sim/Simulation';
 import { PartisanMetaGame } from '../../meta/partisan/PartisanMetaGame';
 import type { GameOpponent } from './GameOpponent';
@@ -36,7 +36,7 @@ export class GreedyPartisanOpponent implements GameOpponent {
     );
     if (cheapest.length === 0) return;
 
-    const tick = Math.round(simulation.gameTime / 0.1);
+    const tick = Math.round(simulation.gameTime / CFG.dt);
     const selected = cheapest[deterministicIndex(this.seed, tick, cheapest.length)];
     this.meta.applyForSide(selected, simulation, this.side);
   }
