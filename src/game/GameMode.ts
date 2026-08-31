@@ -2,7 +2,12 @@ import type { Side } from '../sim/Config';
 import type { MapDefinition } from '../sim/types';
 import { winnerFromState } from '../sim/completion';
 import { ConquestMetaGame, type ConquestMetaState } from '../meta/conquest/ConquestMetaGame';
-import { PartisanMetaGame, type PartisanMetaState } from '../meta/partisan/PartisanMetaGame';
+import {
+  GUERRILLA_MAX_POINTS,
+  GUERRILLA_THRESHOLDS,
+  PartisanMetaGame,
+  type PartisanMetaState,
+} from '../meta/partisan/PartisanMetaGame';
 import { SandboxMetaGame, type SandboxMetaState } from '../meta/sandbox/SandboxMetaGame';
 import type { MetaGame, MetaGameStatus } from '../meta/MetaGame';
 import { applyInitialOwnership, type InitialOwnershipPolicy } from '../sim/initialOwnership';
@@ -19,7 +24,12 @@ export type GameAction =
 
 export type GameModeView =
   | { mode: 'sandbox' }
-  | { mode: 'partisan'; nextActionTime: number }
+  | {
+      mode: 'partisan';
+      points: Record<Side, number>;
+      maxPoints: number;
+      thresholds: readonly [number, number, number];
+    }
   | { mode: 'conquest'; countries: ConquestMetaState['countries'] };
 
 export interface GameModeState {
@@ -48,8 +58,8 @@ export const GAME_MODE_OPTIONS: readonly GameModeOption[] = [
   {
     id: 'partisan',
     name: 'Game: Guerilla wars',
-    description: 'Wait your turn to get ownership of any enemy city.',
-    interactionNote: 'When the partisan action is ready, primary or secondary click / long press an enemy city.',
+    description: 'Accumulate guerrilla points and spend them to capture enemy cities.',
+    interactionNote: 'Capture cost: Production 1 = 100 · 2 = 200 · 3 = 300 guerrilla points.',
     requiresRegions: false,
     initialOwnership: 'balanced-random',
   },
@@ -181,7 +191,7 @@ export function createGameModeRuntime(
     return {
       id: modeId,
       initialize: () => {},
-      beforeTick: () => {},
+      beforeTick: () => meta.beforeTick(),
       afterTick: () => {},
       availableActions: (simulation) => meta.availableActions(simulation)
         .map((action) => ({ type: 'partisanCaptureSource' as const, cityId: action.cityId })),
@@ -190,7 +200,12 @@ export function createGameModeRuntime(
         meta.apply({ type: 'captureSource', cityId: action.cityId }, simulation);
       },
       status: (simulation) => completionStatus(meta, simulation),
-      view: () => ({ mode: 'partisan', nextActionTime: meta.saveState().nextActionTime }),
+      view: () => ({
+        mode: 'partisan',
+        points: meta.saveState().points,
+        maxPoints: GUERRILLA_MAX_POINTS,
+        thresholds: GUERRILLA_THRESHOLDS,
+      }),
       saveState: () => ({ id: modeId, state: meta.saveState() }),
       restoreState: (state) => {
         if (state.id !== modeId) throw new Error(`Cannot restore ${state.id} into ${modeId}`);
