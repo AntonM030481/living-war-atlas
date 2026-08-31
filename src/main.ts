@@ -1,5 +1,6 @@
 import './style.css';
 import { GameApp } from './app/GameApp';
+import { isLocalHost } from './app/environment';
 import {
   getGameModeOption,
   isGameModeId,
@@ -21,17 +22,31 @@ export interface GameSelection {
   mapId: MapId;
 }
 
+function modeAllowed(modeId: GameModeId): boolean {
+  return isLocalHost() || modeId !== 'conquest';
+}
+
+function mapAllowed(mapId: MapId): boolean {
+  return isLocalHost() || mapId !== 'linear';
+}
+
+function selectionAllowed(selection: GameSelection): boolean {
+  return modeAllowed(selection.modeId) && mapAllowed(selection.mapId);
+}
+
 function compatibleMaps(modeId: GameModeId) {
-  return MAP_OPTIONS.filter((option) => mapSupportsMode(option.map, modeId));
+  return MAP_OPTIONS.filter((option) => mapAllowed(option.id) && mapSupportsMode(option.map, modeId));
 }
 
 async function savedGame(): Promise<GameSelection | null> {
   try {
     const persisted = await new HistoryStorage().load();
     if (!persisted || !isMapId(persisted.mapId) || !isGameModeId(persisted.modeId)) return null;
+    const selection = { mapId: persisted.mapId, modeId: persisted.modeId };
+    if (!selectionAllowed(selection)) return null;
     const map = getMapOption(persisted.mapId).map;
     if (!mapSupportsMode(map, persisted.modeId)) return null;
-    return { mapId: persisted.mapId, modeId: persisted.modeId };
+    return selection;
   } catch (error) {
     console.warn('Could not inspect saved game history', error);
     return null;
@@ -43,7 +58,8 @@ async function chooseNewGame(
   currentMapId: MapId,
   allowCancel: boolean,
 ): Promise<GameSelection | null> {
-  const modeId = await chooseMode(currentModeId, allowCancel);
+  const preferredModeId = modeAllowed(currentModeId) ? currentModeId : 'sandbox';
+  const modeId = await chooseMode(preferredModeId, allowCancel);
   if (!modeId) return null;
   const maps = compatibleMaps(modeId);
   const preferredMapId = maps.some((option) => option.id === currentMapId)
@@ -67,9 +83,11 @@ async function main(): Promise<void> {
     && pendingModeId
     && isMapId(pendingMapId)
     && isGameModeId(pendingModeId)
-    && mapSupportsMode(getMapOption(pendingMapId).map, pendingModeId)
   ) {
-    initial = { mapId: pendingMapId, modeId: pendingModeId };
+    const pending = { mapId: pendingMapId, modeId: pendingModeId };
+    if (selectionAllowed(pending) && mapSupportsMode(getMapOption(pendingMapId).map, pendingModeId)) {
+      initial = pending;
+    }
   }
 
   initial ??= await savedGame();
