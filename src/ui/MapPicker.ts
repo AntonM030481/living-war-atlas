@@ -1,3 +1,4 @@
+import { isLocalHost } from '../app/environment';
 import type { MapId } from '../sim/types';
 import { MAP_OPTIONS, type MapOption } from '../map/maps';
 
@@ -7,21 +8,22 @@ export function chooseMap(
   options: readonly MapOption[] = MAP_OPTIONS,
 ): Promise<MapId | null> {
   return new Promise((resolve) => {
-    if (options.length === 0) {
+    const visibleOptions = options.filter((option) => isLocalHost() || option.id !== 'linear');
+    if (visibleOptions.length === 0) {
       resolve(null);
       return;
     }
 
-    const selectedDefault = options.some((option) => option.id === currentMapId)
+    const selectedDefault = visibleOptions.some((option) => option.id === currentMapId)
       ? currentMapId
-      : options[0].id;
+      : visibleOptions[0].id;
     const dialog = document.createElement('dialog');
     dialog.className = 'map-picker';
     dialog.innerHTML = `
       <form>
         <div class="map-picker-title">Choose map</div>
         <div class="map-picker-options">
-          ${options.map((option) => `
+          ${visibleOptions.map((option) => `
             <button
               type="button"
               class="map-picker-option${option.id === selectedDefault ? ' selected' : ''}"
