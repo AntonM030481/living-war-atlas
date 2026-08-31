@@ -371,7 +371,11 @@ export class GameApp {
     this.latestHistory = message.history;
     this.latestActions = message.actions;
     this.hud.setHistory(message.history);
-    this.hud.setModeStatus(this.modeStatusText(message.snapshot, message.modeView, message.actions));
+    this.hud.setModeStatus(this.modeStatusText(message.modeView, message.actions));
+    this.hud.setGuerrillaPoints(
+      message.modeView.mode === 'partisan' ? message.modeView.points : null,
+      message.modeView.mode === 'partisan' ? message.modeView.maxPoints : undefined,
+    );
     this.renderer.render(message.snapshot);
     this.overlays.update(message.snapshot, this.modeId, message.actions);
     this.renderDiagnostics();
@@ -394,14 +398,13 @@ export class GameApp {
   }
 
   private modeStatusText(
-    snapshot: SimulationSnapshot,
     view: GameModeView,
     actions: readonly GameAction[],
   ): string {
     if (view.mode === 'sandbox') return 'Direct sandbox controls';
     if (view.mode === 'partisan') {
-      const remaining = Math.max(0, view.nextActionTime - snapshot.gameTime);
-      return remaining <= 1e-6 ? 'Partisan action ready' : `Partisan action in ${Math.ceil(remaining)}s`;
+      const captures = actions.filter((action) => action.type === 'partisanCaptureSource').length;
+      return captures > 0 ? `Available captures: ${captures}` : 'Accumulating guerrilla points';
     }
     const activations = actions.filter((action) => action.type === 'conquestActivate').length;
     const invasions = actions.filter((action) => action.type === 'conquestInvade').length;
