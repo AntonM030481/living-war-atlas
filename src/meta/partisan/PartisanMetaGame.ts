@@ -33,26 +33,38 @@ export class PartisanMetaGame implements MetaGame<PartisanAction, PartisanMetaSt
   }
 
   availableActions(simulation: Simulation): readonly PartisanAction[] {
+    return this.availableActionsForSide(simulation, this.playerSide);
+  }
+
+  availableActionsForSide(simulation: Simulation, side: Side): readonly PartisanAction[] {
     return simulation.cities
-      .filter((city) => city.owner !== this.playerSide)
-      .filter((city) => this.points[this.playerSide] + 1e-6 >= this.captureCost(city.baseProduction))
+      .filter((city) => city.owner !== side)
+      .filter((city) => this.points[side] + 1e-6 >= this.captureCost(city.baseProduction))
       .map((city) => ({ type: 'captureSource' as const, cityId: city.id }));
   }
 
   apply(action: PartisanAction, simulation: Simulation): void {
+    this.applyForSide(action, simulation, this.playerSide);
+  }
+
+  applyForSide(action: PartisanAction, simulation: Simulation, side: Side): void {
     const city = simulation.cities.find((candidate) => candidate.id === action.cityId);
     if (!city) throw new Error(`Unknown city: ${action.cityId}`);
-    if (city.owner === this.playerSide) throw new Error(`City ${action.cityId} is already owned by ${this.playerSide}`);
+    if (city.owner === side) throw new Error(`City ${action.cityId} is already owned by ${side}`);
 
     const cost = this.captureCost(city.baseProduction);
-    if (this.points[this.playerSide] + 1e-6 < cost) {
+    if (this.points[side] + 1e-6 < cost) {
       throw new Error(`Not enough guerrilla points to capture city ${action.cityId}`);
     }
 
     if (!forceCityEnclave(simulation, action.cityId)) {
       throw new Error(`Could not capture city ${action.cityId}`);
     }
-    this.points[this.playerSide] = Math.max(0, this.points[this.playerSide] - cost);
+    this.points[side] = Math.max(0, this.points[side] - cost);
+  }
+
+  pointsFor(side: Side): number {
+    return this.points[side];
   }
 
   saveState(): PartisanMetaState {
