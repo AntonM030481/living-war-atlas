@@ -301,3 +301,30 @@ Engagement should normally be faster than disengagement. Collapse accelerates di
 **Decision:** Committed / reserve regression plots are generated via `npm run diagnostics`.
 
 The CSV and SVG outputs are diagnostic artifacts, not authoritative simulation inputs.
+
+---
+
+## Game modes / meta layer
+
+### D051 — Game modes sit above the shared simulation
+**Decision:** Sandbox and future meta-games use the same `Simulation` physics through a `GameSession` layer.
+
+A game mode owns allowed strategic actions, completion rules, and mode state. It must not embed mode-specific rules into combat or transport.
+
+### D052 — Sandbox is a first-class game mode
+**Decision:** The existing city production toggle / ownership-switch playground is implemented as `SandboxMetaGame`, not as special-case UI behavior.
+
+### D053 — UI is action-driven by the selected mode
+**Decision:** `GameApp` consumes `availableActions` and a mode view from the worker.
+
+The UI must not assume that a city click always means production toggle. Sandbox, Partisans, and Conquest expose different click actions and HUD guidance.
+
+### D054 — Mode is chosen before a compatible map
+**Decision:** New Game selects `game mode -> compatible map`.
+
+Maps may declare additional requirements implicitly through their data; Conquest currently requires regions.
+
+### D055 — Session history includes meta-game state
+**Decision:** Rewind/persistence stores `GameSessionState`, including simulation state, selected mode, and mode-specific state.
+
+Restoring simulation state without the corresponding meta-game state is invalid.

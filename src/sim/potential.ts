@@ -26,7 +26,16 @@ const POTENTIAL_RELAXATION_OMEGA = 1.0;
 const POTENTIAL_RELAXATION_TOLERANCE = 1e-5;
 const potentialStatusByField = new WeakMap<Float32Array, Uint8Array>();
 
-function frontEdgeTransmission(
+function isPotentialTarget(index: number, grid: TransportGrid): boolean {
+  return grid.isFront(index) || (grid.potentialDemand?.(index) ?? 0) > EPS;
+}
+
+function demandAt(index: number, need: Float32Array, grid: TransportGrid): number {
+  if (grid.isFront(index)) return need[index];
+  return Math.max(0, grid.potentialDemand?.(index) ?? 0);
+}
+
+function targetEdgeTransmission(
   index: number,
   neighbor: number,
   x: number,
@@ -35,7 +44,7 @@ function frontEdgeTransmission(
   dy: number,
   grid: TransportGrid,
 ): number {
-  if (!grid.isFront(neighbor)) return 0;
+  if (!isPotentialTarget(neighbor, grid)) return 0;
   return edgeTransmission(index, neighbor, x, y, dx, dy, grid);
 }
 
@@ -46,7 +55,7 @@ export function smoothFrontDemand(
 ): Float32Array {
   let current = new Float32Array(need.length);
   for (let i = 0; i < need.length; i++) {
-    if (grid.isFront(i) && grid.access(i) > 0.01) current[i] = need[i];
+    if (isPotentialTarget(i, grid) && grid.access(i) > 0.01) current[i] = demandAt(i, need, grid);
   }
 
   for (let pass = 0; pass < passes; pass++) {
@@ -54,7 +63,7 @@ export function smoothFrontDemand(
     for (let y = 0; y < grid.height; y++) {
       for (let x = 0; x < grid.width; x++) {
         const i = y * grid.width + x;
-        if (!grid.isFront(i) || grid.access(i) <= 0.01) continue;
+        if (!isPotentialTarget(i, grid) || grid.access(i) <= 0.01) continue;
 
         let weightedDemand = current[i] * FRONT_DEMAND_SELF_WEIGHT;
         let weightSum = FRONT_DEMAND_SELF_WEIGHT;
@@ -63,7 +72,7 @@ export function smoothFrontDemand(
           const ny = y + dy;
           if (nx < 0 || nx >= grid.width || ny < 0 || ny >= grid.height) continue;
           const j = ny * grid.width + nx;
-          const transmission = frontEdgeTransmission(i, j, x, y, dx, dy, grid);
+          const transmission = targetEdgeTransmission(i, j, x, y, dx, dy, grid);
           if (transmission <= EPS) continue;
           weightedDemand += current[j] * transmission;
           weightSum += transmission;
@@ -79,7 +88,7 @@ export function smoothFrontDemand(
 function potentialStatus(index: number, grid: TransportGrid): number {
   const access = grid.access(index);
   if (access <= 0.01 || grid.terrainCapacity[index] <= 0) return 0;
-  if (grid.isFront(index) && access > 0.05) return 2;
+  if (isPotentialTarget(index, grid) && access > 0.05) return 2;
   return 1;
 }
 

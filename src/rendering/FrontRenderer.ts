@@ -116,10 +116,18 @@ export class FrontRenderer {
         const right = x + 1.5;
         const bottom = y + 1.5;
 
-        if (this.crossesZero(tl, tr)) crossings.push(this.edgeCrossing(left, top, right, top, tl, tr));
-        if (this.crossesZero(tr, br)) crossings.push(this.edgeCrossing(right, top, right, bottom, tr, br));
-        if (this.crossesZero(br, bl)) crossings.push(this.edgeCrossing(right, bottom, left, bottom, br, bl));
-        if (this.crossesZero(bl, tl)) crossings.push(this.edgeCrossing(left, bottom, left, top, bl, tl));
+        if (this.crossesActualFront(snapshot, tlIndex, trIndex, tl, tr)) {
+          crossings.push(this.edgeCrossing(left, top, right, top, tl, tr));
+        }
+        if (this.crossesActualFront(snapshot, trIndex, brIndex, tr, br)) {
+          crossings.push(this.edgeCrossing(right, top, right, bottom, tr, br));
+        }
+        if (this.crossesActualFront(snapshot, brIndex, blIndex, br, bl)) {
+          crossings.push(this.edgeCrossing(right, bottom, left, bottom, br, bl));
+        }
+        if (this.crossesActualFront(snapshot, blIndex, tlIndex, bl, tl)) {
+          crossings.push(this.edgeCrossing(left, bottom, left, top, bl, tl));
+        }
 
         if (crossings.length === 2) {
           segments.push(this.makeFrontSegment(snapshot, crossings[0], crossings[1]));
@@ -135,6 +143,18 @@ export class FrontRenderer {
 
   private isBlocked(snapshot: SimulationSnapshot, index: number): boolean {
     return snapshot.terrainBlocked?.[index] !== undefined && snapshot.terrainBlocked[index] !== 0;
+  }
+
+  private crossesActualFront(
+    snapshot: SimulationSnapshot,
+    firstIndex: number,
+    secondIndex: number,
+    first: number,
+    second: number,
+  ): boolean {
+    if (!this.crossesZero(first, second)) return false;
+    const mask = snapshot.frontMask;
+    return !mask || mask[firstIndex] !== 0 || mask[secondIndex] !== 0;
   }
 
   private crossesZero(a: number, b: number): boolean {

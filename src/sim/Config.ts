@@ -14,6 +14,7 @@ export const CFG = {
   potentialCoarsePasses: 24, // Relaxation passes used by coarse approximation modes that iterate.
   potentialFinePasses: 6, // Full-resolution local relaxation passes after coarse initialization.
   potentialRepairEnabled: true, // Enables local repair of stale potential near changed/front regions.
+  potentialFrontDemand: 0.18, // Baseline demand on a closed inter-region border before an invasion opens it.
 
   baseEdgeCapacityPerSecond: 7.0, // Base resource throughput across one grid edge per second.
   resourceCellCapacity: 1, // Nominal resource amount a cell can hold before congestion matters.

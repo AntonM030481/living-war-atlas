@@ -1,4 +1,10 @@
 import { Application } from 'pixi.js';
+import {
+  getGameModeOption,
+  type GameAction,
+  type GameModeId,
+  type GameModeView,
+} from '../game/GameMode';
 import { SPEEDS, type Side, type Speed } from '../sim/Config';
 import type { HistoryInfo, MapDefinition, MapId, SimulationSnapshot, WorkerOutMessage } from '../sim/types';
 import { AtlasRenderer } from '../rendering/AtlasRenderer';
@@ -13,6 +19,11 @@ import { Hud } from '../ui/Hud';
 import { PointProbe } from '../ui/PointProbe';
 import { InputController } from './InputController';
 import { SimulationClient } from './SimulationClient';
+
+interface NewGameSelection {
+  modeId: GameModeId;
+  mapId: MapId;
+}
 
 export class GameApp {
   private readonly pixi = new Application();
@@ -35,6 +46,7 @@ export class GameApp {
   private diagnosticsEnabled = false;
   private latestSnapshot: SimulationSnapshot | null = null;
   private latestHistory: HistoryInfo | null = null;
+  private latestActions: readonly GameAction[] = [];
   private selectedProbe: FrontDebugInfo | null = null;
   private selectedPoint: PointDebugInfo | null = null;
   private suppressNextPrimaryClickUntil = 0;
@@ -43,9 +55,13 @@ export class GameApp {
 
   constructor(
     private readonly root: HTMLDivElement,
+    private readonly modeId: GameModeId,
     private readonly mapId: MapId,
     private readonly map: MapDefinition,
-    private readonly chooseNewMap: (currentMapId: MapId) => Promise<MapId | null>,
+    private readonly chooseNewGame: (
+      currentModeId: GameModeId,
+      currentMapId: MapId,
+    ) => Promise<NewGameSelection | null>,
   ) {}
 
   async start(): Promise<void> {
@@ -60,13 +76,15 @@ export class GameApp {
     this.renderer = new AtlasRenderer(this.pixi, this.map);
     this.renderer.setDebug(false);
     this.renderer.setShowFlows(false);
+    this.renderer.setShowCountryBorders(this.modeId === 'conquest');
+    this.renderer.setShowHistoricalBorder(this.modeId !== 'conquest');
 
     this.overlays = new CityOverlays(this.map, this.renderer, this.mapStage);
     this.createUi();
     this.attachResizeHandling();
     this.attachInput();
     this.simulation.onMessage((message) => this.handleWorkerMessage(message));
-    this.simulation.start(this.mapId, this.currentSeed);
+    this.simulation.start(this.mapId, this.modeId, this.currentSeed);
     this.simulation.setSpeed(this.speed);
   }
 
@@ -84,15 +102,22 @@ export class GameApp {
   }
 
   private createUi(): void {
-    this.hud = new Hud(getMapOption(this.mapId).name, this.speed, {
-      onSpeed: (speed) => this.setSpeed(speed),
-      onPauseToggle: () => {
-        if (!this.finished) this.setPaused(!this.paused);
+    const mode = getGameModeOption(this.modeId);
+    this.hud = new Hud(
+      getMapOption(this.mapId).name,
+      mode.name,
+      mode.interactionNote,
+      this.speed,
+      {
+        onSpeed: (speed) => this.setSpeed(speed),
+        onPauseToggle: () => {
+          if (!this.finished) this.setPaused(!this.paused);
+        },
+        onHistoryStep: (delta) => this.stepHistory(delta),
+        onReset: () => void this.reset(),
+        onDiagnosticsToggle: () => this.setDiagnostics(!this.diagnosticsEnabled),
       },
-      onHistoryStep: (delta) => this.stepHistory(delta),
-      onReset: () => void this.reset(),
-      onDiagnosticsToggle: () => this.setDiagnostics(!this.diagnosticsEnabled),
-    });
+    );
     this.pointProbe = new PointProbe();
     this.probe = new FrontProbe();
     this.diagnosticsPanel = new DiagnosticsPanel();
@@ -110,7 +135,9 @@ export class GameApp {
       const { width, height } = this.mapStage.getBoundingClientRect();
       this.pixi.renderer.resize(Math.max(1, Math.round(width)), Math.max(1, Math.round(height)));
       this.renderer.resize();
-      if (this.latestSnapshot) this.overlays.update(this.latestSnapshot);
+      if (this.latestSnapshot) {
+        this.overlays.update(this.latestSnapshot, this.modeId, this.latestActions);
+      }
       this.updatePointMarker();
     };
     new ResizeObserver(resize).observe(this.mapStage);
@@ -178,7 +205,10 @@ export class GameApp {
   }
 
   private stepHistory(delta: -1 | 1): void {
-    if (this.latestHistory && ((delta < 0 && !this.latestHistory.canRewind) || (delta > 0 && !this.latestHistory.canForward))) return;
+    if (
+      this.latestHistory
+      && ((delta < 0 && !this.latestHistory.canRewind) || (delta > 0 && !this.latestHistory.canForward))
+    ) return;
     this.setPaused(true);
     this.simulation.stepHistory(delta);
   }
@@ -191,14 +221,15 @@ export class GameApp {
 
   private async reset(): Promise<void> {
     this.setPaused(true);
-    const nextMapId = await this.chooseNewMap(this.mapId);
-    if (!nextMapId) {
+    const next = await this.chooseNewGame(this.modeId, this.mapId);
+    if (!next) {
       if (!this.finished) this.setPaused(false);
       return;
     }
 
-    if (nextMapId !== this.mapId) {
-      sessionStorage.setItem('living-war-atlas:new-game-map', nextMapId);
+    if (next.mapId !== this.mapId || next.modeId !== this.modeId) {
+      sessionStorage.setItem('living-war-atlas:new-game-map', next.mapId);
+      sessionStorage.setItem('living-war-atlas:new-game-mode', next.modeId);
       window.location.reload();
       return;
     }
@@ -207,7 +238,7 @@ export class GameApp {
     this.finished = false;
     this.hud.setFinished(false);
     this.hud.setStatus(null);
-    this.simulation.reset(this.mapId, this.currentSeed);
+    this.simulation.reset(this.mapId, this.modeId, this.currentSeed);
     this.setPaused(false);
   }
 
@@ -219,12 +250,48 @@ export class GameApp {
     }
 
     const cityId = this.renderer.cityIdAtClientPoint(event.clientX, event.clientY);
-    if (cityId) {
-      this.simulation.toggleCity(cityId);
+    const cityAction = cityId ? this.primaryActionForCity(cityId) : null;
+    if (cityAction) {
+      this.simulation.applyGameAction(cityAction);
       return;
     }
+
+    const regionAction = this.primaryActionForRegion(event.clientX, event.clientY);
+    if (regionAction) {
+      this.simulation.applyGameAction(regionAction);
+      return;
+    }
+
     if (!this.diagnosticsEnabled || !this.latestSnapshot) return;
     this.setFrontProbeAtClient(event.clientX, event.clientY);
+  }
+
+  private primaryActionForCity(cityId: string): GameAction | null {
+    if (this.modeId === 'sandbox') {
+      return this.latestActions.find(
+        (action) => action.type === 'sandboxToggleCity' && action.cityId === cityId,
+      ) ?? null;
+    }
+    if (this.modeId === 'partisan') {
+      return this.latestActions.find(
+        (action) => action.type === 'partisanCaptureSource' && action.cityId === cityId,
+      ) ?? null;
+    }
+    return null;
+  }
+
+  private primaryActionForRegion(clientX: number, clientY: number): GameAction | null {
+    if (this.modeId !== 'conquest' || !this.map.regionAt) return null;
+    const point = this.clientToMapPoint(clientX, clientY);
+    if (!point) return null;
+    const x = Math.max(0, Math.min(this.map.width - 1, Math.floor(point.x)));
+    const y = Math.max(0, Math.min(this.map.height - 1, Math.floor(point.y)));
+    const regionId = this.map.regionAt(x, y);
+    if (!regionId) return null;
+    return this.latestActions.find((action) =>
+      (action.type === 'conquestActivate' || action.type === 'conquestInvade')
+      && action.regionId === regionId,
+    ) ?? null;
   }
 
   private handlePrimaryDrag(event: PointerEvent): void {
@@ -272,17 +339,25 @@ export class GameApp {
   }
 
   private handleSecondaryCityClick(event: MouseEvent | PointerEvent, force = false): void {
+    if (this.modeId !== 'sandbox' && this.modeId !== 'partisan') return;
     const secondary = force || event.button === 2 || (event.button === 0 && event.ctrlKey);
     if (!secondary) return;
     const cityId = this.renderer.cityIdAtClientPoint(event.clientX, event.clientY);
     if (!cityId) return;
+    const action = this.latestActions.find((candidate) => {
+      if (this.modeId === 'sandbox') {
+        return candidate.type === 'sandboxFlipCity' && candidate.cityId === cityId;
+      }
+      return candidate.type === 'partisanCaptureSource' && candidate.cityId === cityId;
+    });
+    if (!action) return;
     event.preventDefault();
     event.stopPropagation();
     this.suppressNextPrimaryClickUntil = Date.now() + 500;
     if (this.lastCityFlipId === cityId && Date.now() - this.lastCityFlipAt < 250) return;
     this.lastCityFlipId = cityId;
     this.lastCityFlipAt = Date.now();
-    this.simulation.flipCityOwner(cityId);
+    this.simulation.applyGameAction(action);
   }
 
   private handleWorkerMessage(message: WorkerOutMessage): void {
@@ -294,9 +369,15 @@ export class GameApp {
 
     this.latestSnapshot = message.snapshot;
     this.latestHistory = message.history;
+    this.latestActions = message.actions;
     this.hud.setHistory(message.history);
+    this.hud.setModeStatus(this.modeStatusText(message.modeView, message.actions));
+    this.overlays.setGuerrillaPoints(
+      message.modeView.mode === 'partisan' ? message.modeView.points : null,
+      message.modeView.mode === 'partisan' ? message.modeView.maxPoints : undefined,
+    );
     this.renderer.render(message.snapshot);
-    this.overlays.update(message.snapshot);
+    this.overlays.update(message.snapshot, this.modeId, message.actions);
     this.renderDiagnostics();
 
     if (this.selectedPoint) {
@@ -314,5 +395,20 @@ export class GameApp {
     const seconds = Math.floor(message.snapshot.gameTime % 60).toString().padStart(2, '0');
     this.hud.setTime(`${minutes}:${seconds}`);
     this.setCompletion(message.winner);
+  }
+
+  private modeStatusText(
+    view: GameModeView,
+    actions: readonly GameAction[],
+  ): string {
+    if (view.mode === 'sandbox') return 'Direct sandbox controls';
+    if (view.mode === 'partisan') {
+      const captures = actions.filter((action) => action.type === 'partisanCaptureSource').length;
+      return captures > 0 ? `Available captures: ${captures}` : 'Accumulating guerrilla points';
+    }
+    const activations = actions.filter((action) => action.type === 'conquestActivate').length;
+    const invasions = actions.filter((action) => action.type === 'conquestInvade').length;
+    if (activations || invasions) return `Available: activate ${activations} · invade ${invasions}`;
+    return 'No strategic action available';
   }
 }

@@ -49,10 +49,31 @@ export function generateCityResource(
   }
 }
 
+export function setCityEnabled(cities: City[], cityId: string, enabled: boolean): boolean {
+  const city = cities.find((candidate) => candidate.id === cityId);
+  if (!city) return false;
+  city.enabled = enabled;
+  return true;
+}
+
 export function toggleCityEnabled(cities: City[], cityId: string): void {
   const city = cities.find((candidate) => candidate.id === cityId);
   if (!city) return;
   city.enabled = !(city.enabled ?? true);
+}
+
+export function setCityOwner(
+  cities: City[],
+  cityId: string,
+  owner: Side,
+  integration = 1,
+): boolean {
+  const city = cities.find((candidate) => candidate.id === cityId);
+  if (!city) return false;
+  city.owner = owner;
+  city.enabled = true;
+  city.integration = Math.max(0, Math.min(1, integration));
+  return true;
 }
 
 /** Debug helper for the current two-side map. */

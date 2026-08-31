@@ -2,7 +2,9 @@
   position: absolute;
   z-index: 9;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
   padding: 4px 9px 5px;
   border-radius: 4px;
   background: rgba(246, 239, 215, .82);
@@ -21,6 +23,47 @@
 .city-points-badge.red {
   border: 1px solid rgba(177, 38, 32, .55);
   color: #b12620;
+}
+
+.guerrilla-inline[hidden] { display: none; }
+
+.guerrilla-inline-track {
+  position: relative;
+  height: 6px;
+  border: 1px solid rgba(64, 52, 32, .28);
+  background: rgba(64, 52, 32, .08);
+}
+
+.guerrilla-inline-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  transition: width .12s linear;
+}
+
+.city-points-badge.blue .guerrilla-inline-fill { background: rgba(22, 79, 145, .72); }
+.city-points-badge.red .guerrilla-inline-fill { background: rgba(177, 38, 32, .72); }
+
+.guerrilla-inline-track i {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 1px;
+  background: rgba(47, 43, 36, .55);
+  transform: translateX(-1px);
+}
+
+.guerrilla-inline-thresholds {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 1px;
+}
+
+.guerrilla-inline-thresholds span {
+  font-size: 8px;
+  line-height: 1;
+  text-align: right;
+  opacity: .66;
 }
 
 .city-power-label {
@@ -70,6 +113,10 @@
   background: rgba(246, 239, 215, .72);
 }
 
+.city-power-label.actionable {
+  box-shadow: 0 0 0 2px rgba(47, 43, 36, .42), 0 1px 5px rgba(60, 45, 20, .18);
+}
+
 .city-name-label {
   position: absolute;
   z-index: 9;
@@ -93,4 +140,8 @@
 .city-name-label.disabled {
   opacity: .50;
   text-decoration: line-through;
+}
+
+.city-name-label.actionable {
+  box-shadow: 0 0 0 1px rgba(47, 43, 36, .34), 0 1px 4px rgba(60, 45, 20, .12);
 }
