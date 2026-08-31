@@ -76,9 +76,11 @@ export class CityOverlays {
     this.redBadge.style.right = 'auto';
     this.redBadge.style.top = `${mapTop + 10}px`;
 
+    this.blueGuerrilla.style.width = `${this.blueBadge.offsetWidth}px`;
+    this.redGuerrilla.style.width = `${this.redBadge.offsetWidth}px`;
     this.blueGuerrilla.style.left = `${mapLeft + 10}px`;
     this.blueGuerrilla.style.top = `${mapTop + 10 + this.blueBadge.offsetHeight + 3}px`;
-    this.redGuerrilla.style.left = `${mapLeft + rect.width - this.redGuerrilla.offsetWidth - 10}px`;
+    this.redGuerrilla.style.left = `${mapLeft + rect.width - this.redBadge.offsetWidth - 10}px`;
     this.redGuerrilla.style.right = 'auto';
     this.redGuerrilla.style.top = `${mapTop + 10 + this.redBadge.offsetHeight + 3}px`;
 
