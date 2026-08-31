@@ -23,6 +23,68 @@
   color: #b12620;
 }
 
+.guerrilla-overlay {
+  position: absolute;
+  z-index: 9;
+  width: 148px;
+  pointer-events: none;
+  font: 700 9px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.guerrilla-overlay[hidden] { display: none; }
+
+.guerrilla-overlay-value {
+  margin-bottom: 2px;
+  text-align: right;
+  text-shadow: 0 1px 0 rgba(255, 250, 229, .9);
+}
+
+.guerrilla-overlay.blue .guerrilla-overlay-value { color: #164f91; }
+.guerrilla-overlay.red .guerrilla-overlay-value { color: #b12620; }
+
+.guerrilla-overlay-track {
+  position: relative;
+  height: 6px;
+  border: 1px solid rgba(64, 52, 32, .28);
+  background: rgba(246, 239, 215, .78);
+}
+
+.guerrilla-overlay-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  transition: width .12s linear;
+}
+
+.guerrilla-overlay.blue .guerrilla-overlay-fill { background: rgba(22, 79, 145, .72); }
+.guerrilla-overlay.red .guerrilla-overlay-fill { background: rgba(177, 38, 32, .72); }
+
+.guerrilla-overlay-track i {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 1px;
+  background: rgba(47, 43, 36, .55);
+  transform: translateX(-1px);
+}
+
+.guerrilla-overlay-thresholds {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 1px;
+}
+
+.guerrilla-overlay-thresholds span {
+  font-size: 8px;
+  line-height: 1;
+  text-align: right;
+  opacity: .66;
+}
+
+.guerrilla-overlay.blue .guerrilla-overlay-thresholds { color: #164f91; }
+.guerrilla-overlay.red .guerrilla-overlay-thresholds { color: #b12620; }
+
 .city-power-label {
   position: absolute;
   z-index: 9;
