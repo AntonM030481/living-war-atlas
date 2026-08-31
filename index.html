@@ -24,13 +24,15 @@
         if (!(target instanceof HTMLScriptElement) || target.src.includes('cloudflareinsights.com')) return;
         document.body.textContent = 'Living War Atlas could not start. Reload the page and try again.';
       }, true);
+
+      const localHost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      window.__LWA_LOCAL_HOST__ = localHost;
     </script>
     <script type="module" src="/src/main.ts"></script>
 
     <script>
-      const localHost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
       const nativeApp = location.protocol === 'capacitor:';
-      if (!localHost && !nativeApp) {
+      if (!window.__LWA_LOCAL_HOST__ && !nativeApp) {
         const analytics = document.createElement('script');
         analytics.src = 'https://static.cloudflareinsights.com/beacon.min.js';
         analytics.dataset.cfBeacon = JSON.stringify({ token: '944a03af135f467b91ba331ce0e5f374' });
