@@ -23,13 +23,13 @@ function seedFromMapId(id: MapId): number {
 const RAW_MAP_OPTIONS: readonly MapOption[] = [
   {
     id: 'theatre',
-    name: 'Full playground map',
+    name: 'Riverlands',
     description: '256x160 map with 10 cities, river and forests.',
     map: testMap,
   },
   {
     id: 'island',
-    name: 'Mountain theatre',
+    name: 'Highlands',
     description: '256x160 map with 10 cities, mountains, foothill forests and a branched river network.',
     map: islandMap,
   },
