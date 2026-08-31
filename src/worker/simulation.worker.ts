@@ -70,7 +70,7 @@ function finishIfDecided(): boolean {
 
 function createFreshSession(map: MapDefinition, nextModeId: GameModeId, nextSeed: number): GameSession {
   const simulation = createSimulationForMode(nextModeId, map, nextSeed);
-  const game = new GameSession(simulation, createGameModeRuntime(nextModeId, map));
+  const game = new GameSession(simulation, createGameModeRuntime(nextModeId, map, 'blue', nextSeed));
   if (nextModeId === 'sandbox' && mapId === 'theatre') seedInitialEnclaves(simulation, map, nextSeed);
   return game;
 }
@@ -102,7 +102,7 @@ async function createSession(
         seed = persisted.seed >>> 0 || fallbackSeed;
         session = new GameSession(
           createSimulationForMode(nextModeId, map, seed),
-          createGameModeRuntime(nextModeId, map),
+          createGameModeRuntime(nextModeId, map, 'blue', seed),
         );
         session.restoreState(savedState);
         if (persisted.nextHistoryTime <= session.simulation.gameTime) {
