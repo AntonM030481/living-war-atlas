@@ -13,10 +13,8 @@ function formatPoints(value: number): string {
 }
 
 export class CityOverlays {
-  private readonly blueBadge = document.createElement('div');
-  private readonly redBadge = document.createElement('div');
-  private readonly blueGuerrilla = this.createGuerrillaBar('blue');
-  private readonly redGuerrilla = this.createGuerrillaBar('red');
+  private readonly blueBadge = this.createSideBadge('blue');
+  private readonly redBadge = this.createSideBadge('red');
   private readonly powerLabels = new Map<string, HTMLDivElement>();
   private readonly nameLabels = new Map<string, HTMLDivElement>();
   private readonly regionByCity = new Map<string, string>();
@@ -26,14 +24,10 @@ export class CityOverlays {
     private readonly projector: OverlayProjector,
     private readonly host: HTMLElement,
   ) {
-    this.blueBadge.className = 'city-points-badge blue';
-    this.redBadge.className = 'city-points-badge red';
-    this.blueBadge.textContent = 'Production --/-- · Force --';
-    this.redBadge.textContent = 'Production --/-- · Force --';
     const badgeTitle = 'Production is active production / controlled production capacity. Active production generates force, which flows from cities toward the front.';
     this.blueBadge.title = badgeTitle;
     this.redBadge.title = badgeTitle;
-    this.host.append(this.blueBadge, this.redBadge, this.blueGuerrilla, this.redGuerrilla);
+    this.host.append(this.blueBadge, this.redBadge);
 
     for (const region of map.regions ?? []) this.regionByCity.set(region.cityId, region.id);
 
@@ -52,12 +46,12 @@ export class CityOverlays {
 
   setGuerrillaPoints(points: Record<Side, number> | null, maxPoints = 300): void {
     for (const side of ['blue', 'red'] as const) {
-      const bar = side === 'blue' ? this.blueGuerrilla : this.redGuerrilla;
-      bar.hidden = points === null;
+      const badge = side === 'blue' ? this.blueBadge : this.redBadge;
+      const guerrilla = badge.querySelector<HTMLElement>('.guerrilla-inline')!;
+      guerrilla.hidden = points === null;
       if (!points) continue;
       const value = Math.max(0, Math.min(maxPoints, points[side]));
-      bar.querySelector<HTMLElement>('.guerrilla-overlay-value')!.textContent = `${Math.floor(value)} / ${maxPoints}`;
-      bar.querySelector<HTMLElement>('.guerrilla-overlay-fill')!.style.width = `${(value / maxPoints) * 100}%`;
+      guerrilla.querySelector<HTMLElement>('.guerrilla-inline-fill')!.style.width = `${(value / maxPoints) * 100}%`;
     }
   }
 
@@ -68,21 +62,13 @@ export class CityOverlays {
     const mapLeft = rect.left - hostRect.left;
     const mapTop = rect.top - hostRect.top;
 
-    this.blueBadge.textContent = `Production ${formatPoints(stats.activeCityPointsBlue)}/${formatPoints(stats.controlledCityPointsBlue)} · Force ${Math.round(stats.totalWarBlue)}`;
-    this.redBadge.textContent = `Production ${formatPoints(stats.activeCityPointsRed)}/${formatPoints(stats.controlledCityPointsRed)} · Force ${Math.round(stats.totalWarRed)}`;
+    this.blueBadge.querySelector<HTMLElement>('.city-points-text')!.textContent = `Production ${formatPoints(stats.activeCityPointsBlue)}/${formatPoints(stats.controlledCityPointsBlue)} · Force ${Math.round(stats.totalWarBlue)}`;
+    this.redBadge.querySelector<HTMLElement>('.city-points-text')!.textContent = `Production ${formatPoints(stats.activeCityPointsRed)}/${formatPoints(stats.controlledCityPointsRed)} · Force ${Math.round(stats.totalWarRed)}`;
     this.blueBadge.style.left = `${mapLeft + 10}px`;
     this.blueBadge.style.top = `${mapTop + 10}px`;
     this.redBadge.style.left = `${mapLeft + rect.width - this.redBadge.offsetWidth - 10}px`;
     this.redBadge.style.right = 'auto';
     this.redBadge.style.top = `${mapTop + 10}px`;
-
-    this.blueGuerrilla.style.width = `${this.blueBadge.offsetWidth}px`;
-    this.redGuerrilla.style.width = `${this.redBadge.offsetWidth}px`;
-    this.blueGuerrilla.style.left = `${mapLeft + 10}px`;
-    this.blueGuerrilla.style.top = `${mapTop + 10 + this.blueBadge.offsetHeight + 3}px`;
-    this.redGuerrilla.style.left = `${mapLeft + rect.width - this.redBadge.offsetWidth - 10}px`;
-    this.redGuerrilla.style.right = 'auto';
-    this.redGuerrilla.style.top = `${mapTop + 10 + this.redBadge.offsetHeight + 3}px`;
 
     for (const city of snapshot.cities) {
       const power = this.powerLabels.get(city.id);
@@ -113,19 +99,20 @@ export class CityOverlays {
     }
   }
 
-  private createGuerrillaBar(side: Side): HTMLDivElement {
-    const bar = document.createElement('div');
-    bar.className = `guerrilla-overlay ${side}`;
-    bar.hidden = true;
-    bar.innerHTML = `
-      <div class="guerrilla-overlay-value">0 / 300</div>
-      <div class="guerrilla-overlay-track">
-        <div class="guerrilla-overlay-fill"></div>
-        <i style="left:33.333%"></i><i style="left:66.667%"></i><i style="left:100%"></i>
+  private createSideBadge(side: Side): HTMLDivElement {
+    const badge = document.createElement('div');
+    badge.className = `city-points-badge ${side}`;
+    badge.innerHTML = `
+      <div class="city-points-text">Production --/-- · Force --</div>
+      <div class="guerrilla-inline" hidden>
+        <div class="guerrilla-inline-track">
+          <div class="guerrilla-inline-fill"></div>
+          <i style="left:33.333%"></i><i style="left:66.667%"></i><i style="left:100%"></i>
+        </div>
+        <div class="guerrilla-inline-thresholds"><span>1</span><span>2</span><span>3</span></div>
       </div>
-      <div class="guerrilla-overlay-thresholds"><span>1</span><span>2</span><span>3</span></div>
     `;
-    return bar;
+    return badge;
   }
 
   private cityInteraction(cityId: string, modeId: GameModeId, actions: readonly GameAction[]): string | null {
