@@ -43,6 +43,14 @@ export class ConquestMetaGame implements MetaGame<ConquestAction, ConquestMetaSt
   }
 
   initialize(simulation: Simulation): void {
+    // Simulation may have applied a randomized initial ownership policy.
+    // Country ownership follows its capital rather than the authored map value.
+    for (const country of this.countries.values()) {
+      const capital = simulation.cities.find((city) => city.id === this.capital(country.regionId));
+      if (!capital) throw new Error(`Unknown capital for region ${country.regionId}`);
+      country.owner = capital.owner;
+    }
+
     simulation.initializeRegionalControl(
       [...this.countries.values()].map((country) => [country.regionId, country.owner] as const),
     );
