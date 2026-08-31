@@ -38,8 +38,8 @@ function conquestMap(): MapDefinition {
   };
 }
 
-function tick(session: GameSession, count: number): void {
-  for (let i = 0; i < count; i++) session.tick();
+function accumulateGuerrilla(session: GameSession, ticks: number): void {
+  for (let i = 0; i < ticks; i++) session.mode.beforeTick(session.simulation);
 }
 
 describe('game modes', () => {
@@ -65,10 +65,10 @@ describe('game modes', () => {
       thresholds: [100, 200, 300],
     });
 
-    tick(session, 99);
+    accumulateGuerrilla(session, 99);
     expect(session.availableActions()).toEqual([]);
 
-    tick(session, 1);
+    accumulateGuerrilla(session, 1);
     expect(session.availableActions()).toEqual([{ type: 'partisanCaptureSource', cityId: 'red' }]);
     expect(session.view()).toMatchObject({ points: { blue: 100, red: 100 } });
   });
@@ -80,7 +80,7 @@ describe('game modes', () => {
     const redCity = simulation.cities.find((city) => city.id === 'red')!;
     const cityIndex = redCity.y * simulation.width + redCity.x;
 
-    tick(session, 100);
+    accumulateGuerrilla(session, 100);
     session.apply({ type: 'partisanCaptureSource', cityId: 'red' });
 
     expect(redCity.owner).toBe('blue');
@@ -97,7 +97,7 @@ describe('game modes', () => {
     const simulation = new Simulation(map, 1);
     const session = new GameSession(simulation, createGameModeRuntime('partisan', map));
 
-    tick(session, 100);
+    accumulateGuerrilla(session, 100);
     simulation.warRed[0] = 0.5;
     session.apply({ type: 'partisanCaptureSource', cityId: 'red' });
 
@@ -149,7 +149,7 @@ describe('game modes', () => {
     const map = partisanMap();
     const simulation = new Simulation(map, 1);
     const session = new GameSession(simulation, createGameModeRuntime('partisan', map));
-    tick(session, 100);
+    accumulateGuerrilla(session, 100);
     session.apply({ type: 'partisanCaptureSource', cityId: 'red' });
     const saved = session.saveState();
 
