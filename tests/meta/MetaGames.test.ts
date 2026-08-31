@@ -19,6 +19,24 @@ function partisanMap(): MapDefinition {
   };
 }
 
+function opponentMap(targetProduction: number, secondTarget = false): MapDefinition {
+  return {
+    width: secondTarget ? 7 : 5,
+    height: 1,
+    initialFrontX: () => secondTarget ? 4.5 : 3.5,
+    cities: [
+      { id: 'blue-a', name: 'Blue A', x: 0, y: 0, baseProduction: targetProduction, owner: 'blue', integration: 1 },
+      ...(secondTarget
+        ? [{ id: 'blue-b', name: 'Blue B', x: 2, y: 0, baseProduction: targetProduction, owner: 'blue' as const, integration: 1 }]
+        : []),
+      { id: 'red', name: 'Red', x: secondTarget ? 6 : 4, y: 0, baseProduction: 1, owner: 'red', integration: 1 },
+    ],
+    forests: [],
+    rivers: [],
+    seedInitialResource: false,
+  };
+}
+
 function conquestMap(): MapDefinition {
   return {
     width: 4,
@@ -38,6 +56,13 @@ function conquestMap(): MapDefinition {
   };
 }
 
+function partisanSession(map: MapDefinition): GameSession {
+  return new GameSession(
+    new Simulation(map, 1),
+    createGameModeRuntime('partisan', map, 'blue', 1, null),
+  );
+}
+
 function accumulateGuerrilla(session: GameSession, ticks: number): void {
   for (let i = 0; i < ticks; i++) session.mode.beforeTick(session.simulation);
 }
@@ -54,8 +79,7 @@ describe('game modes', () => {
 
   it('accumulates independent guerrilla points and unlocks a Production 1 capture at 100', () => {
     const map = partisanMap();
-    const simulation = new Simulation(map, 1);
-    const session = new GameSession(simulation, createGameModeRuntime('partisan', map));
+    const session = partisanSession(map);
 
     expect(session.availableActions()).toEqual([]);
     expect(session.view()).toMatchObject({
@@ -75,8 +99,8 @@ describe('game modes', () => {
 
   it('spends guerrilla points on the captured city production value', () => {
     const map = partisanMap();
-    const simulation = new Simulation(map, 1);
-    const session = new GameSession(simulation, createGameModeRuntime('partisan', map));
+    const session = partisanSession(map);
+    const simulation = session.simulation;
     const redCity = simulation.cities.find((city) => city.id === 'red')!;
     const cityIndex = redCity.y * simulation.width + redCity.x;
 
@@ -92,10 +116,39 @@ describe('game modes', () => {
     expect(session.availableActions()).toEqual([]);
   });
 
+  it('lets the greedy opponent spend 100 points immediately on a random Production 1 target', () => {
+    const map = opponentMap(1, true);
+    const simulation = new Simulation(map, 17);
+    const session = new GameSession(simulation, createGameModeRuntime('partisan', map, 'blue', 17));
+
+    accumulateGuerrilla(session, 99);
+    expect(simulation.cities.filter((city) => city.owner === 'red').map((city) => city.id)).toEqual(['red']);
+
+    accumulateGuerrilla(session, 1);
+    const captured = simulation.cities.filter((city) => city.id.startsWith('blue-') && city.owner === 'red');
+    expect(captured).toHaveLength(1);
+    expect(['blue-a', 'blue-b']).toContain(captured[0].id);
+    expect(session.view()).toMatchObject({ points: { red: 0 } });
+  });
+
+  it('makes the greedy opponent wait for 200 points when no Production 1 target exists', () => {
+    const map = opponentMap(2);
+    const simulation = new Simulation(map, 23);
+    const session = new GameSession(simulation, createGameModeRuntime('partisan', map, 'blue', 23));
+
+    accumulateGuerrilla(session, 100);
+    expect(simulation.cities.find((city) => city.id === 'blue-a')?.owner).toBe('blue');
+    expect(session.view()).toMatchObject({ points: { red: 100 } });
+
+    accumulateGuerrilla(session, 100);
+    expect(simulation.cities.find((city) => city.id === 'blue-a')?.owner).toBe('red');
+    expect(session.view()).toMatchObject({ points: { red: 0 } });
+  });
+
   it('does not defeat a side while residual force remains', () => {
     const map = partisanMap();
-    const simulation = new Simulation(map, 1);
-    const session = new GameSession(simulation, createGameModeRuntime('partisan', map));
+    const session = partisanSession(map);
+    const simulation = session.simulation;
 
     accumulateGuerrilla(session, 100);
     simulation.warRed[0] = 0.5;
@@ -147,17 +200,15 @@ describe('game modes', () => {
 
   it('saves mode state together with simulation state', () => {
     const map = partisanMap();
-    const simulation = new Simulation(map, 1);
-    const session = new GameSession(simulation, createGameModeRuntime('partisan', map));
+    const session = partisanSession(map);
     accumulateGuerrilla(session, 100);
     session.apply({ type: 'partisanCaptureSource', cityId: 'red' });
     const saved = session.saveState();
 
-    const restoredSimulation = new Simulation(map, 1);
-    const restored = new GameSession(restoredSimulation, createGameModeRuntime('partisan', map));
+    const restored = partisanSession(map);
     restored.restoreState(saved);
 
-    expect(restoredSimulation.cities.find((city) => city.id === 'red')?.owner).toBe('blue');
+    expect(restored.simulation.cities.find((city) => city.id === 'red')?.owner).toBe('blue');
     expect(restored.saveState().mode).toEqual(saved.mode);
   });
 });
