@@ -1,19 +1,27 @@
+import { isLocalHost } from '../app/environment';
 import { GAME_MODE_OPTIONS, type GameModeId, mapSupportsMode } from '../game/GameMode';
 import { MAP_OPTIONS } from '../map/maps';
 
+function visibleModes() {
+  return GAME_MODE_OPTIONS.filter((option) => isLocalHost() || option.id !== 'conquest');
+}
+
 function modeAvailable(modeId: GameModeId): boolean {
-  return MAP_OPTIONS.some((option) => mapSupportsMode(option.map, modeId));
+  return MAP_OPTIONS
+    .filter((option) => isLocalHost() || option.id !== 'linear')
+    .some((option) => mapSupportsMode(option.map, modeId));
 }
 
 export function chooseMode(currentModeId: GameModeId, allowCancel: boolean): Promise<GameModeId | null> {
   return new Promise((resolve) => {
+    const options = visibleModes();
     const dialog = document.createElement('dialog');
     dialog.className = 'map-picker';
     dialog.innerHTML = `
       <form>
         <div class="map-picker-title">Choose mode</div>
         <div class="map-picker-options">
-          ${GAME_MODE_OPTIONS.map((option) => {
+          ${options.map((option) => {
             const available = modeAvailable(option.id);
             return `
               <button
@@ -37,9 +45,9 @@ export function chooseMode(currentModeId: GameModeId, allowCancel: boolean): Pro
     `;
 
     let settled = false;
-    let selectedModeId = modeAvailable(currentModeId)
+    let selectedModeId = options.some((option) => option.id === currentModeId && modeAvailable(option.id))
       ? currentModeId
-      : GAME_MODE_OPTIONS.find((option) => modeAvailable(option.id))!.id;
+      : options.find((option) => modeAvailable(option.id))!.id;
     const finish = (modeId: GameModeId | null) => {
       if (settled) return;
       settled = true;
