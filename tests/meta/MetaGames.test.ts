@@ -37,6 +37,23 @@ function opponentMap(targetProduction: number, secondTarget = false): MapDefinit
   };
 }
 
+function mixedOpponentMap(): MapDefinition {
+  return {
+    width: 9,
+    height: 1,
+    initialFrontX: () => 7.5,
+    cities: [
+      { id: 'blue-1', name: 'Blue 1', x: 0, y: 0, baseProduction: 1, owner: 'blue', integration: 1 },
+      { id: 'blue-2', name: 'Blue 2', x: 2, y: 0, baseProduction: 2, owner: 'blue', integration: 1 },
+      { id: 'blue-3', name: 'Blue 3', x: 4, y: 0, baseProduction: 3, owner: 'blue', integration: 1 },
+      { id: 'red', name: 'Red', x: 8, y: 0, baseProduction: 1, owner: 'red', integration: 1 },
+    ],
+    forests: [],
+    rivers: [],
+    seedInitialResource: false,
+  };
+}
+
 function conquestMap(): MapDefinition {
   return {
     width: 4,
@@ -116,32 +133,45 @@ describe('game modes', () => {
     expect(session.availableActions()).toEqual([]);
   });
 
-  it('lets the greedy opponent spend 100 points immediately on a random Production 1 target', () => {
-    const map = opponentMap(1, true);
+  it('makes the greedy opponent prefer Production 2 over affordable Production 1', () => {
+    const map = mixedOpponentMap();
     const simulation = new Simulation(map, 17);
     const session = new GameSession(simulation, createGameModeRuntime('partisan', map, 'blue', 17));
 
-    accumulateGuerrilla(session, 99);
-    expect(simulation.cities.filter((city) => city.owner === 'red').map((city) => city.id)).toEqual(['red']);
-
-    accumulateGuerrilla(session, 1);
-    const captured = simulation.cities.filter((city) => city.id.startsWith('blue-') && city.owner === 'red');
-    expect(captured).toHaveLength(1);
-    expect(['blue-a', 'blue-b']).toContain(captured[0].id);
-    expect(session.view()).toMatchObject({ points: { red: 0 } });
-  });
-
-  it('makes the greedy opponent wait for 200 points when no Production 1 target exists', () => {
-    const map = opponentMap(2);
-    const simulation = new Simulation(map, 23);
-    const session = new GameSession(simulation, createGameModeRuntime('partisan', map, 'blue', 23));
-
     accumulateGuerrilla(session, 100);
-    expect(simulation.cities.find((city) => city.id === 'blue-a')?.owner).toBe('blue');
+    expect(simulation.cities.find((city) => city.id === 'blue-1')?.owner).toBe('blue');
+    expect(simulation.cities.find((city) => city.id === 'blue-2')?.owner).toBe('blue');
     expect(session.view()).toMatchObject({ points: { red: 100 } });
 
     accumulateGuerrilla(session, 100);
+    expect(simulation.cities.find((city) => city.id === 'blue-2')?.owner).toBe('red');
+    expect(simulation.cities.find((city) => city.id === 'blue-1')?.owner).toBe('blue');
+    expect(session.view()).toMatchObject({ points: { red: 0 } });
+  });
+
+  it('makes the greedy opponent prefer Production 3 when no Production 2 target exists', () => {
+    const map = opponentMap(3);
+    const simulation = new Simulation(map, 23);
+    const session = new GameSession(simulation, createGameModeRuntime('partisan', map, 'blue', 23));
+
+    accumulateGuerrilla(session, 200);
+    expect(simulation.cities.find((city) => city.id === 'blue-a')?.owner).toBe('blue');
+    expect(session.view()).toMatchObject({ points: { red: 200 } });
+
+    accumulateGuerrilla(session, 100);
     expect(simulation.cities.find((city) => city.id === 'blue-a')?.owner).toBe('red');
+    expect(session.view()).toMatchObject({ points: { red: 0 } });
+  });
+
+  it('falls back to a random Production 1 target when no 2 or 3 exists', () => {
+    const map = opponentMap(1, true);
+    const simulation = new Simulation(map, 29);
+    const session = new GameSession(simulation, createGameModeRuntime('partisan', map, 'blue', 29));
+
+    accumulateGuerrilla(session, 100);
+    const captured = simulation.cities.filter((city) => city.id.startsWith('blue-') && city.owner === 'red');
+    expect(captured).toHaveLength(1);
+    expect(['blue-a', 'blue-b']).toContain(captured[0].id);
     expect(session.view()).toMatchObject({ points: { red: 0 } });
   });
 
