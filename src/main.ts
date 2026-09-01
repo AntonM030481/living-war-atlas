@@ -16,6 +16,7 @@ import { HistoryStorage } from './worker/HistoryStorage';
 
 const NEW_GAME_MAP_KEY = 'living-war-atlas:new-game-map';
 const NEW_GAME_MODE_KEY = 'living-war-atlas:new-game-mode';
+const MODE_INSTRUCTIONS_HIDDEN_KEY = 'living-war-atlas:mode-instructions-hidden';
 
 export interface GameSelection {
   modeId: GameModeId;
@@ -36,6 +37,65 @@ function selectionAllowed(selection: GameSelection): boolean {
 
 function compatibleMaps(modeId: GameModeId) {
   return MAP_OPTIONS.filter((option) => mapAllowed(option.id) && mapSupportsMode(option.map, modeId));
+}
+
+function usesTouchControls(): boolean {
+  return window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+}
+
+function modeInstructionsStorageKey(modeId: GameModeId): string {
+  return `${MODE_INSTRUCTIONS_HIDDEN_KEY}:${modeId}`;
+}
+
+async function showModeInstructions(modeId: GameModeId): Promise<void> {
+  const storageKey = modeInstructionsStorageKey(modeId);
+  if (localStorage.getItem(storageKey) === '1') return;
+
+  const mode = getGameModeOption(modeId);
+  const interactionNote = usesTouchControls()
+    ? mode.interactionNoteTouch
+    : mode.interactionNoteClick;
+
+  await new Promise<void>((resolve) => {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'map-picker mode-instructions';
+    dialog.innerHTML = `
+      <form>
+        <div class="map-picker-title">${mode.name}</div>
+        <div class="mode-instructions-text">${interactionNote}</div>
+        <label class="mode-instructions-dismiss">
+          <input type="checkbox">
+          <span>Don't show again for this mode</span>
+        </label>
+        <div class="map-picker-actions">
+          <button type="button" class="map-picker-start">OK</button>
+        </div>
+      </form>
+    `;
+
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      const checkbox = dialog.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+      if (checkbox.checked) localStorage.setItem(storageKey, '1');
+      dialog.close();
+      dialog.remove();
+      resolve();
+    };
+
+    dialog.querySelector<HTMLButtonElement>('.map-picker-start')!
+      .addEventListener('click', finish);
+    dialog.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      finish();
+    });
+    dialog.addEventListener('cancel', (event) => event.preventDefault());
+
+    document.body.appendChild(dialog);
+    dialog.showModal();
+  });
 }
 
 async function savedGame(): Promise<GameSelection | null> {
@@ -93,6 +153,8 @@ async function main(): Promise<void> {
   initial ??= await savedGame();
   initial ??= await chooseNewGame('sandbox', 'theatre', false);
   initial ??= { modeId: 'sandbox', mapId: 'theatre' };
+
+  await showModeInstructions(initial.modeId);
 
   const initialMap = getMapOption(initial.mapId);
 
