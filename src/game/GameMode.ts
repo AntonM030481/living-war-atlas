@@ -54,7 +54,7 @@ export const GAME_MODE_OPTIONS: readonly GameModeOption[] = [
     id: 'sandbox',
     name: 'Sandbox',
     description: 'Directly toggle production or switch ownership of any city.',
-    interactionNoteClick: 'Click a city to toggle production on/off.<br>Secondary city click: switch side.',
+    interactionNoteClick: 'Click a city to toggle production on/off.<br>Right/secondary city click: switch side.',
     interactionNoteTouch: 'Tap a city to toggle production on/off.<br>Long tap city: switch side.',
     requiresRegions: false,
     initialOwnership: 'balanced-random',
