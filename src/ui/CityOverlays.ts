@@ -83,17 +83,21 @@ export class CityOverlays {
       const interaction = this.cityInteraction(city.id, modeId, actions);
       const title = `${city.name}: ${city.baseProduction} production points.${interaction ? ` ${interaction}` : ''}`;
       const actionable = interaction !== null;
+      const powerActionClass = actionable
+        ? modeId === 'partisan' ? ' partisan-actionable' : ' actionable'
+        : '';
+      const nameActionClass = actionable && modeId !== 'partisan' ? ' actionable' : '';
 
       power.hidden = contested;
       name.hidden = contested;
       power.textContent = `${city.baseProduction}`;
       power.title = title;
-      power.className = `city-power-label ${city.owner} power-${city.baseProduction}${city.enabled === false ? ' disabled' : ''}${actionable ? ' actionable' : ''}`;
+      power.className = `city-power-label ${city.owner} power-${city.baseProduction}${city.enabled === false ? ' disabled' : ''}${powerActionClass}`;
       power.style.left = `${localX}px`;
       power.style.top = `${localY}px`;
       name.textContent = city.name;
       name.title = title;
-      name.className = `city-name-label ${city.owner}${city.enabled === false ? ' disabled' : ''}${actionable ? ' actionable' : ''}`;
+      name.className = `city-name-label ${city.owner}${city.enabled === false ? ' disabled' : ''}${nameActionClass}`;
       name.style.left = `${localX}px`;
       name.style.top = `${localY + 22}px`;
     }

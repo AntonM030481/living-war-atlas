@@ -29,7 +29,8 @@ export class Hud {
   constructor(
     title: string,
     modeName: string,
-    interactionNote: string,
+    interactionNoteClick: string,
+    interactionNoteTouch: string,
     initialSpeed: Speed,
     handlers: HudHandlers,
   ) {
@@ -86,9 +87,9 @@ export class Hud {
     this.element.querySelector<HTMLButtonElement>('#reset')!.addEventListener('click', handlers.onReset);
     this.debugButton.addEventListener('click', handlers.onDiagnosticsToggle);
 
-    const keyboardControls = usesTouchControls()
-      ? ''
-      : '<br>Space: pause · ←/→: rewind · ↑/↓: speed';
+    const interactionNote = usesTouchControls()
+      ? interactionNoteTouch
+      : interactionNoteClick + '<br>Space: pause · ←/→: rewind · ↑/↓: speed';
 
     this.legend = document.createElement('details');
     this.legend.className = 'legend';
@@ -107,7 +108,7 @@ export class Hud {
         <span class="legend-mark forest-mark"></span><span>forest</span>
         <span class="legend-mark stress-mark debug-only"></span><span class="debug-only">front instability</span>
       </div>
-      <div class="legend-note">${interactionNote}${keyboardControls}</div>
+      <div class="legend-note">${interactionNote}</div>
     `;
   }
 
@@ -121,7 +122,9 @@ export class Hud {
   }
 
   setModeStatus(text: string): void {
-    this.modeStatus.textContent = text;
+    const visibleText = text.startsWith('Available captures:') ? '' : text;
+    this.modeStatus.textContent = visibleText;
+    this.modeStatus.hidden = visibleText.length === 0;
   }
 
   setGuerrillaPoints(points: Record<Side, number> | null, maxPoints = 300): void {

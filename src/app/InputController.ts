@@ -1,7 +1,7 @@
 import type { Speed } from '../sim/Config';
 
 const DRAG_THRESHOLD_PX = 3;
-const LONG_PRESS_MS = 500;
+const LONG_PRESS_MS = 400;
 const TOUCH_CONTEXT_MENU_SUPPRESSION_MS = 1000;
 
 export interface InputHandlers {
@@ -70,6 +70,7 @@ export class InputController {
         this.longPressTriggered = true;
         this.lastTouchLongPressAt = Date.now();
         this.suppressClick = true;
+        navigator.vibrate?.(20);
         this.handlers.onSecondaryClick(event, true);
       }, LONG_PRESS_MS);
     }

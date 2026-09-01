@@ -43,7 +43,8 @@ export interface GameModeOption {
   id: GameModeId;
   name: string;
   description: string;
-  interactionNote: string;
+  interactionNoteClick: string;
+  interactionNoteTouch: string;
   requiresRegions: boolean;
   initialOwnership: InitialOwnershipPolicy;
 }
@@ -53,7 +54,8 @@ export const GAME_MODE_OPTIONS: readonly GameModeOption[] = [
     id: 'sandbox',
     name: 'Sandbox',
     description: 'Directly toggle production or switch ownership of any city.',
-    interactionNote: 'City click: production on/off · secondary click / long press: switch side',
+    interactionNoteClick: 'Click a city to toggle production on/off.<br>Right/secondary city click: switch side.',
+    interactionNoteTouch: 'Tap a city to toggle production on/off.<br>Long tap city: switch side.',
     requiresRegions: false,
     initialOwnership: 'balanced-random',
   },
@@ -61,7 +63,8 @@ export const GAME_MODE_OPTIONS: readonly GameModeOption[] = [
     id: 'partisan',
     name: 'Game: Guerilla wars',
     description: 'Accumulate guerrilla points and spend them to capture enemy cities.',
-    interactionNote: 'Capture cost: Production 1 = 100 · 2 = 200 · 3 = 300 guerrilla points.',
+    interactionNoteClick: 'Click a highlighted enemy city to deploy guerrillas.<br>Guerilla bar shows which city levels are available.',
+    interactionNoteTouch: 'Tap a highlighted enemy city to deploy guerrillas.<br>Guerilla bar shows which city levels are available.',
     requiresRegions: false,
     initialOwnership: 'balanced-random',
   },
@@ -69,7 +72,8 @@ export const GAME_MODE_OPTIONS: readonly GameModeOption[] = [
     id: 'conquest',
     name: 'Game: Conquest',
     description: 'Activate your countries and choose which neighboring country to invade;.',
-    interactionNote: 'Click your inactive region to activate it · click an available enemy region to invade.',
+    interactionNoteClick: 'Click your inactive region to activate it.<br>Click an available enemy region to invade.',
+    interactionNoteTouch: 'Tap your inactive region to activate it.<br>Tap an available enemy region to invade.',
     requiresRegions: true,
     initialOwnership: 'balanced-random',
   },

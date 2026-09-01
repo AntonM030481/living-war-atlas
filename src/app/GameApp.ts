@@ -106,7 +106,8 @@ export class GameApp {
     this.hud = new Hud(
       getMapOption(this.mapId).name,
       mode.name,
-      mode.interactionNote,
+      mode.interactionNoteClick,
+      mode.interactionNoteTouch,
       this.speed,
       {
         onSpeed: (speed) => this.setSpeed(speed),
