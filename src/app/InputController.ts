@@ -70,6 +70,7 @@ export class InputController {
         this.longPressTriggered = true;
         this.lastTouchLongPressAt = Date.now();
         this.suppressClick = true;
+        navigator.vibrate?.(20);
         this.handlers.onSecondaryClick(event, true);
       }, LONG_PRESS_MS);
     }
