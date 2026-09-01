@@ -154,17 +154,18 @@ async function main(): Promise<void> {
   initial ??= await chooseNewGame('sandbox', 'theatre', false);
   initial ??= { modeId: 'sandbox', mapId: 'theatre' };
 
-  await showModeInstructions(initial.modeId);
-
   const initialMap = getMapOption(initial.mapId);
-
-  await new GameApp(
+  const game = new GameApp(
     root,
     initial.modeId,
     initialMap.id,
     initialMap.map,
     (currentModeId, currentMapId) => chooseNewGame(currentModeId, currentMapId, true),
-  ).start();
+  );
+
+  await game.start();
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  await showModeInstructions(initial.modeId);
 }
 
 void main().catch((error) => {
