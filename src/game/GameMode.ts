@@ -61,7 +61,7 @@ export const GAME_MODE_OPTIONS: readonly GameModeOption[] = [
     id: 'partisan',
     name: 'Game: Guerilla wars',
     description: 'Accumulate guerrilla points and spend them to capture enemy cities.',
-    interactionNote: 'Capture cost: Production 1 = 100 · 2 = 200 · 3 = 300 guerrilla points.',
+    interactionNote: 'Click a highlighted enemy city to deploy guerrillas.',
     requiresRegions: false,
     initialOwnership: 'balanced-random',
   },
