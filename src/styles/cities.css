@@ -117,6 +117,15 @@
   box-shadow: 0 0 0 2px rgba(47, 43, 36, .42), 0 1px 5px rgba(60, 45, 20, .18);
 }
 
+.city-power-label.partisan-actionable::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border: 2px dashed rgba(22, 79, 145, .88);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
 .city-name-label {
   position: absolute;
   z-index: 9;
