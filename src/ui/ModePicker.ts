@@ -94,5 +94,6 @@ export function chooseMode(currentModeId: GameModeId, allowCancel: boolean): Pro
 
     document.body.appendChild(dialog);
     dialog.showModal();
+    optionButtons.find((button) => button.dataset.modeId === selectedModeId)?.focus();
   });
 }

@@ -89,5 +89,6 @@ export function chooseMap(
 
     document.body.appendChild(dialog);
     dialog.showModal();
+    optionButtons.find((button) => button.dataset.mapId === selectedMapId)?.focus();
   });
 }
