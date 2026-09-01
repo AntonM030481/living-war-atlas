@@ -121,7 +121,9 @@ export class Hud {
   }
 
   setModeStatus(text: string): void {
-    this.modeStatus.textContent = text;
+    const visibleText = text.startsWith('Available captures:') ? '' : text;
+    this.modeStatus.textContent = visibleText;
+    this.modeStatus.hidden = visibleText.length === 0;
   }
 
   setGuerrillaPoints(points: Record<Side, number> | null, maxPoints = 300): void {
