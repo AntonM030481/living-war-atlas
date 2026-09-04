@@ -4,6 +4,7 @@
   "version": "0.2.1",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/version.mjs --write-web",
     "dev": "vite",
     "prebuild": "node scripts/version.mjs --write-web",
     "build": "tsc && vite build",

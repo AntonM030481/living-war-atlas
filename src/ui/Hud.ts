@@ -11,6 +11,7 @@ export interface HudHandlers {
   onHistoryStep(delta: -1 | 1): void;
   onReset(): void;
   onDiagnosticsToggle(): void;
+  onAbout(): void;
 }
 
 export class Hud {
@@ -37,7 +38,10 @@ export class Hud {
     this.element = document.createElement('div');
     this.element.className = 'hud';
     this.element.innerHTML = `
-      <strong>${title}</strong>
+      <div class="hud-title-row">
+        <strong>${title}</strong>
+      </div>
+      <button type="button" id="about" class="hud-about" title="About Living War Atlas" aria-label="About Living War Atlas">i</button>
       <span class="mode-name">${modeName}</span>
       <div class="time-row"><span id="time">0:00</span><span id="status" hidden></span></div>
       <span id="mode-status"></span>
@@ -86,6 +90,7 @@ export class Hud {
     this.historyForwardButton.addEventListener('click', () => handlers.onHistoryStep(1));
     this.element.querySelector<HTMLButtonElement>('#reset')!.addEventListener('click', handlers.onReset);
     this.debugButton.addEventListener('click', handlers.onDiagnosticsToggle);
+    this.element.querySelector<HTMLButtonElement>('#about')!.addEventListener('click', handlers.onAbout);
 
     const interactionNote = usesTouchControls()
       ? interactionNoteTouch
