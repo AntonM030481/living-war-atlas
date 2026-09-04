@@ -19,7 +19,6 @@ export class Hud {
   readonly legend: HTMLDetailsElement;
   private readonly time: HTMLSpanElement;
   private readonly status: HTMLSpanElement;
-  private readonly modeStatus: HTMLSpanElement;
   private readonly guerrillaStatus: HTMLDivElement;
   private readonly historyStatus: HTMLSpanElement;
   private readonly pauseButton: HTMLButtonElement;
@@ -44,7 +43,6 @@ export class Hud {
       <button type="button" id="about" class="hud-about" title="About Living War Atlas" aria-label="About Living War Atlas">i</button>
       <span class="mode-name">${modeName}</span>
       <div class="time-row"><span id="time">0:00</span><span id="status" hidden></span></div>
-      <span id="mode-status"></span>
       <div id="guerrilla-status" class="guerrilla-status" hidden>
         ${(['blue', 'red'] as const).map((side) => `
           <div class="guerrilla-row ${side}">
@@ -74,7 +72,6 @@ export class Hud {
 
     this.time = this.element.querySelector('#time')!;
     this.status = this.element.querySelector('#status')!;
-    this.modeStatus = this.element.querySelector('#mode-status')!;
     this.guerrillaStatus = this.element.querySelector('#guerrilla-status')!;
     this.historyStatus = this.element.querySelector('#history-status')!;
     this.pauseButton = this.element.querySelector('#pause')!;
@@ -124,12 +121,6 @@ export class Hud {
   setStatus(text: string | null): void {
     this.status.textContent = text ?? '';
     this.status.hidden = text === null;
-  }
-
-  setModeStatus(text: string): void {
-    const visibleText = text.startsWith('Available captures:') ? '' : text;
-    this.modeStatus.textContent = visibleText;
-    this.modeStatus.hidden = visibleText.length === 0;
   }
 
   setGuerrillaPoints(points: Record<Side, number> | null, maxPoints = 300): void {
