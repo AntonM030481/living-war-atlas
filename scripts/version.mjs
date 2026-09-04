@@ -16,6 +16,14 @@ function run(command, args, options = {}) {
   });
 }
 
+function runNpm(args, options = {}) {
+  const npmCli = process.env.npm_execpath;
+  if (!npmCli) {
+    throw new Error("Could not locate npm CLI. Run this command through npm (for example, `npm run deploy`).");
+  }
+  return run(process.execPath, [npmCli, ...args], options);
+}
+
 function git(args) {
   return run("git", args).trim();
 }
@@ -103,19 +111,17 @@ async function deploy(info) {
     throw new Error("Refusing to deploy tracked uncommitted changes. Commit or stash them first.");
   }
 
-  const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-  const npx = process.platform === "win32" ? "npx.cmd" : "npx";
-
-  run(npm, ["run", "build"], { inherit: true });
+  runNpm(["run", "build"], { inherit: true });
 
   const freshInfo = await getVersionInfo();
   if (freshInfo.dirty) {
     throw new Error("Build changed tracked files; refusing to deploy an unidentifiable artifact.");
   }
 
-  run(
-    npx,
+  runNpm(
     [
+      "exec",
+      "--",
       "wrangler",
       "deploy",
       "--tag",
