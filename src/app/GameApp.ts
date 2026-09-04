@@ -3,7 +3,6 @@ import {
   getGameModeOption,
   type GameAction,
   type GameModeId,
-  type GameModeView,
 } from '../game/GameMode';
 import { SPEEDS, type Side, type Speed } from '../sim/Config';
 import type { HistoryInfo, MapDefinition, MapId, SimulationSnapshot, WorkerOutMessage } from '../sim/types';
@@ -384,7 +383,6 @@ export class GameApp {
     this.latestHistory = message.history;
     this.latestActions = message.actions;
     this.hud.setHistory(message.history);
-    this.hud.setModeStatus(this.modeStatusText(message.modeView, message.actions));
     this.overlays.setGuerrillaPoints(
       message.modeView.mode === 'partisan' ? message.modeView.points : null,
       message.modeView.mode === 'partisan' ? message.modeView.maxPoints : undefined,
@@ -408,20 +406,5 @@ export class GameApp {
     const seconds = Math.floor(message.snapshot.gameTime % 60).toString().padStart(2, '0');
     this.hud.setTime(`${minutes}:${seconds}`);
     this.setCompletion(message.winner);
-  }
-
-  private modeStatusText(
-    view: GameModeView,
-    actions: readonly GameAction[],
-  ): string {
-    if (view.mode === 'sandbox') return 'Direct sandbox controls';
-    if (view.mode === 'partisan') {
-      const captures = actions.filter((action) => action.type === 'partisanCaptureSource').length;
-      return captures > 0 ? `Available captures: ${captures}` : 'Accumulating guerrilla points';
-    }
-    const activations = actions.filter((action) => action.type === 'conquestActivate').length;
-    const invasions = actions.filter((action) => action.type === 'conquestInvade').length;
-    if (activations || invasions) return `Available: activate ${activations} · invade ${invasions}`;
-    return 'No strategic action available';
   }
 }
