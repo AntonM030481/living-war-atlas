@@ -123,8 +123,6 @@ export class Hud {
     this.status.hidden = text === null;
   }
 
-  setModeStatus(_text: string): void {}
-
   setGuerrillaPoints(points: Record<Side, number> | null, maxPoints = 300): void {
     this.guerrillaStatus.hidden = points === null;
     if (!points) return;
