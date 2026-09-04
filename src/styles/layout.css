@@ -124,6 +124,10 @@
     white-space: nowrap;
   }
 
+  .hud .time-row {
+    padding-right: 26px;
+  }
+
   .hud .time-row span {
     font-size: 12px;
     line-height: 1;
