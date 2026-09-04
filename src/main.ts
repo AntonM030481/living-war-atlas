@@ -8,7 +8,7 @@ import {
   type GameModeId,
 } from './game/GameMode';
 import { getMapOption, isMapId, MAP_OPTIONS } from './map/maps';
-import { showAboutDialog, shouldShowAboutDialog } from './ui/AboutDialog';
+import { shouldShowAboutDialog } from './ui/AboutDialog';
 import { showAppError } from './ui/AppError';
 import { chooseMap } from './ui/MapPicker';
 import { chooseMode } from './ui/ModePicker';
