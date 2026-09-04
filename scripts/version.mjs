@@ -46,7 +46,7 @@ async function getVersionInfo() {
     process.env.GITHUB_SHA ??
     git(["rev-parse", "--short=7", "HEAD"])
   ).slice(0, 7);
-  const dirty = git(["status", "--porcelain"]) !== "";
+  const dirty = git(["status", "--porcelain", "--untracked-files=no"]) !== "";
 
   return {
     version,
@@ -100,7 +100,7 @@ async function syncIosVersion(info) {
 
 async function deploy(info) {
   if (info.dirty) {
-    throw new Error("Refusing to deploy a dirty working tree. Commit or stash changes first.");
+    throw new Error("Refusing to deploy tracked uncommitted changes. Commit or stash them first.");
   }
 
   const npm = process.platform === "win32" ? "npm.cmd" : "npm";
