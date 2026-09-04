@@ -1,10 +1,11 @@
 {
   "name": "living-war-atlas",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/version.mjs --write-web",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
@@ -12,9 +13,10 @@
     "bench:sim": "node scripts/bench-sim.mjs",
     "bench:sim:raw": "vitest bench tests/perf --no-file-parallelism",
     "diagnostics": "vitest run tests/diagnostics",
-    "deploy": "npm run build && wrangler deploy",
-    "ios:init": "npm run build && npx cap add ios && npx cap open ios",
-    "ios:sync": "npm run build && npx cap sync ios",
+    "version:info": "node scripts/version.mjs",
+    "deploy": "node scripts/version.mjs --deploy",
+    "ios:init": "npm run build && npx cap add ios && node scripts/version.mjs --sync-ios && npx cap open ios",
+    "ios:sync": "npm run build && node scripts/version.mjs --sync-ios && npx cap sync ios",
     "ios:open": "npm run ios:sync && npx cap open ios"
   },
   "dependencies": {
