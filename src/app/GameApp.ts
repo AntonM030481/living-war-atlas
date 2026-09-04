@@ -17,6 +17,7 @@ import { DiagnosticsPanel } from '../ui/DiagnosticsPanel';
 import { FrontProbe } from '../ui/FrontProbe';
 import { Hud } from '../ui/Hud';
 import { PointProbe } from '../ui/PointProbe';
+import { PerformancePanel } from '../ui/PerformancePanel';
 import { InputController } from './InputController';
 import { SimulationClient } from './SimulationClient';
 
@@ -34,6 +35,7 @@ export class GameApp {
   private probe!: FrontProbe;
   private pointProbe!: PointProbe;
   private diagnosticsPanel!: DiagnosticsPanel;
+  private performancePanel!: PerformancePanel;
   private input!: InputController;
   private readonly mapStage = document.createElement('div');
   private readonly sidePanel = document.createElement('div');
@@ -133,11 +135,13 @@ export class GameApp {
     this.pointProbe = new PointProbe();
     this.probe = new FrontProbe();
     this.diagnosticsPanel = new DiagnosticsPanel();
+    this.performancePanel = new PerformancePanel(this.pixi, this.map.width * this.map.height);
     this.sidePanel.append(
       this.hud.element,
       this.hud.legend,
       this.pointProbe.element,
       this.probe.element,
+      this.performancePanel.element,
       this.diagnosticsPanel.element,
     );
   }
@@ -199,8 +203,10 @@ export class GameApp {
     this.diagnosticsEnabled = next;
     this.hud.setDiagnostics(next);
     this.diagnosticsPanel.setVisible(next);
+    this.performancePanel.setVisible(next);
     if (next) {
       this.hud.legend.open = false;
+      this.performancePanel.element.open = true;
       this.diagnosticsPanel.element.open = false;
     }
     this.renderer.setDebug(next);
@@ -387,8 +393,11 @@ export class GameApp {
       message.modeView.mode === 'partisan' ? message.modeView.points : null,
       message.modeView.mode === 'partisan' ? message.modeView.maxPoints : undefined,
     );
+    const renderStarted = performance.now();
     this.renderer.render(message.snapshot);
     this.overlays.update(message.snapshot, this.modeId, message.actions);
+    const renderMs = performance.now() - renderStarted;
+    this.performancePanel.recordSnapshot(message.snapshot, message.performance, renderMs);
     this.renderDiagnostics();
 
     if (this.selectedPoint) {
