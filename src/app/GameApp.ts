@@ -12,6 +12,7 @@ import { buildCityDiagnostics } from '../diagnostics/CityDiagnostics';
 import { inspectPoint } from '../diagnostics/PointInspector';
 import type { FrontDebugInfo, PointDebugInfo } from '../diagnostics/types';
 import { getMapOption } from '../map/maps';
+import { showAboutDialog } from '../ui/AboutDialog';
 import { CityOverlays } from '../ui/CityOverlays';
 import { DiagnosticsPanel } from '../ui/DiagnosticsPanel';
 import { FrontProbe } from '../ui/FrontProbe';
@@ -88,6 +89,16 @@ export class GameApp {
     this.simulation.setSpeed(this.speed);
   }
 
+  async showAbout(): Promise<void> {
+    const resumeAfter = !this.paused && !this.finished;
+    if (resumeAfter) this.setPaused(true);
+    try {
+      await showAboutDialog();
+    } finally {
+      if (resumeAfter && !this.finished) this.setPaused(false);
+    }
+  }
+
   private async initPixi(): Promise<void> {
     await this.pixi.init({
       width: Math.max(1, Math.round(this.mapStage.clientWidth)),
@@ -117,6 +128,7 @@ export class GameApp {
         onHistoryStep: (delta) => this.stepHistory(delta),
         onReset: () => void this.reset(),
         onDiagnosticsToggle: () => this.setDiagnostics(!this.diagnosticsEnabled),
+        onAbout: () => void this.showAbout(),
       },
     );
     this.pointProbe = new PointProbe();
