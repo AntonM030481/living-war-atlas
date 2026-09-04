@@ -164,8 +164,11 @@ async function main(): Promise<void> {
   );
 
   await game.start();
+  const instructionsHidden = localStorage.getItem(modeInstructionsStorageKey(initial.modeId)) === '1';
+  if (!instructionsHidden) game['setPaused'](true);
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
   await showModeInstructions(initial.modeId);
+  if (!instructionsHidden) game['setPaused'](false);
 }
 
 void main().catch((error) => {
