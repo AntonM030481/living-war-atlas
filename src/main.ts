@@ -18,6 +18,7 @@ import { HistoryStorage } from './worker/HistoryStorage';
 const NEW_GAME_MAP_KEY = 'living-war-atlas:new-game-map';
 const NEW_GAME_MODE_KEY = 'living-war-atlas:new-game-mode';
 const MODE_INSTRUCTIONS_HIDDEN_KEY = 'living-war-atlas:mode-instructions-hidden';
+const DEBUG_PANEL_STATE_KEY = 'living-war-atlas:debug-panel-state';
 
 export interface GameSelection {
   modeId: GameModeId;
@@ -46,6 +47,48 @@ function usesTouchControls(): boolean {
 
 function modeInstructionsStorageKey(modeId: GameModeId): string {
   return `${MODE_INSTRUCTIONS_HIDDEN_KEY}:${modeId}`;
+}
+
+function debugPanelId(panel: HTMLDetailsElement): string {
+  return panel.querySelector('summary')?.textContent?.trim() || panel.className;
+}
+
+function loadDebugPanelState(): Record<string, boolean> | null {
+  try {
+    const raw = localStorage.getItem(DEBUG_PANEL_STATE_KEY);
+    return raw ? JSON.parse(raw) as Record<string, boolean> : null;
+  } catch {
+    return null;
+  }
+}
+
+function setupDebugPanelState(root: HTMLElement): void {
+  const sidePanel = root.querySelector<HTMLElement>('.side-panel');
+  const debugButton = sidePanel?.querySelector<HTMLButtonElement>('#debug');
+  const diagnosticsPanel = sidePanel?.querySelector<HTMLElement>('.diagnostics-panel');
+  if (!sidePanel || !debugButton || !diagnosticsPanel) return;
+
+  const panels = Array.from(sidePanel.querySelectorAll<HTMLDetailsElement>(':scope > details'));
+
+  const save = () => {
+    if (diagnosticsPanel.hidden) return;
+    const state = Object.fromEntries(panels.map((panel) => [debugPanelId(panel), panel.open]));
+    localStorage.setItem(DEBUG_PANEL_STATE_KEY, JSON.stringify(state));
+  };
+
+  const restore = () => {
+    const state = loadDebugPanelState();
+    if (!state) return;
+    for (const panel of panels) {
+      const id = debugPanelId(panel);
+      if (id in state) panel.open = state[id];
+    }
+  };
+
+  for (const panel of panels) panel.addEventListener('toggle', save);
+  debugButton.addEventListener('click', () => {
+    if (!diagnosticsPanel.hidden) restore();
+  });
 }
 
 async function showModeInstructions(modeId: GameModeId): Promise<void> {
@@ -165,6 +208,7 @@ async function main(): Promise<void> {
   );
 
   await game.start();
+  setupDebugPanelState(root);
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
   if (shouldShowAboutDialog()) {
