@@ -35,6 +35,19 @@ function demandAt(index: number, need: Float32Array, grid: TransportGrid): numbe
   return Math.max(0, grid.potentialDemand?.(index) ?? 0);
 }
 
+function frontEdgeTransmission(
+  index: number,
+  neighbor: number,
+  x: number,
+  y: number,
+  dx: number,
+  dy: number,
+  grid: TransportGrid,
+): number {
+  if (!grid.isFront(neighbor)) return 0;
+  return edgeTransmission(index, neighbor, x, y, dx, dy, grid);
+}
+
 function targetEdgeTransmission(
   index: number,
   neighbor: number,
@@ -48,10 +61,47 @@ function targetEdgeTransmission(
   return edgeTransmission(index, neighbor, x, y, dx, dy, grid);
 }
 
-export function smoothFrontDemand(
+function smoothOrdinaryFrontDemand(
   need: Float32Array,
   grid: TransportGrid,
-  passes = FRONT_DEMAND_SMOOTHING_PASSES,
+  passes: number,
+): Float32Array {
+  let current = new Float32Array(need.length);
+  for (let i = 0; i < need.length; i++) {
+    if (grid.isFront(i) && grid.access(i) > 0.01) current[i] = need[i];
+  }
+
+  for (let pass = 0; pass < passes; pass++) {
+    const next = new Float32Array(need.length);
+    for (let y = 0; y < grid.height; y++) {
+      for (let x = 0; x < grid.width; x++) {
+        const i = y * grid.width + x;
+        if (!grid.isFront(i) || grid.access(i) <= 0.01) continue;
+
+        let weightedDemand = current[i] * FRONT_DEMAND_SELF_WEIGHT;
+        let weightSum = FRONT_DEMAND_SELF_WEIGHT;
+        for (const [dx, dy] of DIRS) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || nx >= grid.width || ny < 0 || ny >= grid.height) continue;
+          const j = ny * grid.width + nx;
+          const transmission = frontEdgeTransmission(i, j, x, y, dx, dy, grid);
+          if (transmission <= EPS) continue;
+          weightedDemand += current[j] * transmission;
+          weightSum += transmission;
+        }
+        next[i] = weightedDemand / weightSum;
+      }
+    }
+    current = next;
+  }
+  return current;
+}
+
+function smoothPotentialTargetDemand(
+  need: Float32Array,
+  grid: TransportGrid,
+  passes: number,
 ): Float32Array {
   let current = new Float32Array(need.length);
   for (let i = 0; i < need.length; i++) {
@@ -85,7 +135,24 @@ export function smoothFrontDemand(
   return current;
 }
 
-function potentialStatus(index: number, grid: TransportGrid): number {
+export function smoothFrontDemand(
+  need: Float32Array,
+  grid: TransportGrid,
+  passes = FRONT_DEMAND_SMOOTHING_PASSES,
+): Float32Array {
+  return grid.potentialDemand
+    ? smoothPotentialTargetDemand(need, grid, passes)
+    : smoothOrdinaryFrontDemand(need, grid, passes);
+}
+
+function ordinaryPotentialStatus(index: number, grid: TransportGrid): number {
+  const access = grid.access(index);
+  if (access <= 0.01 || grid.terrainCapacity[index] <= 0) return 0;
+  if (grid.isFront(index) && access > 0.05) return 2;
+  return 1;
+}
+
+function potentialTargetStatus(index: number, grid: TransportGrid): number {
   const access = grid.access(index);
   if (access <= 0.01 || grid.terrainCapacity[index] <= 0) return 0;
   if (isPotentialTarget(index, grid) && access > 0.05) return 2;
@@ -107,10 +174,11 @@ export function prepareFinePotential(
   const reaction = reactionForDecay(config.potentialDecay);
   const previousStatus = potentialStatusByField.get(potential);
   const currentStatus = new Uint8Array(potential.length);
+  const statusAt = grid.potentialDemand ? potentialTargetStatus : ordinaryPotentialStatus;
   let maxFrontPotential = 0;
 
   for (let i = 0; i < potential.length; i++) {
-    const status = potentialStatus(i, grid);
+    const status = statusAt(i, grid);
     currentStatus[i] = status;
     if (status === 2) {
       potential[i] = 1 + smoothedNeed[i];
