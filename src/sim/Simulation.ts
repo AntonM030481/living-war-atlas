@@ -61,6 +61,7 @@ export class Simulation {
   private readonly tmpControl: Float32Array;
   private readonly regions: RegionTopology;
   private readonly topology: SimulationTopology;
+  private readonly useRegionTopology: boolean;
 
   private stepCount = 0;
   private time = 0;
@@ -76,6 +77,7 @@ export class Simulation {
     this.size = this.width * this.height;
     this.cities = map.cities.map((city) => ({ enabled: true, ...city }));
     this.sides = createSideFieldMap(CURRENT_SIDE_IDS, this.size);
+    this.useRegionTopology = initialization.useRegionTopology === true;
 
     this.control = new Float32Array(this.size);
     this.terrainDefense = new Float32Array(this.size);
@@ -108,7 +110,7 @@ export class Simulation {
       blocked: this.terrainBlocked,
       riverCrossingX: this.riverCrossingX,
       riverCrossingY: this.riverCrossingY,
-    }, initialization.useRegionTopology ? this.regions : undefined);
+    }, this.useRegionTopology ? this.regions : undefined);
 
     if (initialization.initializeControl !== false) {
       initializeControl(this.control, this.map, this.terrainBlocked, this.cities);
@@ -330,13 +332,16 @@ export class Simulation {
   }
 
   private transportGrid(side: Side) {
+    const regionalDemand = this.useRegionTopology
+      ? { potentialDemand: (index: number) => this.topology.potentialDemand(index) }
+      : {};
     return {
       width: this.width,
       height: this.height,
       terrainMobility: this.terrainMobility,
       terrainCapacity: this.terrainCapacity,
       isFront: (index: number) => this.topology.isFront(index),
-      potentialDemand: (index: number) => this.topology.potentialDemand(index),
+      ...regionalDemand,
       access: (index: number) => this.topology.sideAccess(side, index),
       edgeFactor: (x: number, y: number, dx: number, dy: number) => this.topology.edgeFactor(x, y, dx, dy),
     };
