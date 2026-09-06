@@ -1,14 +1,14 @@
-import { isLocalHost } from '../app/environment';
+import { developerFeaturesEnabled } from '../app/environment';
 import { GAME_MODE_OPTIONS, type GameModeId, mapSupportsMode } from '../game/GameMode';
 import { MAP_OPTIONS } from '../map/maps';
 
 function visibleModes() {
-  return GAME_MODE_OPTIONS.filter((option) => isLocalHost() || option.id !== 'conquest');
+  return GAME_MODE_OPTIONS.filter((option) => developerFeaturesEnabled() || option.id !== 'conquest');
 }
 
 function modeAvailable(modeId: GameModeId): boolean {
   return MAP_OPTIONS
-    .filter((option) => isLocalHost() || option.id !== 'linear')
+    .filter((option) => developerFeaturesEnabled() || option.id !== 'linear')
     .some((option) => mapSupportsMode(option.map, modeId));
 }
 
