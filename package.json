@@ -7,7 +7,9 @@
     "predev": "node scripts/version.mjs --write-web",
     "dev": "vite",
     "prebuild": "node scripts/version.mjs --write-web",
-    "build": "tsc && vite build",
+    "build": "tsc && vite build --mode development",
+    "prebuild:prod": "node scripts/version.mjs --write-web",
+    "build:prod": "tsc && vite build --mode production",
     "preview": "vite preview",
     "test": "vitest run",
     "bench": "vitest bench",
@@ -18,7 +20,8 @@
     "deploy": "node scripts/version.mjs --deploy",
     "ios:init": "npm run build && npx cap add ios && node scripts/version.mjs --sync-ios && npx cap open ios",
     "ios:sync": "npm run build && node scripts/version.mjs --sync-ios && npx cap sync ios",
-    "ios:open": "npm run ios:sync && npx cap open ios"
+    "ios:open": "npm run ios:sync && npx cap open ios",
+    "ios:release": "npm run build:prod && node scripts/version.mjs --sync-ios && npx cap sync ios && npx cap open ios"
   },
   "dependencies": {
     "@capacitor/core": "8.5.0",
