@@ -5,3 +5,4 @@ dist/
 .playwright-cli
 .wrangler
 public/version.json
+bench-results/
