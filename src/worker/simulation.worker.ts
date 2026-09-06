@@ -19,6 +19,12 @@ let modeId: GameModeId = 'sandbox';
 let timer: ReturnType<typeof setInterval> | null = null;
 let launchToken = 0;
 
+let simTickMs = 0;
+let ticksPerSecond = 0;
+let perfStartedAt = performance.now();
+let perfTickCount = 0;
+let perfTickMs = 0;
+
 const history = new HistoryManager(new HistoryStorage());
 
 function post(message: WorkerOutMessage): void {
@@ -27,6 +33,29 @@ function post(message: WorkerOutMessage): void {
 
 function currentWinner() {
   return session?.status().winner ?? null;
+}
+
+function recordTick(elapsedMs: number): void {
+  perfTickCount++;
+  perfTickMs += elapsedMs;
+
+  const now = performance.now();
+  const elapsed = now - perfStartedAt;
+  if (elapsed < 1000) return;
+
+  simTickMs = perfTickCount > 0 ? perfTickMs / perfTickCount : 0;
+  ticksPerSecond = (perfTickCount * 1000) / elapsed;
+  perfStartedAt = now;
+  perfTickCount = 0;
+  perfTickMs = 0;
+}
+
+function resetPerformanceStats(): void {
+  simTickMs = 0;
+  ticksPerSecond = 0;
+  perfStartedAt = performance.now();
+  perfTickCount = 0;
+  perfTickMs = 0;
 }
 
 function postSnapshot(): void {
@@ -42,6 +71,10 @@ function postSnapshot(): void {
     winner: currentWinner(),
     actions: session.availableActions(),
     modeView: session.view(),
+    performance: {
+      simTickMs,
+      ticksPerSecond,
+    },
   });
 }
 
@@ -86,6 +119,7 @@ async function createSession(
   const map = getMapDefinition(nextMapId);
   mapId = nextMapId;
   modeId = nextModeId;
+  resetPerformanceStats();
 
   if (loadSavedState) {
     try {
@@ -137,7 +171,9 @@ function ensureLoop(): void {
   timer = setInterval(() => {
     if (!session || paused) return;
     for (let i = 0; i < speed; i++) {
+      const tickStarted = performance.now();
       session.tick();
+      recordTick(performance.now() - tickStarted);
       saveHistoryCheckpoint();
       if (finishIfDecided()) break;
     }
@@ -165,6 +201,7 @@ self.onmessage = (event: MessageEvent<WorkerInMessage>) => {
       postSnapshot();
       break;
     case 'pause':
+      if (paused && !message.paused) resetPerformanceStats();
       paused = message.paused;
       break;
     case 'historyStep': {

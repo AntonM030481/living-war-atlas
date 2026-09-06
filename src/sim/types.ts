@@ -135,6 +135,11 @@ export interface HistoryInfo {
   currentTime: number;
 }
 
+export interface WorkerPerformanceStats {
+  simTickMs: number;
+  ticksPerSecond: number;
+}
+
 export type WorkerInMessage =
   | { type: 'start'; seed: number; mapId: MapId; modeId: GameModeId; loadSavedState: boolean }
   | { type: 'speed'; speed: Speed }
@@ -152,5 +157,5 @@ export type WorkerOutMessage =
       winner: Side | null;
       actions: readonly GameAction[];
       modeView: GameModeView;
-    }
-  | { type: 'stats'; fps: number };
+      performance: WorkerPerformanceStats;
+    };
