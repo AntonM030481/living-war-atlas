@@ -123,7 +123,7 @@ export function createSimulationForMode(
     preparedMap,
     seed,
     modeId === 'conquest'
-      ? { initializeControl: false, seedInitialResource: false }
+      ? { initializeControl: false, seedInitialResource: false, useRegionTopology: true }
       : undefined,
   );
 }

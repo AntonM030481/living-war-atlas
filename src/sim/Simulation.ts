@@ -35,6 +35,7 @@ import { rebuildPotential, transportResource } from './transport';
 export interface SimulationInitialization {
   initializeControl?: boolean;
   seedInitialResource?: boolean;
+  useRegionTopology?: boolean;
 }
 
 export class Simulation {
@@ -107,7 +108,7 @@ export class Simulation {
       blocked: this.terrainBlocked,
       riverCrossingX: this.riverCrossingX,
       riverCrossingY: this.riverCrossingY,
-    }, this.regions);
+    }, initialization.useRegionTopology ? this.regions : undefined);
 
     if (initialization.initializeControl !== false) {
       initializeControl(this.control, this.map, this.terrainBlocked, this.cities);
