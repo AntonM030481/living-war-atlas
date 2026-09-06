@@ -75,6 +75,9 @@
   overflow: hidden;
 }
 
+.side-panel > details[open] { order: 0; }
+.side-panel > details:not([open]) { order: 1; }
+
 /* Narrow or relatively square viewports use the otherwise-empty space below
    the fixed-aspect map. Wide landscape viewports keep the panel on the side. */
 @media (max-aspect-ratio: 3 / 2) and (min-height: 501px),
@@ -191,4 +194,3 @@
     height: calc(100dvh - var(--app-padding) * 2);
   }
 }
-
