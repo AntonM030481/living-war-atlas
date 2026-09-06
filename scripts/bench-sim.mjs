@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const vitestEntry = resolve(root, 'node_modules', 'vitest', 'vitest.mjs');
+const resultsDir = resolve(root, 'bench-results');
 const MAX_SHARE_RME = 5;
 const CHECKPOINTS = [0, 50, 100];
+const rendered = [];
 
-console.log('Running simulation benchmarks sequentially...');
+log('Running simulation benchmarks sequentially...');
 
 const result = spawnSync(
   process.execPath,
@@ -46,10 +49,20 @@ if (rows.size === 0) {
 }
 
 printSimulationTable(rows);
-console.log('');
+log('');
 printTickBreakdown(rows);
-console.log('');
+log('');
 printPotentialTable(rows);
+log('');
+const saved = saveBenchmarkResults(rows);
+log(`Saved: ${saved.jsonRelative}`);
+log(`       ${saved.txtRelative}`);
+
+function log(value = '') {
+  const line = String(value);
+  console.log(line);
+  rendered.push(line);
+}
 
 function parseBenchmarkRows(output) {
   const parsed = new Map();
@@ -112,7 +125,7 @@ function formatMs(value) {
 }
 
 function printSimulationTable(rows) {
-  console.log('Simulation benchmark — theatre');
+  log('Simulation benchmark — theatre');
   printCheckpointTable(
     ['metric', '0 ticks', '50 ticks', '100 ticks'],
     [
@@ -121,7 +134,7 @@ function printSimulationTable(rows) {
     ],
   );
 
-  console.log('');
+  log('');
   printTwoColumnTable([
     ['reset harness', formatMeasurement(rows.get('theatre: reset canonical Full Playground state'))],
     ['100 ticks from start', formatMeasurement(rows.get('theatre: 100 ticks from Full Playground start'))],
@@ -129,7 +142,7 @@ function printSimulationTable(rows) {
 }
 
 function printTickBreakdown(rows) {
-  console.log('Heavy tick breakdown — theatre');
+  log('Heavy tick breakdown — theatre');
   const stages = [
     ['cities', 'tick stage / cities'],
     ['front mass+need', 'tick stage / front mass+need'],
@@ -174,7 +187,7 @@ function printTickBreakdown(rows) {
 }
 
 function printPotentialTable(rows) {
-  console.log('Potential benchmark — theatre, blue stages');
+  log('Potential benchmark — theatre, blue stages');
   const stages = [
     ['prepare', 'potential stage / prepare'],
     ['fine stencil', 'potential stage / fine stencil'],
@@ -202,7 +215,7 @@ function printPotentialTable(rows) {
     return `${(((coarse.mean + fine.mean) / rebuild.mean) * 100).toFixed(1)}%`;
   });
 
-  console.log('');
+  log('');
   printCheckpointTable(
     ['share', '0 ticks', '50 ticks', '100 ticks'],
     [['relaxation only / blue rebuild', ...shares]],
@@ -210,7 +223,7 @@ function printPotentialTable(rows) {
 
   const unstableCount = [...rows.values()].filter((row) => row.rme > MAX_SHARE_RME).length;
   if (unstableCount > 0) {
-    console.log(`\nWarning: ${unstableCount} measurements have RME > ${MAX_SHARE_RME}%; treat them as noisy.`);
+    log(`\nWarning: ${unstableCount} measurements have RME > ${MAX_SHARE_RME}%; treat them as noisy.`);
   }
 }
 
@@ -235,7 +248,7 @@ function printTable(rows) {
 
   for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
     const row = rows[rowIndex];
-    console.log(row.map((cell, column) => {
+    log(row.map((cell, column) => {
       const value = String(cell ?? '');
       return column === 0
         ? value.padEnd(widths[column])
@@ -243,7 +256,82 @@ function printTable(rows) {
     }).join('  '));
 
     if (rowIndex === 0) {
-      console.log(widths.map((width) => '-'.repeat(width)).join('  '));
+      log(widths.map((width) => '-'.repeat(width)).join('  '));
     }
   }
+}
+
+function git(...args) {
+  try {
+    return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+  } catch {
+    return '';
+  }
+}
+
+function saveBenchmarkResults(rows) {
+  mkdirSync(resultsDir, { recursive: true });
+
+  const timestamp = new Date();
+  const commit = git('rev-parse', 'HEAD') || 'unknown';
+  const shortCommit = commit === 'unknown' ? commit : commit.slice(0, 8);
+  const branch = git('branch', '--show-current') || 'detached';
+  const dirty = git('status', '--porcelain').length > 0;
+  const stamp = timestamp.toISOString().replace(/:/g, '-').replace(/\.\d{3}Z$/, 'Z');
+  const dirtySuffix = dirty ? '-dirty' : '';
+  const baseName = `${stamp}_${shortCommit}${dirtySuffix}_theatre`;
+  const jsonPath = resolve(resultsDir, `${baseName}.json`);
+  const txtPath = resolve(resultsDir, `${baseName}.txt`);
+  const latestJsonPath = resolve(resultsDir, 'latest.json');
+  const latestTxtPath = resolve(resultsDir, 'latest.txt');
+
+  const measurements = Object.fromEntries(
+    [...rows.entries()].map(([name, row]) => [name, { meanMs: row.mean, rmePercent: row.rme }]),
+  );
+
+  const payload = {
+    schemaVersion: 1,
+    timestamp: timestamp.toISOString(),
+    revision: {
+      commit,
+      branch,
+      dirty,
+    },
+    environment: {
+      node: process.version,
+      npm: npmVersion(),
+      platform: process.platform,
+      arch: process.arch,
+    },
+    scenario: 'theatre',
+    summary: {
+      prepare100Ms: rowMean(rows, 'theatre @ 100 ticks: potential stage / prepare'),
+      potentialBoth100Ms: rowMean(rows, 'theatre @ 100 ticks: potential rebuild / both sides'),
+      heavyTick100Ms: rowMean(rows, 'theatre @ 100 ticks: 1 tick with potential rebuild'),
+      ticks100FromStartMs: rowMean(rows, 'theatre: 100 ticks from Full Playground start'),
+    },
+    measurements,
+  };
+
+  const json = `${JSON.stringify(payload, null, 2)}\n`;
+  const text = `${rendered.join('\n')}\n`;
+  writeFileSync(jsonPath, json);
+  writeFileSync(txtPath, text);
+  writeFileSync(latestJsonPath, json);
+  writeFileSync(latestTxtPath, text);
+
+  return {
+    jsonRelative: `bench-results/${baseName}.json`,
+    txtRelative: `bench-results/${baseName}.txt`,
+  };
+}
+
+function rowMean(rows, name) {
+  return rows.get(name)?.mean ?? null;
+}
+
+function npmVersion() {
+  const agent = process.env.npm_config_user_agent ?? '';
+  const match = agent.match(/(?:^|\s)npm\/([^\s]+)/);
+  return match?.[1] ?? null;
 }
