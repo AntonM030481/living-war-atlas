@@ -75,7 +75,11 @@
   overflow: hidden;
 }
 
-.side-panel > details[open] { order: 0; }
+.side-panel > details { flex-shrink: 0; }
+.side-panel > details[open] {
+  order: 0;
+  max-height: none;
+}
 .side-panel > details:not([open]) { order: 1; }
 
 /* Narrow or relatively square viewports use the otherwise-empty space below
