@@ -1,4 +1,4 @@
-import { isLocalHost } from '../app/environment';
+import { developerFeaturesEnabled } from '../app/environment';
 import type { MapId } from '../sim/types';
 import { MAP_OPTIONS, type MapOption } from '../map/maps';
 
@@ -8,7 +8,9 @@ export function chooseMap(
   options: readonly MapOption[] = MAP_OPTIONS,
 ): Promise<MapId | null> {
   return new Promise((resolve) => {
-    const visibleOptions = options.filter((option) => isLocalHost() || option.id !== 'linear');
+    const visibleOptions = options.filter(
+      (option) => developerFeaturesEnabled() || option.id !== 'linear',
+    );
     if (visibleOptions.length === 0) {
       resolve(null);
       return;

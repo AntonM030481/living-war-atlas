@@ -1,6 +1,6 @@
 import './style.css';
 import { GameApp } from './app/GameApp';
-import { isLocalHost } from './app/environment';
+import { developerFeaturesEnabled } from './app/environment';
 import {
   getGameModeOption,
   isGameModeId,
@@ -26,11 +26,11 @@ export interface GameSelection {
 }
 
 function modeAllowed(modeId: GameModeId): boolean {
-  return isLocalHost() || modeId !== 'conquest';
+  return developerFeaturesEnabled() || modeId !== 'conquest';
 }
 
 function mapAllowed(mapId: MapId): boolean {
-  return isLocalHost() || mapId !== 'linear';
+  return developerFeaturesEnabled() || mapId !== 'linear';
 }
 
 function selectionAllowed(selection: GameSelection): boolean {

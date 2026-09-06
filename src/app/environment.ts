@@ -1,3 +1,3 @@
-export function isLocalHost(): boolean {
-  return Boolean((window as Window & { __LWA_LOCAL_HOST__?: boolean }).__LWA_LOCAL_HOST__);
+export function developerFeaturesEnabled(): boolean {
+  return import.meta.env.MODE !== 'production';
 }

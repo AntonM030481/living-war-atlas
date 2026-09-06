@@ -111,7 +111,7 @@ async function deploy(info) {
     throw new Error("Refusing to deploy tracked uncommitted changes. Commit or stash them first.");
   }
 
-  runNpm(["run", "build"], { inherit: true });
+  runNpm(["run", "build:prod"], { inherit: true });
 
   const freshInfo = await getVersionInfo();
   if (freshInfo.dirty) {
