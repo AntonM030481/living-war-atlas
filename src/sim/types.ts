@@ -14,6 +14,7 @@ export interface City {
   owner: Side;
   integration: number;
   enabled?: boolean;
+  remainingProduction?: number; // Optional finite War Resource allotment, owned by a meta-game.
 }
 
 export interface MapRegion {

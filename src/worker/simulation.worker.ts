@@ -64,6 +64,7 @@ function postSnapshot(): void {
   const recentCaptures = history.recentCaptures(snapshot.control, snapshot.gameTime, CFG.recentCaptureFadeSeconds);
   snapshot.recentCaptureTime = recentCaptures.time;
   snapshot.recentCaptureSide = recentCaptures.side;
+  session.mode.projectSnapshot?.(snapshot);
   post({
     type: 'snapshot',
     snapshot,
@@ -86,6 +87,7 @@ function saveHistoryCheckpoint(force = false): void {
 function isStateCompatible(state: GameSessionState, map: MapDefinition, expectedModeId: GameModeId): boolean {
   const simulation = state.simulation;
   return state.mode.id === expectedModeId
+    && (expectedModeId !== 'conquest' || ('version' in state.mode.state && state.mode.state.version === 2))
     && simulation.width === map.width
     && simulation.height === map.height
     && simulation.cities.length === map.cities.length
@@ -196,6 +198,11 @@ self.onmessage = (event: MessageEvent<WorkerInMessage>) => {
       break;
     case 'gameAction':
       if (!session) break;
+      // A country can change between its displayed action and the worker tick.
+      if (!session.availableActions().some((a) => JSON.stringify(a) === JSON.stringify(message.action))) {
+        postSnapshot();
+        break;
+      }
       session.apply(message.action);
       saveHistoryCheckpoint(true);
       postSnapshot();

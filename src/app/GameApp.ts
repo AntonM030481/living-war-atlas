@@ -3,6 +3,7 @@ import {
   getGameModeOption,
   type GameAction,
   type GameModeId,
+  type GameModeView,
 } from '../game/GameMode';
 import { SPEEDS, type Side, type Speed } from '../sim/Config';
 import type { HistoryInfo, MapDefinition, MapId, SimulationSnapshot, WorkerOutMessage } from '../sim/types';
@@ -12,6 +13,7 @@ import { inspectPoint } from '../diagnostics/PointInspector';
 import type { FrontDebugInfo, PointDebugInfo } from '../diagnostics/types';
 import { getMapOption } from '../map/maps';
 import { showAboutDialog } from '../ui/AboutDialog';
+import { ConquestPanel } from '../ui/ConquestPanel';
 import { CityOverlays } from '../ui/CityOverlays';
 import { DiagnosticsPanel } from '../ui/DiagnosticsPanel';
 import { FrontProbe } from '../ui/FrontProbe';
@@ -31,6 +33,7 @@ export class GameApp {
   private readonly simulation = new SimulationClient();
   private renderer!: AtlasRenderer;
   private overlays!: CityOverlays;
+  private conquestPanel?: ConquestPanel;
   private hud!: Hud;
   private probe!: FrontProbe;
   private pointProbe!: PointProbe;
@@ -49,6 +52,7 @@ export class GameApp {
   private latestSnapshot: SimulationSnapshot | null = null;
   private latestHistory: HistoryInfo | null = null;
   private latestActions: readonly GameAction[] = [];
+  private latestModeView: GameModeView | null = null;
   private selectedProbe: FrontDebugInfo | null = null;
   private selectedPoint: PointDebugInfo | null = null;
   private suppressNextPrimaryClickUntil = 0;
@@ -83,6 +87,12 @@ export class GameApp {
 
     this.overlays = new CityOverlays(this.map, this.renderer, this.mapStage);
     this.createUi();
+    if (this.modeId === 'conquest') {
+      this.conquestPanel = new ConquestPanel(this.map, (action) => {
+        if (!this.finished) this.simulation.applyGameAction(action);
+      });
+      this.hud.element.after(this.conquestPanel.element);
+    }
     this.attachResizeHandling();
     this.attachInput();
     this.simulation.onMessage((message) => this.handleWorkerMessage(message));
@@ -151,8 +161,8 @@ export class GameApp {
       const { width, height } = this.mapStage.getBoundingClientRect();
       this.pixi.renderer.resize(Math.max(1, Math.round(width)), Math.max(1, Math.round(height)));
       this.renderer.resize();
-      if (this.latestSnapshot) {
-        this.overlays.update(this.latestSnapshot, this.modeId, this.latestActions);
+      if (this.latestSnapshot && this.latestModeView) {
+        this.overlays.update(this.latestSnapshot, this.modeId, this.latestActions, this.latestModeView);
       }
       this.updatePointMarker();
     };
@@ -274,11 +284,7 @@ export class GameApp {
       return;
     }
 
-    const regionAction = this.primaryActionForRegion(event.clientX, event.clientY);
-    if (regionAction) {
-      this.simulation.applyGameAction(regionAction);
-      return;
-    }
+    if (this.selectCountry(event.clientX, event.clientY)) return;
 
     if (!this.diagnosticsEnabled || !this.latestSnapshot) return;
     this.setFrontProbeAtClient(event.clientX, event.clientY);
@@ -298,18 +304,15 @@ export class GameApp {
     return null;
   }
 
-  private primaryActionForRegion(clientX: number, clientY: number): GameAction | null {
-    if (this.modeId !== 'conquest' || !this.map.regionAt) return null;
+  private selectCountry(clientX: number, clientY: number): boolean {
+    if (this.modeId !== 'conquest' || !this.map.regionAt) return false;
     const point = this.clientToMapPoint(clientX, clientY);
-    if (!point) return null;
-    const x = Math.max(0, Math.min(this.map.width - 1, Math.floor(point.x)));
-    const y = Math.max(0, Math.min(this.map.height - 1, Math.floor(point.y)));
-    const regionId = this.map.regionAt(x, y);
-    if (!regionId) return null;
-    return this.latestActions.find((action) =>
-      (action.type === 'conquestActivate' || action.type === 'conquestInvade')
-      && action.regionId === regionId,
-    ) ?? null;
+    if (!point) return false;
+    const regionId = this.map.regionAt(Math.floor(point.x), Math.floor(point.y));
+    if (!regionId) return false;
+    this.conquestPanel?.select(regionId);
+    this.renderer.setSelectedCountry(regionId);
+    return true;
   }
 
   private handlePrimaryDrag(event: PointerEvent): void {
@@ -388,6 +391,10 @@ export class GameApp {
     this.latestSnapshot = message.snapshot;
     this.latestHistory = message.history;
     this.latestActions = message.actions;
+    this.latestModeView = message.modeView;
+    if (message.modeView.mode === 'conquest') {
+      this.conquestPanel?.update(message.modeView, message.actions, message.winner !== null);
+    }
     this.hud.setHistory(message.history);
     this.overlays.setGuerrillaPoints(
       message.modeView.mode === 'partisan' ? message.modeView.points : null,
@@ -395,7 +402,7 @@ export class GameApp {
     );
     const renderStarted = performance.now();
     this.renderer.render(message.snapshot);
-    this.overlays.update(message.snapshot, this.modeId, message.actions);
+    this.overlays.update(message.snapshot, this.modeId, message.actions, message.modeView);
     const renderMs = performance.now() - renderStarted;
     this.performancePanel.recordSnapshot(message.snapshot, message.performance, renderMs);
     this.renderDiagnostics();

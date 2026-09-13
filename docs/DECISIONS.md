@@ -328,3 +328,12 @@ Maps may declare additional requirements implicitly through their data; Conquest
 **Decision:** Rewind/persistence stores `GameSessionState`, including simulation state, selected mode, and mode-specific state.
 
 Restoring simulation state without the corresponding meta-game state is invalid.
+
+### D056 — Experimental Conquest uses disclosure and irreversible invasion
+**Decision:** Conquest v2 adds secret allies, genuinely neutral countries, finite
+mobilization of the same War Resource, and one-time resistance on first invasion.
+An opened war border is reciprocal; a counter-breakthrough also raises local
+resistance once. Other dormant countries remain sealed. This is an experimental
+meta-game exception to the original MVP exclusions, not a change to autonomous
+combat/transport or an introduction of discrete units. See `CONQUEST.md` for the
+rules, information boundary, strategic probes and remaining playtest questions.

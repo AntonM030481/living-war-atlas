@@ -1,0 +1,680 @@
+{
+  "rules": 2,
+  "durationSeconds": 180,
+  "map": "48x8 six-country probe",
+  "note": "Scripted openings test consequences; they do not establish human enjoyment or a dominant strategy.",
+  "results": [
+    {
+      "seed": 1,
+      "policy": "expand-now",
+      "actions": [
+        {
+          "time": 0,
+          "type": "conquestActivate",
+          "regionId": "r0"
+        },
+        {
+          "time": 0,
+          "type": "conquestActivate",
+          "regionId": "r1"
+        },
+        {
+          "time": 0,
+          "type": "conquestInvade",
+          "regionId": "r2"
+        },
+        {
+          "time": 170,
+          "type": "conquestInvade",
+          "regionId": "r4"
+        }
+      ],
+      "observations": [
+        {
+          "time": 0,
+          "blueForce": 24,
+          "redForce": 24,
+          "frontCells": 16,
+          "activeCountries": 3,
+          "blueCountries": 2,
+          "remainingMobilization": 240,
+          "winner": null
+        },
+        {
+          "time": 20,
+          "blueForce": 28.882,
+          "redForce": 26.482,
+          "frontCells": 16,
+          "activeCountries": 4,
+          "blueCountries": 2,
+          "remainingMobilization": 322.037,
+          "winner": null
+        },
+        {
+          "time": 60,
+          "blueForce": 28.933,
+          "redForce": 22.259,
+          "frontCells": 16,
+          "activeCountries": 4,
+          "blueCountries": 2,
+          "remainingMobilization": 236.405,
+          "winner": null
+        },
+        {
+          "time": 120,
+          "blueForce": 30.219,
+          "redForce": 19.884,
+          "frontCells": 16,
+          "activeCountries": 4,
+          "blueCountries": 2,
+          "remainingMobilization": 107.818,
+          "winner": null
+        },
+        {
+          "time": 180,
+          "blueForce": 36.931,
+          "redForce": 47.609,
+          "frontCells": 16,
+          "activeCountries": 6,
+          "blueCountries": 4,
+          "remainingMobilization": 263.451,
+          "winner": null
+        }
+      ]
+    },
+    {
+      "seed": 1,
+      "policy": "staged",
+      "actions": [
+        {
+          "time": 0,
+          "type": "conquestActivate",
+          "regionId": "r0"
+        },
+        {
+          "time": 40,
+          "type": "conquestActivate",
+          "regionId": "r1"
+        },
+        {
+          "time": 60,
+          "type": "conquestInvade",
+          "regionId": "r2"
+        }
+      ],
+      "observations": [
+        {
+          "time": 0,
+          "blueForce": 12,
+          "redForce": 0,
+          "frontCells": 0,
+          "activeCountries": 1,
+          "blueCountries": 1,
+          "remainingMobilization": 120,
+          "winner": null
+        },
+        {
+          "time": 20,
+          "blueForce": 18.214,
+          "redForce": 21.463,
+          "frontCells": 0,
+          "activeCountries": 2,
+          "blueCountries": 1,
+          "remainingMobilization": 224.311,
+          "winner": null
+        },
+        {
+          "time": 60,
+          "blueForce": 51.613,
+          "redForce": 45.463,
+          "frontCells": 16,
+          "activeCountries": 4,
+          "blueCountries": 2,
+          "remainingMobilization": 322.873,
+          "winner": null
+        },
+        {
+          "time": 120,
+          "blueForce": 49.792,
+          "redForce": 34.822,
+          "frontCells": 16,
+          "activeCountries": 4,
+          "blueCountries": 2,
+          "remainingMobilization": 195.106,
+          "winner": null
+        },
+        {
+          "time": 180,
+          "blueForce": 21.71,
+          "redForce": 32.434,
+          "frontCells": 16,
+          "activeCountries": 5,
+          "blueCountries": 2,
+          "remainingMobilization": 218.394,
+          "winner": null
+        }
+      ]
+    },
+    {
+      "seed": 1,
+      "policy": "wait",
+      "actions": [
+        {
+          "time": 30,
+          "type": "conquestActivate",
+          "regionId": "r0"
+        },
+        {
+          "time": 90,
+          "type": "conquestActivate",
+          "regionId": "r1"
+        },
+        {
+          "time": 110,
+          "type": "conquestInvade",
+          "regionId": "r2"
+        }
+      ],
+      "observations": [
+        {
+          "time": 0,
+          "blueForce": 0,
+          "redForce": 0,
+          "frontCells": 0,
+          "activeCountries": 0,
+          "blueCountries": 0,
+          "remainingMobilization": 0,
+          "winner": null
+        },
+        {
+          "time": 20,
+          "blueForce": 0,
+          "redForce": 21.463,
+          "frontCells": 0,
+          "activeCountries": 1,
+          "blueCountries": 0,
+          "remainingMobilization": 110.536,
+          "winner": null
+        },
+        {
+          "time": 60,
+          "blueForce": 18.669,
+          "redForce": 21.463,
+          "frontCells": 0,
+          "activeCountries": 2,
+          "blueCountries": 1,
+          "remainingMobilization": 223.853,
+          "winner": null
+        },
+        {
+          "time": 120,
+          "blueForce": 52.942,
+          "redForce": 43.762,
+          "frontCells": 16,
+          "activeCountries": 4,
+          "blueCountries": 2,
+          "remainingMobilization": 301.009,
+          "winner": null
+        },
+        {
+          "time": 180,
+          "blueForce": 50.153,
+          "redForce": 33.096,
+          "frontCells": 16,
+          "activeCountries": 4,
+          "blueCountries": 2,
+          "remainingMobilization": 172.937,
+          "winner": null
+        }
+      ]
+    },
+    {
+      "seed": 11,
+      "policy": "expand-now",
+      "actions": [
+        {
+          "time": 0,
+          "type": "conquestActivate",
+          "regionId": "r0"
+        },
+        {
+          "time": 0,
+          "type": "conquestActivate",
+          "regionId": "r1"
+        },
+        {
+          "time": 0,
+          "type": "conquestInvade",
+          "regionId": "r2"
+        },
+        {
+          "time": 30,
+          "type": "conquestInvade",
+          "regionId": "r3"
+        }
+      ],
+      "observations": [
+        {
+          "time": 0,
+          "blueForce": 24,
+          "redForce": 24,
+          "frontCells": 16,
+          "activeCountries": 3,
+          "blueCountries": 2,
+          "remainingMobilization": 240,
+          "winner": null
+        },
+        {
+          "time": 20,
+          "blueForce": 29.901,
+          "redForce": 28.151,
+          "frontCells": 16,
+          "activeCountries": 4,
+          "blueCountries": 2,
+          "remainingMobilization": 324.648,
+          "winner": null
+        },
+        {
+          "time": 60,
+          "blueForce": 71.46,
+          "redForce": 40.889,
+          "frontCells": 16,
+          "activeCountries": 5,
+          "blueCountries": 3,
+          "remainingMobilization": 335.941,
+          "winner": null
+        },
+        {
+          "time": 120,
+          "blueForce": 84.975,
+          "redForce": 29.226,
+          "frontCells": 16,
+          "activeCountries": 5,
+          "blueCountries": 3,
+          "remainingMobilization": 191.393,
+          "winner": null
+        },
+        {
+          "time": 180,
+          "blueForce": 70.594,
+          "redForce": 28.51,
+          "frontCells": 16,
+          "activeCountries": 6,
+          "blueCountries": 3,
+          "remainingMobilization": 198.546,
+          "winner": null
+        }
+      ]
+    },
+    {
+      "seed": 11,
+      "policy": "staged",
+      "actions": [
+        {
+          "time": 0,
+          "type": "conquestActivate",
+          "regionId": "r0"
+        },
+        {
+          "time": 40,
+          "type": "conquestActivate",
+          "regionId": "r1"
+        },
+        {
+          "time": 60,
+          "type": "conquestInvade",
+          "regionId": "r2"
+        }
+      ],
+      "observations": [
+        {
+          "time": 0,
+          "blueForce": 12,
+          "redForce": 0,
+          "frontCells": 0,
+          "activeCountries": 1,
+          "blueCountries": 1,
+          "remainingMobilization": 120,
+          "winner": null
+        },
+        {
+          "time": 20,
+          "blueForce": 18.214,
+          "redForce": 21.463,
+          "frontCells": 0,
+          "activeCountries": 2,
+          "blueCountries": 1,
+          "remainingMobilization": 224.311,
+          "winner": null
+        },
+        {
+          "time": 60,
+          "blueForce": 51.613,
+          "redForce": 45.463,
+          "frontCells": 16,
+          "activeCountries": 4,
+          "blueCountries": 2,
+          "remainingMobilization": 322.873,
+          "winner": null
+        },
+        {
+          "time": 120,
+          "blueForce": 102.539,
+          "redForce": 20.837,
+          "frontCells": 16,
+          "activeCountries": 5,
+          "blueCountries": 4,
+          "remainingMobilization": 281.345,
+          "winner": null
+        },
+        {
+          "time": 180,
+          "blueForce": 118.474,
+          "redForce": 27.199,
+          "frontCells": 16,
+          "activeCountries": 6,
+          "blueCountries": 4,
+          "remainingMobilization": 254.274,
+          "winner": null
+        }
+      ]
+    },
+    {
+      "seed": 11,
+      "policy": "wait",
+      "actions": [
+        {
+          "time": 30,
+          "type": "conquestActivate",
+          "regionId": "r0"
+        },
+        {
+          "time": 90,
+          "type": "conquestActivate",
+          "regionId": "r1"
+        },
+        {
+          "time": 110,
+          "type": "conquestInvade",
+          "regionId": "r2"
+        }
+      ],
+      "observations": [
+        {
+          "time": 0,
+          "blueForce": 0,
+          "redForce": 0,
+          "frontCells": 0,
+          "activeCountries": 0,
+          "blueCountries": 0,
+          "remainingMobilization": 0,
+          "winner": null
+        },
+        {
+          "time": 20,
+          "blueForce": 0,
+          "redForce": 21.463,
+          "frontCells": 0,
+          "activeCountries": 1,
+          "blueCountries": 0,
+          "remainingMobilization": 110.536,
+          "winner": null
+        },
+        {
+          "time": 60,
+          "blueForce": 18.669,
+          "redForce": 21.463,
+          "frontCells": 0,
+          "activeCountries": 2,
+          "blueCountries": 1,
+          "remainingMobilization": 223.853,
+          "winner": null
+        },
+        {
+          "time": 120,
+          "blueForce": 70.002,
+          "redForce": 36.426,
+          "frontCells": 48,
+          "activeCountries": 5,
+          "blueCountries": 3,
+          "remainingMobilization": 303.023,
+          "winner": null
+        },
+        {
+          "time": 180,
+          "blueForce": 103.28,
+          "redForce": 22.453,
+          "frontCells": 16,
+          "activeCountries": 5,
+          "blueCountries": 4,
+          "remainingMobilization": 254.019,
+          "winner": null
+        }
+      ]
+    },
+    {
+      "seed": 23,
+      "policy": "expand-now",
+      "actions": [
+        {
+          "time": 0,
+          "type": "conquestActivate",
+          "regionId": "r0"
+        },
+        {
+          "time": 0,
+          "type": "conquestActivate",
+          "regionId": "r1"
+        },
+        {
+          "time": 0,
+          "type": "conquestInvade",
+          "regionId": "r2"
+        },
+        {
+          "time": 30,
+          "type": "conquestInvade",
+          "regionId": "r3"
+        }
+      ],
+      "observations": [
+        {
+          "time": 0,
+          "blueForce": 24,
+          "redForce": 24,
+          "frontCells": 16,
+          "activeCountries": 3,
+          "blueCountries": 2,
+          "remainingMobilization": 240,
+          "winner": null
+        },
+        {
+          "time": 20,
+          "blueForce": 29.859,
+          "redForce": 28.147,
+          "frontCells": 16,
+          "activeCountries": 4,
+          "blueCountries": 2,
+          "remainingMobilization": 324.651,
+          "winner": null
+        },
+        {
+          "time": 60,
+          "blueForce": 68.171,
+          "redForce": 46.162,
+          "frontCells": 16,
+          "activeCountries": 5,
+          "blueCountries": 3,
+          "remainingMobilization": 338.833,
+          "winner": null
+        },
+        {
+          "time": 120,
+          "blueForce": 75.954,
+          "redForce": 35.425,
+          "frontCells": 16,
+          "activeCountries": 5,
+          "blueCountries": 3,
+          "remainingMobilization": 200.109,
+          "winner": null
+        },
+        {
+          "time": 180,
+          "blueForce": 61.204,
+          "redForce": 33.436,
+          "frontCells": 16,
+          "activeCountries": 6,
+          "blueCountries": 3,
+          "remainingMobilization": 207.409,
+          "winner": null
+        }
+      ]
+    },
+    {
+      "seed": 23,
+      "policy": "staged",
+      "actions": [
+        {
+          "time": 0,
+          "type": "conquestActivate",
+          "regionId": "r0"
+        },
+        {
+          "time": 40,
+          "type": "conquestActivate",
+          "regionId": "r1"
+        },
+        {
+          "time": 60,
+          "type": "conquestInvade",
+          "regionId": "r2"
+        }
+      ],
+      "observations": [
+        {
+          "time": 0,
+          "blueForce": 12,
+          "redForce": 0,
+          "frontCells": 0,
+          "activeCountries": 1,
+          "blueCountries": 1,
+          "remainingMobilization": 120,
+          "winner": null
+        },
+        {
+          "time": 20,
+          "blueForce": 18.214,
+          "redForce": 21.463,
+          "frontCells": 0,
+          "activeCountries": 2,
+          "blueCountries": 1,
+          "remainingMobilization": 224.311,
+          "winner": null
+        },
+        {
+          "time": 60,
+          "blueForce": 51.613,
+          "redForce": 45.463,
+          "frontCells": 16,
+          "activeCountries": 4,
+          "blueCountries": 2,
+          "remainingMobilization": 322.873,
+          "winner": null
+        },
+        {
+          "time": 120,
+          "blueForce": 105.445,
+          "redForce": 24.483,
+          "frontCells": 16,
+          "activeCountries": 5,
+          "blueCountries": 3,
+          "remainingMobilization": 399.688,
+          "winner": null
+        },
+        {
+          "time": 180,
+          "blueForce": 110.862,
+          "redForce": 19.089,
+          "frontCells": 16,
+          "activeCountries": 5,
+          "blueCountries": 3,
+          "remainingMobilization": 263.095,
+          "winner": null
+        }
+      ]
+    },
+    {
+      "seed": 23,
+      "policy": "wait",
+      "actions": [
+        {
+          "time": 30,
+          "type": "conquestActivate",
+          "regionId": "r0"
+        },
+        {
+          "time": 90,
+          "type": "conquestActivate",
+          "regionId": "r1"
+        },
+        {
+          "time": 110,
+          "type": "conquestInvade",
+          "regionId": "r2"
+        }
+      ],
+      "observations": [
+        {
+          "time": 0,
+          "blueForce": 0,
+          "redForce": 0,
+          "frontCells": 0,
+          "activeCountries": 0,
+          "blueCountries": 0,
+          "remainingMobilization": 0,
+          "winner": null
+        },
+        {
+          "time": 20,
+          "blueForce": 0,
+          "redForce": 21.463,
+          "frontCells": 0,
+          "activeCountries": 1,
+          "blueCountries": 0,
+          "remainingMobilization": 110.536,
+          "winner": null
+        },
+        {
+          "time": 60,
+          "blueForce": 18.669,
+          "redForce": 21.463,
+          "frontCells": 0,
+          "activeCountries": 2,
+          "blueCountries": 1,
+          "remainingMobilization": 223.853,
+          "winner": null
+        },
+        {
+          "time": 120,
+          "blueForce": 70.004,
+          "redForce": 36.433,
+          "frontCells": 48,
+          "activeCountries": 5,
+          "blueCountries": 3,
+          "remainingMobilization": 303.022,
+          "winner": null
+        },
+        {
+          "time": 180,
+          "blueForce": 102.887,
+          "redForce": 22.208,
+          "frontCells": 16,
+          "activeCountries": 5,
+          "blueCountries": 4,
+          "remainingMobilization": 254.169,
+          "winner": null
+        }
+      ]
+    }
+  ]
+}

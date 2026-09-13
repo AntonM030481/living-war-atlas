@@ -16,7 +16,9 @@ commands run this suite. No production simulation settings are changed.
 
 All checkpoints use the real Conquest factories and `GameSession`, Riverlands
 (`theatre`, 256 × 160), seed `1`, blue player, and normal balanced-random
-ownership. Activate all available blue countries in sorted region-ID order.
+ownership. Under rules v2, roughly one third are genuinely neutral. Reveal all
+available blue allies in sorted region-ID order. Disable the strategic opponent
+for these fixed benchmark checkpoints; resistance and mode hooks remain active.
 
 | Scenario | Sequence | Checkpoint |
 | --- | --- | --- |
@@ -59,3 +61,34 @@ performance thresholds. This suite establishes a baseline before optimization.
 Use `npm run bench:conquest -- --help` for Vitest filters and comparison options.
 
 Recorded before/after runs and their environment are kept in [results](results/README.md).
+
+## Strategic probes (rules v2)
+
+`strategy.checks.ts` runs nine compact three-minute openings with the real
+opponent enabled. Set `CONQUEST_REPORT_PATH` to save observations as JSON; the
+recorded run is [strategy-v2.json](results/strategy-v2.json). It checks distinct
+consequences, not subjective enjoyment or the existence of an optimal policy.
+See [the prototype rules and playtest](../../docs/CONQUEST.md).
+
+Historical before/after cache timings in `results` use rules v1. The v2 economy,
+neutral deal and resistance change the workload; do not compare those absolute
+timings as a performance regression test.
+
+## Optional browser smoke test
+
+With Playwright and its Chromium browser installed separately (they are not
+project or CI dependencies), run:
+
+```sh
+node experiments/conquest/browser-smoke.cjs
+```
+
+`CONQUEST_CHROMIUM_PATH` can select an existing Chromium executable. The script
+starts its own development server and checks selection before commitment,
+explicit reveal/invasion, and unknown-country masking after a mobile viewport
+resize. Screenshots go to the ignored `bench-results/conquest/ui` directory.
+This is a desktop interaction and responsive-layout check, not a touch-device
+playtest.
+
+The rules regression tests also live here as `rules.checks.ts`, so all new
+Conquest-specific checks remain explicitly opt-in.
