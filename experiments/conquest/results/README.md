@@ -38,3 +38,37 @@ Compare matching scenario and benchmark names (absolute file paths and IDs may
 differ between worktrees). For closer estimates, repeat in reverse order.
 Run `npm run test:conquest` in the optimized directory to check exact state
 equivalence with the original queries, including history restoration.
+
+## Before / after (repeated baseline)
+
+Means in milliseconds ± relative margin of error. The time reduction column
+compares means only and does not imply statistical significance.
+
+| Scenario | Measurement | Before, ms ± RME | After, ms ± RME | Time reduction |
+| --- | --- | ---: | ---: | ---: |
+| preparation | restore checkpoint (harness only) | 0.49 ± 3.3% | 0.61 ± 5.7% | -25.3% |
+| preparation | session tick with potential rebuild | 451.72 ± 43.2% | 324.27 ± 18.9% | 28.2% |
+| preparation | 10 session ticks (one rebuild cadence) | 1125.86 ± 3.4% | 896.29 ± 26.1% | 20.4% |
+| preparation | potential preparation / both sides | 244.77 ± 8.7% | 118.63 ± 12.9% | 51.5% |
+| preparation | potential rebuild / both sides (includes preparation) | 343.64 ± 9.0% | 189.89 ± 11.3% | 44.7% |
+| preparation | resource transport / both sides | 29.68 ± 11.3% | 29.50 ± 13.9% | 0.6% |
+| first-invasion | restore checkpoint (harness only) | 0.47 ± 5.1% | 0.55 ± 4.8% | -17.5% |
+| first-invasion | session tick with potential rebuild | 409.54 ± 12.4% | 285.75 ± 22.4% | 30.2% |
+| first-invasion | 10 session ticks (one rebuild cadence) | 1209.03 ± 15.0% | 806.67 ± 8.8% | 33.3% |
+| first-invasion | potential preparation / both sides | 278.69 ± 28.8% | 92.36 ± 2.3% | 66.9% |
+| first-invasion | potential rebuild / both sides (includes preparation) | 532.06 ± 15.3% | 191.49 ± 11.6% | 64.0% |
+| first-invasion | resource transport / both sides | 44.32 ± 17.8% | 27.98 ± 5.8% | 36.9% |
+| multiple-fronts | restore checkpoint (harness only) | 0.62 ± 4.8% | 0.52 ± 3.3% | 16.0% |
+| multiple-fronts | session tick with potential rebuild | 584.31 ± 18.4% | 232.59 ± 13.5% | 60.2% |
+| multiple-fronts | 10 session ticks (one rebuild cadence) | 1468.12 ± 7.4% | 948.88 ± 9.4% | 35.4% |
+| multiple-fronts | potential preparation / both sides | 256.85 ± 13.3% | 101.77 ± 12.4% | 60.4% |
+| multiple-fronts | potential rebuild / both sides (includes preparation) | 447.59 ± 35.7% | 158.30 ± 6.2% | 64.6% |
+| multiple-fronts | resource transport / both sides | 43.19 ± 17.5% | 40.50 ± 14.1% | 6.2% |
+
+Full 10-tick mean times fell by about 20–35%. Potential preparation was about
+2.1–3.0× faster. Some samples have large RME, especially the preparation
+scenario's full-tick measurements; use local repeated runs for precise claims.
+The restore-only row is sub-millisecond harness overhead, not simulation work.
+
+`2026-09-13-after.json` records all 18 optimized measurements. The original
+baseline is retained separately to expose variation between runs.
