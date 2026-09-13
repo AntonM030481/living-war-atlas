@@ -1,5 +1,10 @@
 # Simulation performance benchmarks
 
+Experimental Conquest has a separate, opt-in suite: see
+[`experiments/conquest/README.md`](../../experiments/conquest/README.md).
+Run `npm run test:conquest` to validate its scenarios and `npm run bench:conquest`
+to measure them. These commands do not change the Full Playground baseline below.
+
 Run the compact report with:
 
 ```sh
