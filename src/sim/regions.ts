@@ -1,7 +1,5 @@
 import type { MapDefinition, RegionId } from './types';
 
-const CARDINAL_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
-
 function borderKey(first: RegionId, second: RegionId): string {
   return first < second ? `${first}\u0000${second}` : `${second}\u0000${first}`;
 }
@@ -12,12 +10,18 @@ export class RegionTopology {
   private readonly indexById = new Map<RegionId, number>();
   private readonly adjacency = new Map<RegionId, Set<RegionId>>();
   private readonly openBorderKeys = new Set<string>();
+  // Numeric lookup in the hot path; string keys remain the serialization API.
+  private readonly openByRegion: Uint8Array;
+  private readonly potentialFront: Uint8Array;
+  private potentialFrontDirty = false;
 
   constructor(private readonly map: MapDefinition) {
     this.cellRegions = new Int32Array(map.width * map.height);
     this.cellRegions.fill(-1);
 
     const regions = map.regions ?? [];
+    this.openByRegion = new Uint8Array(regions.length * regions.length);
+    this.potentialFront = new Uint8Array(this.cellRegions.length);
     if (regions.length === 0) {
       if (map.regionAt) throw new Error('Map regionAt requires region definitions');
       return;
@@ -76,6 +80,12 @@ export class RegionTopology {
     const before = this.openBorderKeys.has(key);
     if (open) this.openBorderKeys.add(key);
     else this.openBorderKeys.delete(key);
+    const a = this.indexById.get(first)!;
+    const b = this.indexById.get(second)!;
+    const count = this.idByIndex.length;
+    this.openByRegion[a * count + b] = open ? 1 : 0;
+    this.openByRegion[b * count + a] = open ? 1 : 0;
+    if (before !== open) this.potentialFrontDirty = true;
     return before !== open;
   }
 
@@ -85,27 +95,15 @@ export class RegionTopology {
   }
 
   edgeFactor(index: number, neighbor: number): number {
-    const first = this.regionIdAt(index);
-    const second = this.regionIdAt(neighbor);
-    if (first === null || second === null || first === second) return 1;
-    return this.openBorderKeys.has(borderKey(first, second)) ? 1 : 0;
+    const first = this.cellRegions[index];
+    const second = this.cellRegions[neighbor];
+    if (first === undefined || second === undefined || first < 0 || second < 0 || first === second) return 1;
+    return this.openByRegion[first * this.idByIndex.length + second];
   }
 
   isPotentialFront(index: number): boolean {
-    const regionId = this.regionIdAt(index);
-    if (regionId === null) return false;
-    const x = index % this.map.width;
-    const y = Math.floor(index / this.map.width);
-
-    for (const [dx, dy] of CARDINAL_DIRS) {
-      const nx = x + dx;
-      const ny = y + dy;
-      if (nx < 0 || nx >= this.map.width || ny < 0 || ny >= this.map.height) continue;
-      const neighborId = this.regionIdAt(ny * this.map.width + nx);
-      if (neighborId === null || neighborId === regionId) continue;
-      if (!this.openBorderKeys.has(borderKey(regionId, neighborId))) return true;
-    }
-    return false;
+    if (this.potentialFrontDirty) this.rebuildPotentialFront();
+    return this.potentialFront[index] === 1;
   }
 
   openBorders(): Array<[RegionId, RegionId]> {
@@ -121,7 +119,28 @@ export class RegionTopology {
 
   restoreOpenBorders(borders: readonly (readonly [RegionId, RegionId])[]): void {
     this.openBorderKeys.clear();
+    this.openByRegion.fill(0);
+    this.potentialFrontDirty = true;
     for (const [first, second] of borders) this.setBorderOpen(first, second, true);
+  }
+
+  private rebuildPotentialFront(): void {
+    this.potentialFront.fill(0);
+    const { width, height } = this.map;
+    // Political changes are rare and often batched. Scan once on first demand
+    // query after a change, rather than scanning four neighbors on every query.
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const index = y * width + x;
+        if (x + 1 < width && this.edgeFactor(index, index + 1) === 0) {
+          this.potentialFront[index] = this.potentialFront[index + 1] = 1;
+        }
+        if (y + 1 < height && this.edgeFactor(index, index + width) === 0) {
+          this.potentialFront[index] = this.potentialFront[index + width] = 1;
+        }
+      }
+    }
+    this.potentialFrontDirty = false;
   }
 
   private registerAdjacency(firstIndex: number, secondIndex: number): void {
@@ -131,7 +150,7 @@ export class RegionTopology {
     this.adjacency.get(first)?.add(second);
     this.adjacency.get(second)?.add(first);
     // Regions are passive geography. Political closure is imposed by a meta-game.
-    this.openBorderKeys.add(borderKey(first, second));
+    this.setBorderOpen(first, second, true);
   }
 
   private requireRegion(regionId: RegionId): void {

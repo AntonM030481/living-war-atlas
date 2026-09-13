@@ -996,3 +996,17 @@ Always preserve:
 ### Diagnostics
 
 `npm run diagnostics` regenerates CSV and SVG artifacts under `diagnostics/` from deterministic simulation scenarios.
+
+## 39. Regional topology query caches
+
+Conquest applies political border closure through `RegionTopology`. Hot edge
+queries use a symmetric byte table indexed by numeric region IDs. Potential
+front queries use a per-cell byte mask marking cells beside any closed border.
+Opening/closing a border updates the pair table immediately and invalidates the
+mask; the first demand query rebuilds the mask once after a batch of changes.
+
+These caches depend only on static geography and open borders. Control, terrain
+passability and demand strength remain evaluated by `SimulationTopology`.
+Restoring history reconstructs the pair table and invalidates the mask; caches
+are derived and are not serialized. Storage is `regionCount² + cellCount` bytes.
+Potential resolution, solver iterations and update cadence are unchanged.

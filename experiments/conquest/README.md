@@ -30,6 +30,11 @@ resource presence, legal actions, and repeatable restoration of both mode and
 simulation. Checkpoints are on potential-rebuild cadence boundaries because
 `Simulation.restoreState()` clears the dirty flag set by border changes.
 
+The equivalence checks also execute all three scenarios with the original
+string-based region queries and with cached queries. They compare complete
+session states exactly at the checkpoint and on every subsequent tick, then
+repeat after restoring history. These longer checks remain opt-in.
+
 ## Measurements
 
 Each scenario reports checkpoint restoration, one full session tick, one full
@@ -52,3 +57,5 @@ machine, inspect variance, and rerun noisy measurements. There are no blocking
 performance thresholds. This suite establishes a baseline before optimization.
 
 Use `npm run bench:conquest -- --help` for Vitest filters and comparison options.
+
+Recorded before/after runs and their environment are kept in [results](results/README.md).

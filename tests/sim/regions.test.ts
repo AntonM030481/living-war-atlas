@@ -5,6 +5,7 @@ import { RegionTopology } from '../../src/sim/regions';
 import { SimulationTopology } from '../../src/sim/topology';
 import type { MapDefinition } from '../../src/sim/types';
 import type { TransportGrid } from '../../src/sim/transportGrid';
+import { legacyEdgeFactor, legacyPotentialFront } from './helpers/legacyRegionQueries';
 
 function regionMap(): MapDefinition {
   return {
@@ -27,6 +28,41 @@ function regionMap(): MapDefinition {
 }
 
 describe('RegionTopology', () => {
+  it('matches uncached queries at junctions, map edges and unassigned cells through border changes and rewind', () => {
+    const map = regionMap();
+    map.width = 5;
+    map.height = 3;
+    map.cities.push({ ...map.cities[0], id: 'south-city' });
+    map.regions = [...map.regions!, { id: 'south', cityId: 'south-city' }];
+    map.regionAt = (x, y) => x === 4 ? null : y === 2 ? 'south' : x < 2 ? 'west' : 'east';
+    const regions = new RegionTopology(map);
+    function check(): void {
+      for (let i = -1; i <= map.width * map.height; i++) {
+        expect(regions.isPotentialFront(i)).toBe(legacyPotentialFront.call(regions, i));
+        for (let j = -1; j <= map.width * map.height; j++) {
+          expect(regions.edgeFactor(i, j)).toBe(legacyEdgeFactor.call(regions, i, j));
+        }
+      }
+    }
+    check();
+    regions.setBorderOpen('west', 'east', false);
+    regions.setBorderOpen('west', 'south', false);
+    check();
+    const saved = regions.openBorders();
+    regions.setBorderOpen('east', 'west', true);
+    check(); // A junction must remain a potential front along its other closed edge.
+    regions.setBorderOpen('west', 'south', true);
+    check();
+    regions.restoreOpenBorders(saved);
+    check();
+    regions.restoreOpenBorders([]);
+    check();
+    regions.restoreOpenBorders([]);
+    check();
+    regions.restoreOpenBorders([['west', 'east'], ['south', 'east'], ['south', 'west']]);
+    check();
+  });
+
   it('keeps region borders passive until a meta-game explicitly closes them', () => {
     const regions = new RegionTopology(regionMap());
 
