@@ -22,6 +22,7 @@ Run these from your main checkout to create independent directories:
 
 ```sh
 git fetch origin
+git fetch origin pull/29/head
 git worktree add --detach ../lwa-conquest-before 3334105ced04f54e7fd8eb814f1bc9039c4db273
 git worktree add --detach ../lwa-conquest-after be651461c527d12939c0fd2ffe7e99b9fb3b04ca
 ```
