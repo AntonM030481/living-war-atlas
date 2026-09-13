@@ -43,9 +43,17 @@ export function generateCityResource(
   for (const city of cities) {
     if (city.enabled === false) continue;
     const index = city.y * width + city.x;
-    const amount = city.baseProduction * city.integration * dt;
+    const requested = city.baseProduction * city.integration * dt;
     const war = requireSide(sides, city.owner).war;
-    war[index] = Math.min(CFG.resourceCellCapacity, war[index] + amount);
+    if (city.remainingProduction === undefined) {
+      war[index] = Math.min(CFG.resourceCellCapacity, war[index] + requested);
+      continue;
+    }
+    const amount = Math.max(0, Math.min(requested, city.remainingProduction,
+      CFG.resourceCellCapacity - war[index]));
+    war[index] += amount;
+    city.remainingProduction = Math.max(0, city.remainingProduction - amount);
+    if (city.remainingProduction <= 0) city.enabled = false;
   }
 }
 

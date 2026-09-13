@@ -73,3 +73,20 @@ The restore-only row is sub-millisecond harness overhead, not simulation work.
 
 `2026-09-13-after.json` records all 18 optimized measurements. The original
 baseline is retained separately to expose variation between runs.
+
+## Rules v2 baseline
+
+`2026-09-13-rules-v2.json` records all 18 measurements for the disclosure/invasion
+prototype introduced after `5bce5fa`, in the same commit as this artifact.
+Environment: Linux x64, AMD EPYC 9V74 80-Core Processor, Node 24.19.0, Vitest 3.2.7.
+Command: `npm run bench:conquest`, run without concurrent project tests/builds.
+The strategic opponent is disabled in these fixed fixtures.
+
+| Scenario | Rebuild tick, ms ± RME | 10 ticks, ms ± RME |
+| --- | ---: | ---: |
+| preparation | 83.94 ± 1.8% | 272.98 ± 1.2% |
+| first-invasion | 87.99 ± 1.9% | 290.62 ± 3.2% |
+| multiple-fronts | 101.88 ± 3.0% | 453.32 ± 2.8% |
+
+Both hardware and gameplay workloads differ from the v1 cache runs above.
+These numbers establish a new baseline; they do not quantify a speedup over v1.

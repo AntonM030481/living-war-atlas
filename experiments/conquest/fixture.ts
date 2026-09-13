@@ -35,7 +35,7 @@ export async function createConquestFixture(scenario: Scenario) {
   const map = getMapDefinition(MAP_ID);
   const session = new GameSession(
     createSimulationForMode('conquest', map, SEED),
-    createGameModeRuntime('conquest', map, 'blue', SEED),
+    createGameModeRuntime('conquest', map, 'blue', SEED, null),
   );
   const actions: GameAction[] = [];
   function apply(action: GameAction): void {

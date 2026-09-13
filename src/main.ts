@@ -46,7 +46,7 @@ function usesTouchControls(): boolean {
 }
 
 function modeInstructionsStorageKey(modeId: GameModeId): string {
-  return `${MODE_INSTRUCTIONS_HIDDEN_KEY}:${modeId}`;
+  return `${MODE_INSTRUCTIONS_HIDDEN_KEY}:${modeId}${modeId === 'conquest' ? ':v2' : ''}`;
 }
 
 function debugPanelId(panel: HTMLDetailsElement): string {

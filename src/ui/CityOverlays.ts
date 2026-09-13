@@ -1,4 +1,4 @@
-import type { GameAction, GameModeId } from '../game/GameMode';
+import type { GameAction, GameModeId, GameModeView } from '../game/GameMode';
 import type { Side } from '../sim/Config';
 import type { MapDefinition, SimulationSnapshot } from '../sim/types';
 import type { Point } from '../diagnostics/types';
@@ -55,15 +55,17 @@ export class CityOverlays {
     }
   }
 
-  update(snapshot: SimulationSnapshot, modeId: GameModeId, actions: readonly GameAction[]): void {
+  update(snapshot: SimulationSnapshot, modeId: GameModeId, actions: readonly GameAction[], view: GameModeView): void {
     const stats = snapshot.stats;
     const rect = this.projector.mapScreenRect();
     const hostRect = this.host.getBoundingClientRect();
     const mapLeft = rect.left - hostRect.left;
     const mapTop = rect.top - hostRect.top;
 
-    this.blueBadge.querySelector<HTMLElement>('.city-points-text')!.textContent = `Production ${formatPoints(stats.activeCityPointsBlue)}/${formatPoints(stats.controlledCityPointsBlue)} · Force ${Math.round(stats.totalWarBlue)}`;
-    this.redBadge.querySelector<HTMLElement>('.city-points-text')!.textContent = `Production ${formatPoints(stats.activeCityPointsRed)}/${formatPoints(stats.controlledCityPointsRed)} · Force ${Math.round(stats.totalWarRed)}`;
+    const separator = modeId === 'conquest' && rect.width < 520 ? '\n' : ' · ';
+    this.blueBadge.querySelector<HTMLElement>('.city-points-text')!.textContent = `Production ${formatPoints(stats.activeCityPointsBlue)}/${formatPoints(stats.controlledCityPointsBlue)}${separator}Force ${Math.round(stats.totalWarBlue)}`;
+    this.redBadge.querySelector<HTMLElement>('.city-points-text')!.textContent = `Production ${formatPoints(stats.activeCityPointsRed)}/${formatPoints(stats.controlledCityPointsRed)}${separator}Force ${Math.round(stats.totalWarRed)}`;
+    this.blueBadge.style.whiteSpace = this.redBadge.style.whiteSpace = 'pre-line';
     this.blueBadge.style.left = `${mapLeft + 10}px`;
     this.blueBadge.style.top = `${mapTop + 10}px`;
     this.redBadge.style.left = `${mapLeft + rect.width - this.redBadge.offsetWidth - 10}px`;
@@ -79,7 +81,10 @@ export class CityOverlays {
       const localY = point.y - hostRect.top;
       const control = snapshot.control[city.y * snapshot.width + city.x];
       const ownerControl = city.owner === 'blue' ? control : -control;
-      const contested = ownerControl < 0.72;
+      const country = view?.mode === 'conquest' ? view.countries.find((c) => c.regionId === this.regionByCity.get(city.id)) : undefined;
+      const hidden = country && !country.active;
+      const color = hidden ? country.secretAlly ? 'blue secret-ally' : 'unknown' : city.owner;
+      const contested = !hidden && ownerControl < 0.72;
       const interaction = this.cityInteraction(city.id, modeId, actions);
       const title = `${city.name}: ${city.baseProduction} production points.${interaction ? ` ${interaction}` : ''}`;
       const actionable = interaction !== null;
@@ -90,14 +95,14 @@ export class CityOverlays {
 
       power.hidden = contested;
       name.hidden = contested;
-      power.textContent = `${city.baseProduction}`;
+      power.textContent = hidden && !country.secretAlly ? '?' : `${city.baseProduction}`;
       power.title = title;
-      power.className = `city-power-label ${city.owner} power-${city.baseProduction}${city.enabled === false ? ' disabled' : ''}${powerActionClass}`;
+      power.className = `city-power-label ${color} power-${city.baseProduction}${city.enabled === false && !hidden ? ' disabled' : ''}${powerActionClass}`;
       power.style.left = `${localX}px`;
       power.style.top = `${localY}px`;
       name.textContent = city.name;
       name.title = title;
-      name.className = `city-name-label ${city.owner}${city.enabled === false ? ' disabled' : ''}${nameActionClass}`;
+      name.className = `city-name-label ${color}${city.enabled === false && !hidden ? ' disabled' : ''}${nameActionClass}`;
       name.style.left = `${localX}px`;
       name.style.top = `${localY + 22}px`;
     }
@@ -133,10 +138,10 @@ export class CityOverlays {
     const regionId = this.regionByCity.get(cityId);
     if (!regionId) return null;
     if (actions.some((action) => action.type === 'conquestActivate' && action.regionId === regionId)) {
-      return 'Click this country to activate it.';
+      return 'Select this country to reveal your secret ally.';
     }
     if (actions.some((action) => action.type === 'conquestInvade' && action.regionId === regionId)) {
-      return 'Click this country to invade it.';
+      return 'Select this country to review the invasion.';
     }
     return null;
   }

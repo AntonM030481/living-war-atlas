@@ -1,7 +1,7 @@
 import type { Side } from '../sim/Config';
-import type { MapDefinition } from '../sim/types';
+import type { MapDefinition, SimulationSnapshot } from '../sim/types';
 import { winnerFromState } from '../sim/completion';
-import { ConquestMetaGame, type ConquestMetaState } from '../meta/conquest/ConquestMetaGame';
+import { ConquestMetaGame, type ConquestMetaState, type ConquestCountryView } from '../meta/conquest/ConquestMetaGame';
 import {
   GUERRILLA_MAX_POINTS,
   GUERRILLA_THRESHOLDS,
@@ -32,7 +32,7 @@ export type GameModeView =
       maxPoints: number;
       thresholds: readonly [number, number, number];
     }
-  | { mode: 'conquest'; countries: ConquestMetaState['countries'] };
+  | { mode: 'conquest'; countries: ConquestCountryView[]; events: string[] };
 
 export interface GameModeState {
   id: GameModeId;
@@ -71,9 +71,9 @@ export const GAME_MODE_OPTIONS: readonly GameModeOption[] = [
   {
     id: 'conquest',
     name: 'Game: Conquest',
-    description: 'Activate your countries and choose which neighboring country to invade;.',
-    interactionNoteClick: 'Click your inactive region to activate it.<br>Click an available enemy region to invade.',
-    interactionNoteTouch: 'Tap your inactive region to activate it.<br>Tap an available enemy region to invade.',
+    description: 'Reveal secret allies, commit finite mobilization and choose when to invade.',
+    interactionNoteClick: 'Select a country, then use Reveal ally or Invade.<br>? means unknown; outlined blue capitals are your secret allies.<br>Every first invasion raises resistance. Borders opened for war allow counterattacks.',
+    interactionNoteTouch: 'Tap a country, then use Reveal ally or Invade.<br>? means unknown; outlined blue capitals are your secret allies.<br>Every first invasion raises resistance. Borders opened for war allow counterattacks.',
     requiresRegions: true,
     initialOwnership: 'balanced-random',
   },
@@ -137,6 +137,7 @@ export interface GameModeRuntime {
   apply(action: GameAction, simulation: Simulation): void;
   status(simulation: Simulation): MetaGameStatus;
   view(simulation: Simulation): GameModeView;
+  projectSnapshot?(snapshot: SimulationSnapshot): void;
   saveState(): GameModeState;
   restoreState(state: GameModeState): void;
 }
@@ -164,7 +165,7 @@ function oppositeSide(side: Side): Side {
 }
 
 function defaultOpponentStrategy(modeId: GameModeId): OpponentStrategyId | null {
-  return modeId === 'partisan' ? 'greedy' : null;
+  return modeId === 'partisan' || modeId === 'conquest' ? 'greedy' : null;
 }
 
 export function createGameModeRuntime(
@@ -175,7 +176,7 @@ export function createGameModeRuntime(
   opponentStrategy: OpponentStrategyId | null = defaultOpponentStrategy(modeId),
 ): GameModeRuntime {
   if (!mapSupportsMode(map, modeId)) throw new Error(`${modeId} is not supported by this map`);
-  if (opponentStrategy && modeId !== 'partisan') {
+  if (opponentStrategy && modeId !== 'partisan' && modeId !== 'conquest') {
     throw new Error(`Opponent ${opponentStrategy} is not implemented for ${modeId}`);
   }
 
@@ -239,11 +240,11 @@ export function createGameModeRuntime(
     };
   }
 
-  const meta = new ConquestMetaGame(map, playerSide);
+  const meta = new ConquestMetaGame(map, playerSide, seed, opponentStrategy !== null);
   return {
     id: modeId,
     initialize: (simulation) => meta.initialize(simulation),
-    beforeTick: () => {},
+    beforeTick: (simulation) => meta.beforeTick(simulation),
     afterTick: (simulation) => meta.afterTick(simulation),
     availableActions: (simulation) => meta.availableActions(simulation).map((action) =>
       action.type === 'activate'
@@ -255,7 +256,8 @@ export function createGameModeRuntime(
       else throw new Error(`Action ${action.type} is not valid in conquest mode`);
     },
     status: (simulation) => completionStatus(meta, simulation),
-    view: () => ({ mode: 'conquest', countries: meta.saveState().countries }),
+    view: (simulation) => ({ mode: 'conquest', ...meta.view(simulation) }),
+    projectSnapshot: (snapshot) => meta.projectSnapshot(snapshot),
     saveState: () => ({ id: modeId, state: meta.saveState() }),
     restoreState: (state) => {
       if (state.id !== modeId) throw new Error(`Cannot restore ${state.id} into ${modeId}`);

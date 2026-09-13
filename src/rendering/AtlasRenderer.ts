@@ -25,6 +25,7 @@ export class AtlasRenderer {
   private readonly grid = new Graphics();
   private readonly historicalBorder = new Graphics();
   private readonly countryBorders = new Graphics();
+  private readonly countrySelection = new Graphics();
   private readonly territory = new Graphics();
   private readonly resourceDensity = new Graphics();
   private readonly recentCapture = new Graphics();
@@ -61,6 +62,7 @@ export class AtlasRenderer {
       this.resourceDensity,
       this.recentCapture,
       this.countryBorders,
+      this.countrySelection,
       this.potentialContours,
       this.flows,
       this.front,
@@ -91,6 +93,24 @@ export class AtlasRenderer {
 
   setShowCountryBorders(value: boolean): void {
     this.countryBorders.visible = value;
+  }
+
+  setSelectedCountry(id: string): void {
+    const g = this.countrySelection;
+    g.clear();
+    if (!this.map.regionAt) return;
+    const at = (x: number, y: number) => x < 0 || y < 0 || x >= this.map.width || y >= this.map.height
+      ? null : this.map.regionAt!(x, y);
+    for (let y = 0; y < this.map.height; y++) {
+      for (let x = 0; x < this.map.width; x++) {
+        if (at(x, y) !== id) continue;
+        if (at(x - 1, y) !== id) g.moveTo(x, y).lineTo(x, y + 1);
+        if (at(x + 1, y) !== id) g.moveTo(x + 1, y).lineTo(x + 1, y + 1);
+        if (at(x, y - 1) !== id) g.moveTo(x, y).lineTo(x + 1, y);
+        if (at(x, y + 1) !== id) g.moveTo(x, y + 1).lineTo(x + 1, y + 1);
+      }
+    }
+    g.stroke({ color: 0x9b7524, width: 0.7, alpha: 0.9 });
   }
 
   setShowHistoricalBorder(value: boolean): void {

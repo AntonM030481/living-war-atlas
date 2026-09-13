@@ -1,0 +1,26 @@
+.conquest-panel {
+  padding: 10px;
+  pointer-events: auto;
+  flex-shrink: 0;
+  background: rgba(246, 239, 215, .94);
+  border: 1px solid rgba(64, 52, 32, .42);
+  color: #2f2b24;
+  font: 13px/1.45 system-ui, sans-serif;
+}
+.conquest-panel h3 { margin: 8px 0; font-size: 16px; }
+.conquest-panel p { margin: 6px 0; }
+.conquest-panel button {
+  width: 100%; min-height: 44px; margin: 8px 0; padding: 8px;
+  background: #eee1bb; color: #2f2b24; border: 1px solid #796e51;
+  border-radius: 3px; font: inherit; font-weight: 700; cursor: pointer;
+}
+.conquest-panel button[hidden] { display: none; }
+.conquest-panel button:disabled { opacity: .5; cursor: default; }
+.conquest-panel ol { padding-left: 18px; font-size: 12px; }
+.conquest-panel li { margin: 5px 0; }
+.city-power-label.unknown { color: #635c4c; border: 2px dashed #81765d; }
+.city-name-label.unknown { color: #635c4c; }
+.city-power-label.secret-ally { border-style: dashed; }
+.city-power-label.secret-ally, .city-name-label.secret-ally { opacity: 1; text-decoration: none; }
+
+.side-panel:has(.conquest-panel) { overflow: auto; grid-auto-rows: max-content; }

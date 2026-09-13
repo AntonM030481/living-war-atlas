@@ -1010,3 +1010,23 @@ passability and demand strength remain evaluated by `SimulationTopology`.
 Restoring history reconstructs the pair table and invalidates the mask; caches
 are derived and are not serialized. Storage is `regionCount² + cellCount` bytes.
 Potential resolution, solver iterations and update cadence are unchanged.
+
+## 40. Conquest v2 meta-game and information boundary
+
+`ConquestMetaGame` owns the seeded alliance deal, legal strategic actions,
+participation flags, one-time resistance grants and deterministic opponent
+observation time. Geography cell lists are cached at initialization; the region
+query caches described above remain in use.
+
+`City.remainingProduction` is an optional finite War Resource allotment. When
+absent, city generation follows the original path. When present, production is
+capped by the remaining allotment and cell capacity; congestion preserves the
+undelivered allotment and never deletes an existing above-capacity deployment.
+The normal city integration model still applies after capture.
+
+`GameModeRuntime.projectSnapshot` masks dormant countries on cloned snapshot
+arrays before worker delivery. `GameModeView` must never use the internal
+Conquest save schema as its public country schema. History stores the complete
+private state plus city allotments; the public view stores neither enemy secrets
+nor dormant placeholder ownership. v1 Conquest histories are incompatible with
+this experimental rule change and are replaced with a fresh v2 session.
