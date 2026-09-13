@@ -15,6 +15,8 @@
     "bench": "vitest bench",
     "bench:sim": "node scripts/bench-sim.mjs",
     "bench:sim:raw": "vitest bench tests/perf --no-file-parallelism",
+    "test:conquest": "vitest run --config experiments/conquest/vitest.config.ts",
+    "bench:conquest": "vitest bench --run --config experiments/conquest/vitest.config.ts",
     "diagnostics": "vitest run tests/diagnostics",
     "version:info": "node scripts/version.mjs",
     "deploy": "node scripts/version.mjs --deploy",
