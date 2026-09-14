@@ -56,14 +56,16 @@ export class HistoryManager {
     };
   }
 
-  recentCaptures(control: Float32Array, currentTime: number, maxAgeSeconds: number): RecentCaptures {
+  recentCaptures(control: Float32Array, currentTime: number, maxAgeSeconds: number,
+    historicalControl: (state: GameSessionState) => Float32Array = (state) => state.simulation.control,
+  ): RecentCaptures {
     if (!this.trackedControl || this.trackedControl.length !== control.length) {
       this.initializeCaptureTracking(control, currentTime);
       return { time: this.captureTime, side: this.captureSide };
     }
 
     if (currentTime + EPS < this.trackedTime) {
-      this.rebuildCaptureTracking(control.length, currentTime, maxAgeSeconds);
+      this.rebuildCaptureTracking(control.length, currentTime, maxAgeSeconds, historicalControl);
     }
 
     const trackedControl = this.trackedControl;
@@ -142,7 +144,9 @@ export class HistoryManager {
     this.captureSide = new Int8Array(control.length);
   }
 
-  private rebuildCaptureTracking(size: number, currentTime: number, maxAgeSeconds: number): void {
+  private rebuildCaptureTracking(size: number, currentTime: number, maxAgeSeconds: number,
+    historicalControl: (state: GameSessionState) => Float32Array,
+  ): void {
     this.captureTime = new Float32Array(size);
     this.captureTime.fill(Number.NEGATIVE_INFINITY);
     this.captureSide = new Int8Array(size);
@@ -154,13 +158,14 @@ export class HistoryManager {
       && this.history[start + 1].simulation.gameTime < firstRelevantTime
     ) start += 1;
 
-    let previous = this.history[start]?.simulation.control ?? null;
+    let previous = this.history[start] ? historicalControl(this.history[start]) : null;
     if (previous) {
       for (let index = start + 1; index <= this.historyIndex; index++) {
-        const state = this.history[index].simulation;
-        if (state.gameTime > currentTime + EPS) break;
-        this.recordCrossings(previous, state.control, state.gameTime);
-        previous = state.control;
+        const state = this.history[index];
+        if (state.simulation.gameTime > currentTime + EPS) break;
+        const control = historicalControl(state);
+        this.recordCrossings(previous, control, state.simulation.gameTime);
+        previous = control;
       }
       this.trackedControl = previous.slice();
     } else {

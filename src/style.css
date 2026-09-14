@@ -1,4 +1,3 @@
-@import './styles/conquest.css';
 @import './styles/base.css';
 @import './styles/cities.css';
 @import './styles/hud.css';
@@ -6,3 +5,4 @@
 @import './styles/layout.css';
 @import './styles/map-picker.css';
 @import './styles/error.css';
+@import './styles/conquest.css';

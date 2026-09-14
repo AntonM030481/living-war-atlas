@@ -61,7 +61,10 @@ function resetPerformanceStats(): void {
 function postSnapshot(): void {
   if (!session) return;
   const snapshot = session.simulation.snapshot();
-  const recentCaptures = history.recentCaptures(snapshot.control, snapshot.gameTime, CFG.recentCaptureFadeSeconds);
+  const mode = session.mode;
+  const captureControl = mode.captureControl?.(snapshot.control) ?? snapshot.control;
+  const recentCaptures = history.recentCaptures(captureControl, snapshot.gameTime, CFG.recentCaptureFadeSeconds,
+    (state) => mode.captureControl?.(state.simulation.control, state.mode) ?? state.simulation.control);
   snapshot.recentCaptureTime = recentCaptures.time;
   snapshot.recentCaptureSide = recentCaptures.side;
   session.mode.projectSnapshot?.(snapshot);

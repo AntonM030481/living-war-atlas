@@ -64,6 +64,10 @@ force, potentials and diagnostic fields are masked, and dormant city owners and
 aggregate city totals do not reveal their allegiance. The mode view exposes only
 public country information and the player's own secret allies. A short event
 list makes disclosures, resistance and captures visible between observations.
+Capture tracking treats dormant territory as having no previous public owner,
+so neutral initialization is not shown as a combat capture. The same projection
+is applied to historical checkpoints when rebuilding highlights after rewind;
+real control crossings in active countries remain visible.
 
 ## What was checked
 
