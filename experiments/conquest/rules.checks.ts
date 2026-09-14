@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { HistoryManager } from '../../src/worker/HistoryManager';
+import { HistoryStorage } from '../../src/worker/HistoryStorage';
+import type { GameSessionState } from '../../src/game/GameSession';
+import type { ConquestMetaState } from '../../src/meta/conquest/ConquestMetaGame';
 import { createGameModeRuntime, createSimulationForMode } from '../../src/game/GameMode';
 import { GameSession } from '../../src/game/GameSession';
 import { ConquestMetaGame } from '../../src/meta/conquest/ConquestMetaGame';
@@ -205,4 +209,47 @@ describe('Conquest strategic rules', () => {
     expect(sim.warBlue[i]).toBe(3);
     expect(city.remainingProduction).toBe(10);
   });
+});
+
+
+it.each(['blue', 'red'] as const)('does not hatch neutral initialization from %s, live or after rewind', (placeholder) => {
+  const { meta, sim } = setup();
+  const initial = meta.saveState();
+  initial.countries[1].owner = placeholder;
+  meta.restoreState(initial);
+  sim.initializeRegionalControl(initial.countries.map((c) => [c.regionId, c.owner]));
+  sim.cities[1].owner = placeholder;
+  meta.apply({ type: 'activate', regionId: 'r0' }, sim);
+  const storage = new HistoryStorage();
+  vi.spyOn(storage, 'schedule').mockImplementation(() => {});
+  const history = new HistoryManager(storage);
+  const project = (state: GameSessionState) => meta.captureControl(state.simulation.control, state.mode.state as ConquestMetaState);
+  const checkpoint = (time: number) => {
+    const state: GameSessionState = { simulation: { ...sim.saveState(), gameTime: time }, mode: { id: 'conquest', state: meta.saveState() } };
+    history.checkpoint(state, 1, 'theatre', 'conquest', true);
+    return state;
+  };
+  const before = checkpoint(0);
+  history.recentCaptures(project(before), 0, 30, project);
+  meta.apply({ type: 'invade', regionId: 'r1' }, sim);
+  const invaded = checkpoint(1);
+  const live = history.recentCaptures(project(invaded), 1, 30, project);
+  expect(Array.from(live.side).every((side) => side === 0)).toBe(true);
+  // Real changes in both the source and the now-active neutral must remain visible.
+  const sourceCell = 4 * sim.width + 4, neutralCell = 4 * sim.width + 12;
+  sim.control[sourceCell] = -1;
+  sim.control[neutralCell] = 1;
+  const captured = checkpoint(2);
+  const combat = history.recentCaptures(project(captured), 2, 30, project);
+  expect(combat.side[sourceCell]).toBe(-1);
+  expect(combat.side[neutralCell]).toBe(1);
+  expect(Array.from(combat.side).filter(Boolean)).toHaveLength(2);
+  const later = checkpoint(3);
+  history.recentCaptures(project(later), 3, 30, project);
+  const rewound = history.step(-1, 1, 'theatre', 'conquest')!;
+  const restored = history.recentCaptures(project(rewound), 2, 30, project);
+  expect(restored.side[sourceCell]).toBe(-1);
+  expect(restored.side[neutralCell]).toBe(1);
+  expect(Array.from(restored.side).filter(Boolean)).toHaveLength(2);
+  expect(Array.from(before.simulation.control).every(Number.isFinite)).toBe(true);
 });

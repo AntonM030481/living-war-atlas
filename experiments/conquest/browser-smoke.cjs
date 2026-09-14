@@ -22,6 +22,10 @@ const { chromium } = require('playwright');
  await page.goto(`http://127.0.0.1:${server.httpServer.address().port}`);
  await page.locator('.city-power-label.secret-ally').first().waitFor();
  await page.locator('#pause').click();
+ if(await page.locator('.city-power-label.secret-ally').first().evaluate(el=>getComputedStyle(el).borderTopStyle)!=='dashed') {
+  throw Error('Secret ally lost its dashed border');
+ }
+
  const ally=await page.locator('.city-power-label.secret-ally').first().boundingBox();
  await page.mouse.click(ally.x+ally.width/2,ally.y+ally.height/2);
  await page.getByRole('button',{name:'Reveal ally',exact:true}).waitFor();

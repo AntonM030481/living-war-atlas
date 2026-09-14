@@ -173,6 +173,16 @@ export class ConquestMetaGame implements MetaGame<ConquestAction, ConquestMetaSt
     };
   }
 
+  captureControl(control: Float32Array, state?: ConquestMetaState): Float32Array {
+    const result = control.slice();
+    // Unknown territory is not a previous owner. NaN excludes disclosure and
+    // neutral initialization from sign crossings without masking later combat.
+    for (const c of state?.countries ?? this.countries.values()) {
+      if (!c.active) for (const i of this.cells.get(c.regionId)!) result[i] = Number.NaN;
+    }
+    return result;
+  }
+
   projectSnapshot(snapshot: SimulationSnapshot): void {
     // Snapshot arrays are copies. Neither rendering nor diagnostics receives the
     // placeholder side/control/potential of an undisclosed country.

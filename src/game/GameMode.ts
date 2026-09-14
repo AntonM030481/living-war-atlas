@@ -138,6 +138,7 @@ export interface GameModeRuntime {
   status(simulation: Simulation): MetaGameStatus;
   view(simulation: Simulation): GameModeView;
   projectSnapshot?(snapshot: SimulationSnapshot): void;
+  captureControl?(control: Float32Array, state?: GameModeState): Float32Array;
   saveState(): GameModeState;
   restoreState(state: GameModeState): void;
 }
@@ -258,6 +259,7 @@ export function createGameModeRuntime(
     status: (simulation) => completionStatus(meta, simulation),
     view: (simulation) => ({ mode: 'conquest', ...meta.view(simulation) }),
     projectSnapshot: (snapshot) => meta.projectSnapshot(snapshot),
+    captureControl: (control, state) => meta.captureControl(control, state?.state as ConquestMetaState | undefined),
     saveState: () => ({ id: modeId, state: meta.saveState() }),
     restoreState: (state) => {
       if (state.id !== modeId) throw new Error(`Cannot restore ${state.id} into ${modeId}`);
